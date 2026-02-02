@@ -7,8 +7,12 @@
     "lint:fix": "eslint --fix"
   },
   "dependencies": {
-    "@chakra-ui/react": "^3.31.0",
+    "@chakra-ui/next-js": "^2.4.2",
+    "@chakra-ui/react": "^2.10.9",
     "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "add": "^2.0.6",
+    "framer-motion": "^12.29.2",
     "next": "^16.1.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
