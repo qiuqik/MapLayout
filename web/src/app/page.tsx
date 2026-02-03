@@ -1,12 +1,16 @@
+'use client';
 import Header from "@/components/Header"
 import CoreMap from "@/components/map/CoreMap"
+import LeftCard from "@/components/left/leftCard"
+import RightCard from "@/components/right/rightCard";
 
 export default function Page() {
   return (
-    <div>
+    <div className="relative w-screen h-screen overflow-hidden">
       <Header />
       <CoreMap />
-      <h1>Hello, Next.js!</h1>
+      <LeftCard />
+      <RightCard />
     </div>
   )
 }
