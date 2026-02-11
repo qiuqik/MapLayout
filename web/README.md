@@ -5,6 +5,7 @@
 React 
 next.js
 tailwindcss
-chakra-ui
+shadcn-ui（首选）
+chakra-ui（备用）
 Zustand（可选）
 ```
