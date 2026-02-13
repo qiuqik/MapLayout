@@ -35,7 +35,7 @@ const ChatDialog = () => {
     console.log("enter")
     try {
       // 后端接口
-      const res = await fetch("http://localhost:8000/api/travelagentmoni", {
+      const res = await fetch("http://localhost:8000/api/travelagent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: userMsg.content }),
@@ -44,7 +44,6 @@ const ChatDialog = () => {
       const data = await res.json();
 
       setGeofilename(data.filepath);
-      setGeojson(data.reply);
 
     } catch (err) {
       console.error("发送失败:", err);

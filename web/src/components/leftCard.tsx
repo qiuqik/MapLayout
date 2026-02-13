@@ -7,7 +7,7 @@ import { MapDataContext } from '@/lib/mapContext'
 const LeftCard = () => {
     const [files, setFiles] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
-    const { geojson, setGeojson } = useContext(MapDataContext);
+    const { geojson, geofilename, setGeojson, setGeofilename } = useContext(MapDataContext);
 
     useEffect(() => {
         fetch('http://localhost:8000/files')
@@ -16,13 +16,14 @@ const LeftCard = () => {
                 if (data && data.files) setFiles(data.files);
             })
             .catch(err => console.error(err));
-    }, [geojson]);
+    }, [geojson, geofilename]);
 
     const handleClick = async (name: string) => {
         setLoading(true);
         try {
             const res = await fetch(`http://localhost:8000/files/${encodeURIComponent(name)}`);
             const json = await res.json();
+            setGeofilename(name);
             setGeojson(json);
         } catch (e) {
             console.error(e);

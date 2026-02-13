@@ -35,8 +35,7 @@ async def chat(message: ChatMessage):
     json_output = agent.run(user_input)
     filepath = agent.save_file(json_output)
     return {
-        "filepath": filepath,
-        "reply": json_output
+        "filepath": filepath
         }
 
 # 模拟返回 json
@@ -50,8 +49,7 @@ async def chat(message: ChatMessage):
     with open(filepath, 'r', encoding='utf-8') as fh:
             json_output = json.load(fh)
     return {
-        "filepath": filepath,
-        "reply": json_output
+        "filepath": 'geojson_20260212_000412.json'
         }
 
 # 返回output/.json文件

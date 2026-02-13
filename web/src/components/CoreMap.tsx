@@ -128,7 +128,7 @@ const CoreMap = () => {
                     if (c[1] > maxY) maxY = c[1];
                 });
                 // 增加一点缓冲
-                const padding = 0.01;
+                const padding = 0.025;
                 const sw = [minX - padding, minY - padding];
                 const ne = [maxX + padding, maxY + padding];
                 try {
