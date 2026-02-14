@@ -35,29 +35,29 @@ async def analyze(message: ChatMessage):
     # 处理输入文本
     user_input = message.message
 
-    print(f"收到用户消息: {message.message}")
-    try:
-        agent = travel_agent.TravelPlannerAgent()
-        json_output = agent.run(user_input)
-        geo_file_path = agent.save_file(json_output)
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    # print(f"收到用户消息: {message.message}")
+    # try:
+    #     agent = travel_agent.TravelPlannerAgent()
+    #     json_output = agent.run(user_input)
+    #     geo_file_path = agent.save_file(json_output)
+    # except Exception as e:
+    #     return JSONResponse(status_code=500, content={"error": str(e)})
 
     # 处理输入参考图
     image_name = message.imageFilename
     image_path = os.path.join(os.path.dirname(__file__), 'images', image_name)
     if not os.path.exists(image_path):
         raise FileNotFoundError(f"图片文件不存在：{image_path}")
-    
     try:
-        agent = vlm_agent.VLMAgent()
+        agent = vlm_agent.VLMAgent(os.path.join(os.path.dirname(__file__), 'output/stylejson'))
         json_content = agent.analyze_image(image_path)
         style_file_path = agent.save_result(json_content)
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
     return {
-        "geofilepath": geo_file_path,
+        "geofilepath": 'geojson_20260212_000412.json',
+        # "geofilepath": geo_file_path,
         "stylefilepath": style_file_path
     }
 

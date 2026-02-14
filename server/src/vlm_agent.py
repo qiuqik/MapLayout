@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 class VLMAgent:
-    def __init__(self):
+    def __init__(self, output_dir):
         load_dotenv(".env")
         self.vlm_key = os.getenv("QwenVLM_API_KEY")
         if not self.vlm_key:
@@ -18,7 +18,7 @@ class VLMAgent:
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         )
         
-        self.output_dir = os.path.join(os.path.dirname(__file__), 'output/stylejson')
+        self.output_dir = output_dir
     
     
 
@@ -50,8 +50,7 @@ class VLMAgent:
         
         try:
             image_base64 = self.image_to_base64(image_path)
-            client = self._get_client()
-            completion = client.chat.completions.create(
+            completion = self.client.chat.completions.create(
                 model="qwen3-vl-plus",
                 messages=[
                     {
@@ -62,8 +61,6 @@ class VLMAgent:
                         ],
                     }
                 ],
-                max_tokens=2000,
-                temperature=0.1,
                 response_format={"type": "json_object"}
             )
 

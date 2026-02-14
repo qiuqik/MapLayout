@@ -71,16 +71,13 @@ const CoreMap = () => {
         if (!geodata?.features) {
             return geodata; 
         }
-        console.log(geodata)
         let newGeodata = geodata;
         for(var i = 0; i < geodata.features.length; i++){
             if(geodata.features[i].geometry.type === "LineString") {
                 var coords = geodata.features[i].geometry.coordinates;
                 for(var j = 0; j < coords.length; j++)
                 {
-                    console.log(newGeodata.features[i].geometry.coordinates[j])
                     newGeodata.features[i].geometry.coordinates[j] = gcj02ToWgs84(coords[j]);
-                    console.log(newGeodata.features[i].geometry.coordinates[j])
                 }
             } 
             else if(geodata.features[i].geometry.type === "Point"){
@@ -89,7 +86,6 @@ const CoreMap = () => {
                 newGeodata.features[i].geometry.coordinates = coord;
             }
         }
-        console.log("after",newGeodata)
         return newGeodata;
     }
 
