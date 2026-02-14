@@ -1,0 +1,47 @@
+{
+  "version": 8,
+  "name": "秋季南疆环线攻略",
+  "metadata": {
+    "background_main_color": "#E6F7FF",
+    "need_base_map": false,
+    "coordinate_point_icon": {
+      "type": "maki",
+      "icon": "house",
+      "color": "#1A73E8",
+      "size": 1.2
+    },
+    "route_style": {
+      "colors": ["#000000", "#FF0000"],
+      "width": 3,
+      "is_curved": true,
+      "line_cap": "round",
+      "line_join": "round"
+    },
+    "card_style": {
+      "background_color": "#FFF9E6",
+      "border_color": "#D4B872",
+      "border_width": 1.5,
+      "text_color": "#5B3A29",
+      "font_style": "regular",
+      "font_weight": "bold",
+      "padding": 12,
+      "border_radius": 8
+    },
+    "connection_line_style": {
+      "type": "single_arrow",
+      "color": "#FF0000",
+      "width": 1.5,
+      "arrow_size": 0.8
+    }
+  },
+  "sources": {},
+  "layers": [
+    {
+        "id": "background",
+        "type": "background",
+        "paint": {
+            "background-color": "hsl(100, 50%, 50%)"
+        }
+    }
+  ]
+}

@@ -43,13 +43,11 @@ const transformLng = (x: number, y: number): number => {
  * @param gcjCoord 高德坐标 {lng: 经度, lat: 纬度}
  * @returns WGS84坐标 {lng: 经度, lat: 纬度}
  */
-export const gcj02ToWgs84 = (gcjCoord: number[]): number[] => {
-  // const { lng: gcjLng, lat: gcjLat } = gcjCoord;
+export const gcj02ToWgs84 = (gcjCoord: [number, number]): [number, number] => {
   const [gcjLng, gcjLat] = gcjCoord;
   
   // 非中国境内坐标直接返回原坐标
   if (isOutOfChina(gcjLng, gcjLat)) {
-    // return { lng: gcjLng, lat: gcjLat };
     return [gcjLng, gcjLat];
   }
 
@@ -68,9 +66,5 @@ export const gcj02ToWgs84 = (gcjCoord: number[]): number[] => {
   const wgs84Lat = gcjLat - (dLat * 180.0) / ((A * (1 - EE)) / (magic2 * sqrtMagic2) * Math.PI);
   const wgs84Lng = gcjLng - (dLng * 180.0) / (A / sqrtMagic2 * Math.cos(radLat) * Math.PI);
 
-  // return {
-  //   lng: parseFloat(wgs84Lng.toFixed(6)), // 保留6位小数
-  //   lat: parseFloat(wgs84Lat.toFixed(6))
-  // };
   return [parseFloat(wgs84Lng.toFixed(6)), parseFloat(wgs84Lat.toFixed(6))];
 };

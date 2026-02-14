@@ -11,6 +11,7 @@
     "@chakra-ui/react": "^2.10.9",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@tabler/icons-react": "^3.36.1",
     "add": "^2.0.6",
     "axios": "^1.13.4",
     "class-variance-authority": "^0.7.1",

@@ -1,11 +1,14 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 import os
 import json
 
-import src.travel_agent as Agent
+from fastapi import UploadFile, File
+from datetime import datetime
+import src.travel_agent as travel_agent
+import src.vlm_agent as vlm_agent
 
 app = FastAPI()
 
@@ -25,37 +28,68 @@ app.add_middleware(
 # 定义接收消息的模型
 class ChatMessage(BaseModel):
     message: str
+    imageFilename: str
 
-# 对话接口
-@app.post("/api/travelagent")
-async def chat(message: ChatMessage):
-    user_input = message.message;
+@app.post('/api/agent')
+async def analyze(message: ChatMessage):
+    # 处理输入文本
+    user_input = message.message
+
     print(f"收到用户消息: {message.message}")
-    agent = Agent.TravelPlannerAgent()
-    json_output = agent.run(user_input)
-    filepath = agent.save_file(json_output)
+    try:
+        agent = travel_agent.TravelPlannerAgent()
+        json_output = agent.run(user_input)
+        geo_file_path = agent.save_file(json_output)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+    # 处理输入参考图
+    image_name = message.imageFilename
+    image_path = os.path.join(os.path.dirname(__file__), 'images', image_name)
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"图片文件不存在：{image_path}")
+    
+    try:
+        agent = vlm_agent.VLMAgent()
+        json_content = agent.analyze_image(image_path)
+        style_file_path = agent.save_result(json_content)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
     return {
-        "filepath": filepath
-        }
+        "geofilepath": geo_file_path,
+        "stylefilepath": style_file_path
+    }
+
+
 
 # 模拟返回 json
-@app.post("/api/travelagentmoni")
-async def chat(message: ChatMessage):
-    user_input = message.message;
-    print(f"收到用户消息: {message.message}")
-    # agent = Agent.TravelPlannerAgent()
-    # json_output = agent.run(user_input)
-    filepath = os.path.join(os.path.dirname(__file__), 'output/geojson_20260212_000412.json')
-    with open(filepath, 'r', encoding='utf-8') as fh:
-            json_output = json.load(fh)
-    return {
-        "filepath": 'geojson_20260212_000412.json'
-        }
+# @app.post("/api/agentmoni")
+# async def chat(message: ChatMessage):
+#     user_input = message.message;
+#     print(f"收到用户消息: {message.message}")
+#     filepath = os.path.join(os.path.dirname(__file__), 'output/geojson_20260212_000412.json')
+#     with open(filepath, 'r', encoding='utf-8') as fh:
+#             json_output = json.load(fh)
+#     return {
+#         "filepath": 'geojson_20260212_000412.json'
+#         }
 
-# 返回output/.json文件
-@app.get("/files")
-async def list_files():
-    base = os.path.join(os.path.dirname(__file__), 'output')
+
+# 返回所有 geojson 文件
+@app.get("/geofiles")
+async def list_geo_files():
+    base = os.path.join(os.path.dirname(__file__), 'output/geojson')
+    try:
+        files = [f for f in os.listdir(base) if f.endswith('.json')]
+    except Exception:
+        files = []
+    return {"files": files}
+
+# 返回所有 stylejson 文件
+@app.get("/stylefiles")
+async def list_style_files():
+    base = os.path.join(os.path.dirname(__file__), 'output/stylejson')
     try:
         files = [f for f in os.listdir(base) if f.endswith('.json')]
     except Exception:
@@ -63,21 +97,69 @@ async def list_files():
     return {"files": files}
 
 
-# 返回output目录文件
+
+# 返回指定文件，包括 geojson/stylejson/images
 @app.get("/files/{name}")
 async def get_file(name: str):
-    # 简单校验，防止目录穿越
-    if '/' in name or '..' in name:
-        return JSONResponse(status_code=400, content={"error": "invalid filename"})
-    path = os.path.join(os.path.dirname(__file__), 'output', name)
-    if not os.path.isfile(path):
-        return JSONResponse(status_code=404, content={"error": "not found"})
+    base_path = os.path.dirname(__file__)
+    geojson_path = os.path.join(base_path, 'output/geojson', name)
+    stylejson_path = os.path.join(base_path, 'output/stylejson', name)
+    image_path = os.path.join(base_path, 'images', name)
+
+    # geojson
+    if 'geojson' in name and os.path.isfile(geojson_path):
+        try:
+            with open(geojson_path, 'r', encoding='utf-8') as fh:
+                data = json.load(fh)
+            return data
+        except Exception:
+            return JSONResponse(status_code=500, content={"error": "cannot read file"})
+    
+    # stylejson
+    if 'mapbox' in name and os.path.isfile(stylejson_path):
+        try:
+            with open(stylejson_path, 'r', encoding='utf-8') as fh:
+                data = json.load(fh)
+            return data
+        except Exception:
+            return JSONResponse(status_code=500, content={"error": "cannot read file"})
+
+    # image
+    if 'image' in name and os.path.isfile(image_path):
+        return FileResponse(image_path)
+    
+    return JSONResponse(status_code=404, content={"error": "not found"})
+
+
+
+# 图片上传接口
+@app.post("/api/upload-image")
+async def upload_image(file: UploadFile = File(...)):
     try:
-        with open(path, 'r', encoding='utf-8') as fh:
-            data = json.load(fh)
-    except Exception:
-        return JSONResponse(status_code=500, content={"error": "cannot read file"})
-    return data
+        output_dir = os.path.join(os.path.dirname(__file__), 'images')
+        os.makedirs(output_dir, exist_ok=True)
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        file_extension = os.path.splitext(file.filename)[1]
+        filename = f"image_{timestamp}{file_extension}"
+        filepath = os.path.join(output_dir, filename)
+        
+        # 保存文件
+        content = await file.read()
+        with open(filepath, 'wb') as f:
+            f.write(content)
+        
+        return {
+            "filepath": filename
+        }
+    except Exception as e:
+        return JSONResponse(
+            status_code=500, 
+            content={"error": f"图片上传失败: {str(e)}"}
+        )
+
+
+
 
 if __name__ == "__main__":
     import uvicorn

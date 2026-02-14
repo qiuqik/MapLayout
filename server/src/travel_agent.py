@@ -50,10 +50,6 @@ class GeoData(BaseModel):
 # Agent Chain
 class TravelPlannerAgent:
     def __init__(self):
-        """
-        初始化 Agent
-        """
-
         load_dotenv(".env")
 
         API_KEY = os.getenv("OPENAI_API_KEY") 
@@ -87,7 +83,7 @@ class TravelPlannerAgent:
                - 一个类型为 'line' 的 Feature，表示路线轨迹 (LineString)。
                - 若干个类型为 'point' 的 Feature，表示具体景点 (Point)。
             3. 'point' 必须包含详细信息：ticketPrice, openTime, rating, tags, chartData 等。
-            4. 经纬度 (coordinates) 必须是该地点真实的或近似的坐标。
+            4. 经纬度 (coordinates) 必须是该地点真实的或近似的坐标(GCJ-02 国测局坐标)。
             5. 'chartData' 请根据景点特性生成合理的数据。如果是饼图，series 列表中使用 name 和 value；如果是柱状图/折线图，series 列表中使用 title 和 data。
             """),
             ("human", "{input}")
@@ -110,7 +106,7 @@ class TravelPlannerAgent:
         """
         保存文件
         """
-        output_dir = "output"
+        output_dir = "output/geojson"
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

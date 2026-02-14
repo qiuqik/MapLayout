@@ -2,24 +2,38 @@
 import React, { createContext, useState } from 'react';
 
 export type MapContextType = {
-  geofilename: any | null;
-  geojson: any | null;
-  setGeojson: (g: any | null) => void;
+  geofilename: string | null;
   setGeofilename: (g: any | null) => void;
+
+  imagename: string | null;
+  setImagename: (img: string | null) => void;
+
+  stylename: string | null;
+  setStylename: (img: string | null) => void;
+
 };
 
 export const MapDataContext = createContext<MapContextType>({
   geofilename: null,
-  geojson: null,
-  setGeojson: () => {},
   setGeofilename: () => {},
+
+  imagename: null,
+  setImagename: () => {},
+
+  stylename: null,
+  setStylename: () => {},
 });
 
 export const MapProvider = ({ children }: { children: React.ReactNode }) => {
-  const [geojson, setGeojson] = useState<any | null>(null);
   const [geofilename, setGeofilename] = useState<any | null>(null);
+  const [imagename, setImagename] = useState<string | null>(null);
+  const [stylename, setStylename] = useState<string | null>(null);
   return (
-    <MapDataContext.Provider value={{ geofilename, geojson, setGeojson, setGeofilename }}>
+    <MapDataContext.Provider value={{ 
+      geofilename, setGeofilename,
+      imagename, setImagename,
+      stylename, setStylename
+      }}>
       {children}
     </MapDataContext.Provider>
   );

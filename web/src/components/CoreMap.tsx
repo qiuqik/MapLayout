@@ -1,17 +1,48 @@
 'use client';
-import React, { useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { MapContextType, MapDataContext } from '@/lib/mapContext'
 import { gcj02ToWgs84 } from '@/lib/gcl2wgs'
 
 
 const CoreMap = () => {
+    const { 
+            geofilename, 
+            setGeofilename
+        } = useContext(MapDataContext);
     const mapContainerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<any>(null);
-    const { geojson, setGeojson } = useContext(MapDataContext);
+    const [geojson, setGeojson] = useState(null);
+    const [mapStyle, setMapStyle] = useState(null);
+    const [isMapLoaded, setIsMapLoaded] = useState<boolean>(false); 
+
+    useEffect(() => {
+        if(!geofilename) return;
+        try {
+            fetch(`http://localhost:8000/files/${encodeURIComponent(geofilename)}`)
+                .then(res => res.json())
+                .then(data => {
+                    setGeojson(data);
+                })
+        } catch (e) {
+            console.error(e);
+        }
+    }, [geofilename])
+
+    // useEffect(() => {
+    //     fetch('/mapbox_style_000.json')
+    //     .then(response => response.json())
+    //     .then(data => {
+    //         console.log(data);
+    //         setMapStyle(data);
+    //     })
+    //     .catch(error => console.error('加载样式失败:', error));
+    // }, []);
 
     useEffect(() => {
         if(mapRef.current) return;
+        if (!mapStyle) setMapStyle('mapbox://styles/mapbox/streets-v12?language=zh');
+        
         if(mapContainerRef.current){
             mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN as string;
             if (!mapboxgl.accessToken) {
@@ -20,7 +51,7 @@ const CoreMap = () => {
             }
             mapRef.current = new mapboxgl.Map({
                 container: mapContainerRef.current,
-                style: 'mapbox://styles/mapbox/streets-v12',
+                style: mapStyle,
                 center: [116.4074, 39.9042],
                 zoom: 12,
             });
@@ -34,19 +65,22 @@ const CoreMap = () => {
                 mapRef.current = null;
             }
         };
-    }, []);
+    }, [mapStyle]);
      
-    const CoordinateTrans = (geodata: MapContextType["geojson"]): MapContextType["geojson"] => {
+    const CoordinateTrans = (geodata: any): any => {
         if (!geodata?.features) {
             return geodata; 
-        }        
+        }
+        console.log(geodata)
         let newGeodata = geodata;
         for(var i = 0; i < geodata.features.length; i++){
             if(geodata.features[i].geometry.type === "LineString") {
                 var coords = geodata.features[i].geometry.coordinates;
                 for(var j = 0; j < coords.length; j++)
                 {
+                    console.log(newGeodata.features[i].geometry.coordinates[j])
                     newGeodata.features[i].geometry.coordinates[j] = gcj02ToWgs84(coords[j]);
+                    console.log(newGeodata.features[i].geometry.coordinates[j])
                 }
             } 
             else if(geodata.features[i].geometry.type === "Point"){
@@ -55,6 +89,7 @@ const CoreMap = () => {
                 newGeodata.features[i].geometry.coordinates = coord;
             }
         }
+        console.log("after",newGeodata)
         return newGeodata;
     }
 
