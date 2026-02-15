@@ -26,12 +26,12 @@ const LeftCard = () => {
     }
 
     return (
-        <div className="absolute top-8 left-0 w-[21%] h-[100%] z-10 bg-white/100 shadow-lg p-2">
+        <div className="flex flex-col flex-shrink-0 w-[21%] h-full bg-white/100 shadow-lg p-2 overflow-hidden z-10">
             <div className="mt-2">
                 <ChatDialog />
             </div>
             <Separator className="my-4" />
-            <div className="mt-2 h-[50%] overflow-auto">
+            <div className="mt-2 h-[50%] overflow-auto flex-shrink-0">
                 <h3 className="text-sm font-medium mb-2">历史 GeoJSON 文件</h3>
                 {files.length === 0 && <div className="text-xs text-gray-500">暂无文件</div>}
                 <ul className="space-y-1">

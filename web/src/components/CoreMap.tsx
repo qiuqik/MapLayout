@@ -66,6 +66,7 @@ const CoreMap = () => {
                 center: [116.4074, 39.9042],
                 zoom: 12,
             });
+            map.addControl(new mapboxgl.NavigationControl(), 'top-right');
             map.on('style.load', () => {
                 console.log('地图样式加载完成');
                 setIsMapLoaded(true);
@@ -88,7 +89,7 @@ const CoreMap = () => {
         if (!geodata?.features) {
             return geodata; 
         }
-        let newGeodata = geodata;
+        const newGeodata = JSON.parse(JSON.stringify(geodata));
         for(var i = 0; i < geodata.features.length; i++){
             if(geodata.features[i].geometry.type === "LineString") {
                 var coords = geodata.features[i].geometry.coordinates;
@@ -189,7 +190,7 @@ const CoreMap = () => {
     return (
         <div 
             id="map" 
-            className='fixed inset-0 w-screen h-screen' 
+            className='flex flex-1 w-full h-full' 
             ref={mapContainerRef} 
         />
     );

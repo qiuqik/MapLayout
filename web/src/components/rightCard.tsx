@@ -31,7 +31,7 @@ const RightCard = () => {
     };
 
     return (
-        <div className="absolute top-7 right-0 w-[22%] h-[100%] z-10 bg-white/100 shadow-lg p-4 flex flex-col">
+        <div className="flex flex-col flex-shrink-0 w-[22%] h-full bg-white/100 shadow-lg p-4 z-10 overflow-hidden">
             <h3 className="font-bold mb-2">Info:</h3>
             
             {/* 图片部分 */}
@@ -53,7 +53,7 @@ const RightCard = () => {
             )}
             
             <div className="font-normal text-sm truncate"> {geofilename} </div>
-            <div className="flex-1 overflow-auto bg-gray-50 mt-2">
+            <div className="flex-1 overflow-auto bg-gray-50 mt-2 min-h-0">
                 <pre className="text-xs font-mono p-4 text-gray-800 leading-relaxed">
                     {geojson ? JSON.stringify(geojson, null, 2) : '暂无数据'}
                 </pre>

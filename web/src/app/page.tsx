@@ -9,12 +9,13 @@ import { MapProvider } from '@/lib/mapContext'
 export default function Page() {
   return (
     <MapProvider>
-      <div className="relative w-screen h-screen overflow-hidden">
+      <div className="flex flex-col w-screen h-screen overflow-hidden">
         <Header />
-        {/* <ChatDialog /> */}
-        <CoreMap />
-        <LeftCard />
-        <RightCard />
+        <div className="flex flex-1 overflow-hidden">
+          <LeftCard />
+          <CoreMap />
+          <RightCard />
+        </div>
       </div>
     </MapProvider>
   )

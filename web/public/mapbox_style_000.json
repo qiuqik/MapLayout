@@ -1,47 +1,70 @@
 {
   "version": 8,
-  "name": "秋季南疆环线攻略",
-  "metadata": {
-    "background_main_color": "#E6F7FF",
-    "need_base_map": false,
-    "coordinate_point_icon": {
-      "type": "maki",
-      "icon": "house",
-      "color": "#1A73E8",
-      "size": 1.2
+  "name": "Custom Map Style",
+  "sources": {
+    "openmaptiles": {
+      "type": "raster",
+      "tiles": ["https://a.tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      "tileSize": 256,
+      "attribution": "&copy; OpenStreetMap contributors"
     },
-    "route_style": {
-      "colors": ["#000000", "#FF0000"],
-      "width": 3,
-      "is_curved": true,
-      "line_cap": "round",
-      "line_join": "round"
-    },
-    "card_style": {
-      "background_color": "#FFF9E6",
-      "border_color": "#D4B872",
-      "border_width": 1.5,
-      "text_color": "#5B3A29",
-      "font_style": "regular",
-      "font_weight": "bold",
-      "padding": 12,
-      "border_radius": 8
-    },
-    "connection_line_style": {
-      "type": "single_arrow",
-      "color": "#FF0000",
-      "width": 1.5,
-      "arrow_size": 0.8
+    "dynamic-geodata": {
+      "type": "geojson",
+      "data": {
+        "type": "FeatureCollection",
+        "features": []
+      }
     }
   },
-  "sources": {},
   "layers": [
     {
-        "id": "background",
-        "type": "background",
-        "paint": {
-            "background-color": "hsl(100, 20%, 50%)"
-        }
+      "id": "basemap",
+      "type": "raster",
+      "source": "openmaptiles",
+      "layout": {
+        "visibility": "visible"
+      },
+      "paint": {
+        "raster-hue-rotate": 0, 
+        "raster-brightness-min": 0.8, 
+        "raster-saturation": 0.9 
+      }
+    },
+    {
+      "id": "dynamic-lines",
+      "type": "line",
+      "source": "dynamic-geodata",
+      "filter": ["==", "$type", "LineString"],
+      "layout": {
+        "visibility": "visible",
+        "line-join": "round",
+        "line-cap": "round"
+      },
+      "paint": {
+        "line-color": "#FF5733",
+        "line-width": 3,
+        "line-opacity": 0.8
+      }
+    },
+    {
+      "id": "dynamic-points",
+      "type": "circle",
+      "source": "dynamic-geodata",
+      "filter": ["==", "$type", "Point"],
+      "layout": {
+        "visibility": "visible"
+      },
+      "paint": {
+        "circle-color": "#3366FF", 
+        "circle-radius": 6,
+        "circle-stroke-color": "#FFFFFF",
+        "circle-stroke-width": 1,
+        "circle-opacity": 0.9
+      }
     }
-  ]
+  ],
+  "center": [116.4039, 39.9147],
+  "zoom": 10,
+  "bearing": 0,
+  "pitch": 0
 }
