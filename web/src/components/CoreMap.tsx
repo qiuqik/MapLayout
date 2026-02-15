@@ -8,7 +8,7 @@ import { gcj02ToWgs84 } from '@/lib/gcl2wgs'
 const CoreMap = () => {
     const { 
             geofilename, 
-            setGeofilename
+            setGeofilename,
         } = useContext(MapDataContext);
     const mapContainerRef = useRef<HTMLDivElement | null>(null);
     const mapRef = useRef<any>(null);
@@ -18,30 +18,40 @@ const CoreMap = () => {
 
     useEffect(() => {
         if(!geofilename) return;
-        try {
-            fetch(`http://localhost:8000/files/${encodeURIComponent(geofilename)}`)
-                .then(res => res.json())
-                .then(data => {
-                    setGeojson(data);
-                })
-        } catch (e) {
-            console.error(e);
-        }
+        const fetchGeoJson = async () => {
+            try {
+                fetch(`http://localhost:8000/files/${encodeURIComponent(geofilename)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        setGeojson(data);
+                        // 转换坐标
+                        const transformedData = CoordinateTrans(data);
+                        setGeojson(transformedData);
+                    })
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        fetchGeoJson();
     }, [geofilename])
-
-    // useEffect(() => {
-    //     fetch('/mapbox_style_000.json')
-    //     .then(response => response.json())
-    //     .then(data => {
-    //         console.log(data);
-    //         setMapStyle(data);
-    //     })
-    //     .catch(error => console.error('加载样式失败:', error));
-    // }, []);
+    
+    // 加载地图样式
+    useEffect(() => {
+        const fetchMapStyle = async () => {
+            try {
+                const res = await fetch('/mapbox_style_000.json');
+                const data = await res.json();
+                setMapStyle(data);
+            } catch (error) {
+                console.error('加载本地样式失败，使用默认样式:', error);
+                setMapStyle('mapbox://styles/mapbox/streets-v12?language=zh');
+            }
+        };
+        fetchMapStyle();
+    }, []);
 
     useEffect(() => {
-        if(mapRef.current) return;
-        if (!mapStyle) setMapStyle('mapbox://styles/mapbox/streets-v12?language=zh');
+        if (mapRef.current || !mapStyle || !mapContainerRef.current) return;
         
         if(mapContainerRef.current){
             mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN as string;
@@ -49,20 +59,27 @@ const CoreMap = () => {
                 console.error("Mapbox Token 未配置！请检查 .env 文件");
                 return;
             }
-            mapRef.current = new mapboxgl.Map({
+            // 创建地图实例
+            const map = new mapboxgl.Map({
                 container: mapContainerRef.current,
                 style: mapStyle,
                 center: [116.4074, 39.9042],
                 zoom: 12,
             });
-            mapRef.current.on('load', () => {
-                console.log('地图加载完成');
+            map.on('style.load', () => {
+                console.log('地图样式加载完成');
+                setIsMapLoaded(true);
             });
+            map.on('error', (e) => {
+                console.error('地图加载错误:', e);
+            });
+            mapRef.current = map;
         }
         return () => {
             if (mapRef.current) {
                 mapRef.current.remove();
                 mapRef.current = null;
+                setIsMapLoaded(false);
             }
         };
     }, [mapStyle]);
@@ -89,12 +106,10 @@ const CoreMap = () => {
         return newGeodata;
     }
 
-    // 当 geojson 更新时，添加或更新 source/layer 并缩放到数据范围
+    // 更新 source/layer 并缩放到数据范围
     useEffect(() => {
         const map = mapRef.current;
-        if (!map || !geojson) return;
-        setGeojson(CoordinateTrans(geojson));
-        if(!geojson) return;
+        if (!map || !geojson || !isMapLoaded) return;
 
 
         const sourceId = 'selected-data';
@@ -103,16 +118,12 @@ const CoreMap = () => {
                 // @ts-ignore
                 map.getSource(sourceId).setData(geojson);
             } else {
-                map.addSource(sourceId, { type: 'geojson', data: geojson });
-                // add generic layers: fill, line, circle
-                // if (!map.getLayer('selected-fill')) {
-                //     map.addLayer({
-                //         id: 'selected-fill',
-                //         type: 'fill',
-                //         source: sourceId,
-                //         paint: { 'fill-color': '#06b6d4', 'fill-opacity': 0.4 },
-                //     });
-                // }
+                map.addSource(sourceId, { 
+                    type: 'geojson', 
+                    data: geojson 
+                });
+
+                // 添加线图层
                 if (!map.getLayer('selected-line')) {
                     map.addLayer({
                         id: 'selected-line',
@@ -121,6 +132,7 @@ const CoreMap = () => {
                         paint: { 'line-color': '#0f172a', 'line-width': 2 },
                     });
                 }
+                // 添加点图层
                 if (!map.getLayer('selected-circle')) {
                     map.addLayer({
                         id: 'selected-circle',
@@ -137,9 +149,12 @@ const CoreMap = () => {
                 if (!g) return;
                 const t = g.type;
                 if (t === 'Point') coords.push(g.coordinates);
-                else if (t === 'LineString' || t === 'MultiPoint') g.coordinates.forEach((c: number[]) => coords.push(c));
-                else if (t === 'Polygon' || t === 'MultiLineString') g.coordinates.flat(1).forEach((c: number[]) => coords.push(c));
-                else if (t === 'MultiPolygon') g.coordinates.flat(2).forEach((c: number[]) => coords.push(c));
+                else if (t === 'LineString' || t === 'MultiPoint') 
+                    g.coordinates.forEach((c: number[]) => coords.push(c));
+                else if (t === 'Polygon' || t === 'MultiLineString') 
+                    g.coordinates.flat(1).forEach((c: number[]) => coords.push(c));
+                else if (t === 'MultiPolygon') 
+                    g.coordinates.flat(2).forEach((c: number[]) => coords.push(c));
             }
             if (geojson.type === 'FeatureCollection') {
                 geojson.features.forEach((f: any) => collect(f.geometry));
@@ -150,14 +165,11 @@ const CoreMap = () => {
             }
 
             if (coords.length > 0) {
+                const minX = Math.min(...coords.map(c => c[0]));
+                const minY = Math.min(...coords.map(c => c[1]));
+                const maxX = Math.max(...coords.map(c => c[0]));
+                const maxY = Math.max(...coords.map(c => c[1]));
 
-                let minX = coords[0][0], minY = coords[0][1], maxX = coords[0][0], maxY = coords[0][1];
-                coords.forEach(c => {
-                    if (c[0] < minX) minX = c[0];
-                    if (c[1] < minY) minY = c[1];
-                    if (c[0] > maxX) maxX = c[0];
-                    if (c[1] > maxY) maxY = c[1];
-                });
                 // 增加一点缓冲
                 const padding = 0.025;
                 const sw = [minX - padding, minY - padding];
@@ -172,10 +184,14 @@ const CoreMap = () => {
             console.error('绘制 geojson 失败', e);
         }
 
-    }, [geojson]);
+    }, [geojson, isMapLoaded]);
 
     return (
-        <div id="map" className='fixed inset-0 w-screen h-screen' ref={mapContainerRef} />
+        <div 
+            id="map" 
+            className='fixed inset-0 w-screen h-screen' 
+            ref={mapContainerRef} 
+        />
     );
 }
 

@@ -40,7 +40,7 @@
         "id": "background",
         "type": "background",
         "paint": {
-            "background-color": "hsl(100, 50%, 50%)"
+            "background-color": "hsl(100, 20%, 50%)"
         }
     }
   ]
