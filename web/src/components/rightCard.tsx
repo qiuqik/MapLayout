@@ -3,7 +3,7 @@ import { MapDataContext } from '@/lib/mapContext'
 import { X } from 'lucide-react'
 
 
-const RightCard = () => {
+const RightCard: React.FC = () => {
     const { 
         geofilename, 
         imagename, 

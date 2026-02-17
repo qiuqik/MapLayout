@@ -18,6 +18,13 @@
   },
   "layers": [
     {
+        "id": "background",
+        "type": "background",
+        "paint": {
+            "background-color": "hsl(100, 50%, 50%)"
+        }
+    },
+    {
       "id": "basemap",
       "type": "raster",
       "source": "openmaptiles",

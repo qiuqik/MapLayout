@@ -1,41 +1,42 @@
 'use client';
-import React, { useState, useEffect, useRef, useContext } from 'react';
-import mapboxgl from 'mapbox-gl';
-import { MapContextType, MapDataContext } from '@/lib/mapContext'
-import { gcj02ToWgs84 } from '@/lib/gcl2wgs'
+import React, { useState, useEffect, useRef, useContext, useMemo } from 'react';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import Map, { Source, Layer, NavigationControl, MapRef, LayerProps, Marker } from 'react-map-gl/mapbox';
+import { MapDataContext } from '@/lib/mapContext';
+import { gcj02ToWgs84 } from '@/lib/gcl2wgs';
+import dynamic from 'next/dynamic';
 
 
-const CoreMap = () => {
-    const { 
-            geofilename, 
-            setGeofilename,
-        } = useContext(MapDataContext);
-    const mapContainerRef = useRef<HTMLDivElement | null>(null);
-    const mapRef = useRef<any>(null);
-    const [geojson, setGeojson] = useState(null);
-    const [mapStyle, setMapStyle] = useState(null);
-    const [isMapLoaded, setIsMapLoaded] = useState<boolean>(false); 
+const InfoCard = dynamic(() => import('./map/InfoCard'), { 
+  ssr: false,
+});
 
-    useEffect(() => {
-        if(!geofilename) return;
-        const fetchGeoJson = async () => {
-            try {
-                fetch(`http://localhost:8000/files/${encodeURIComponent(geofilename)}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        setGeojson(data);
-                        // 转换坐标
-                        const transformedData = CoordinateTrans(data);
-                        setGeojson(transformedData);
-                    })
-            } catch (e) {
-                console.error(e);
-            }
-        };
-        fetchGeoJson();
-    }, [geofilename])
+// 定义图层样式
+const lineLayerStyle: LayerProps = {
+    id: 'selected-line',
+    type: 'line',
+    paint: { 'line-color': '#0f172a', 'line-width': 2 },
+};
+
+const circleLayerStyle: LayerProps = {
+    id: 'selected-circle',
+    type: 'circle',
+    paint: { 'circle-radius': 6, 'circle-color': '#ef4444' },
+};
+
+const CoreMap: React.FC = () => {
+    const { geofilename } = useContext(MapDataContext);
+    const mapRef = useRef<MapRef>(null);
     
-    // 加载地图样式
+    const [geojson, setGeojson] = useState<any>(null);
+    const [mapStyle, setMapStyle] = useState<any>(null);
+    const [viewState, setViewState] = useState({
+        longitude: 116.4074,
+        latitude: 39.9042,
+        zoom: 12
+    });
+
+    // 加载本地地图样式
     useEffect(() => {
         const fetchMapStyle = async () => {
             try {
@@ -44,48 +45,14 @@ const CoreMap = () => {
                 setMapStyle(data);
             } catch (error) {
                 console.error('加载本地样式失败，使用默认样式:', error);
-                setMapStyle('mapbox://styles/mapbox/streets-v12?language=zh');
+                setMapStyle('mapbox://styles/mapbox/streets-v12');
             }
         };
         fetchMapStyle();
     }, []);
 
-    useEffect(() => {
-        if (mapRef.current || !mapStyle || !mapContainerRef.current) return;
-        
-        if(mapContainerRef.current){
-            mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN as string;
-            if (!mapboxgl.accessToken) {
-                console.error("Mapbox Token 未配置！请检查 .env 文件");
-                return;
-            }
-            // 创建地图实例
-            const map = new mapboxgl.Map({
-                container: mapContainerRef.current,
-                style: mapStyle,
-                center: [116.4074, 39.9042],
-                zoom: 12,
-            });
-            map.addControl(new mapboxgl.NavigationControl(), 'top-right');
-            map.on('style.load', () => {
-                console.log('地图样式加载完成');
-                setIsMapLoaded(true);
-            });
-            map.on('error', (e) => {
-                console.error('地图加载错误:', e);
-            });
-            mapRef.current = map;
-        }
-        return () => {
-            if (mapRef.current) {
-                mapRef.current.remove();
-                mapRef.current = null;
-                setIsMapLoaded(false);
-            }
-        };
-    }, [mapStyle]);
-     
-    const CoordinateTrans = (geodata: any): any => {
+    // 坐标转换逻辑
+    const coordinateTrans = (geodata: any): any => {
         if (!geodata?.features) {
             return geodata; 
         }
@@ -105,95 +72,93 @@ const CoreMap = () => {
             }
         }
         return newGeodata;
-    }
+    };
 
-    // 更新 source/layer 并缩放到数据范围
+    // 获取并转换 GeoJSON
     useEffect(() => {
-        const map = mapRef.current;
-        if (!map || !geojson || !isMapLoaded) return;
-
-
-        const sourceId = 'selected-data';
-        try {
-            if (map.getSource && map.getSource(sourceId)) {
-                // @ts-ignore
-                map.getSource(sourceId).setData(geojson);
-            } else {
-                map.addSource(sourceId, { 
-                    type: 'geojson', 
-                    data: geojson 
-                });
-
-                // 添加线图层
-                if (!map.getLayer('selected-line')) {
-                    map.addLayer({
-                        id: 'selected-line',
-                        type: 'line',
-                        source: sourceId,
-                        paint: { 'line-color': '#0f172a', 'line-width': 2 },
-                    });
-                }
-                // 添加点图层
-                if (!map.getLayer('selected-circle')) {
-                    map.addLayer({
-                        id: 'selected-circle',
-                        type: 'circle',
-                        source: sourceId,
-                        paint: { 'circle-radius': 6, 'circle-color': '#ef4444' },
-                    });
-                }
+        if (!geofilename) return;
+        const fetchGeoJson = async () => {
+            try {
+                const res = await fetch(`http://localhost:8000/files/${encodeURIComponent(geofilename)}`);
+                const data = await res.json();
+                const transformedData = coordinateTrans(data);
+                setGeojson(transformedData);
+            } catch (e) {
+                console.error("Fetch GeoJSON Error:", e);
             }
+        };
+        fetchGeoJson();
+    }, [geofilename]);
 
-            // 计算 bounds 并 fit
-            const coords: number[][] = [];
-            const collect = (g: any) => {
-                if (!g) return;
-                const t = g.type;
-                if (t === 'Point') coords.push(g.coordinates);
-                else if (t === 'LineString' || t === 'MultiPoint') 
-                    g.coordinates.forEach((c: number[]) => coords.push(c));
-                else if (t === 'Polygon' || t === 'MultiLineString') 
-                    g.coordinates.flat(1).forEach((c: number[]) => coords.push(c));
-                else if (t === 'MultiPolygon') 
-                    g.coordinates.flat(2).forEach((c: number[]) => coords.push(c));
-            }
-            if (geojson.type === 'FeatureCollection') {
-                geojson.features.forEach((f: any) => collect(f.geometry));
-            } else if (geojson.type === 'Feature') {
-                collect(geojson.geometry);
-            } else {
-                collect(geojson);
-            }
+    // 当数据变化时自动缩放 (fitBounds)
+    useEffect(() => {
+        if (!geojson || !mapRef.current) return;
 
-            if (coords.length > 0) {
-                const minX = Math.min(...coords.map(c => c[0]));
-                const minY = Math.min(...coords.map(c => c[1]));
-                const maxX = Math.max(...coords.map(c => c[0]));
-                const maxY = Math.max(...coords.map(c => c[1]));
+        const coords: number[][] = [];
+        const collect = (g: any) => {
+            if (!g) return;
+            const t = g.type;
+            if (t === 'Point') coords.push(g.coordinates);
+            else if (['LineString', 'MultiPoint'].includes(t)) g.coordinates.forEach((c: any) => coords.push(c));
+            else if (['Polygon', 'MultiLineString'].includes(t)) g.coordinates.flat(1).forEach((c: any) => coords.push(c));
+            else if (t === 'MultiPolygon') g.coordinates.flat(2).forEach((c: any) => coords.push(c));
+        };
 
-                // 增加一点缓冲
-                const padding = 0.025;
-                const sw = [minX - padding, minY - padding];
-                const ne = [maxX + padding, maxY + padding];
-                try {
-                    map.fitBounds([sw, ne], { padding: 40, maxZoom: 15, duration: 1000 });
-                } catch (e) {
-                    console.warn('fitBounds 失败', e);
-                }
-            }
-        } catch (e) {
-            console.error('绘制 geojson 失败', e);
+        if (geojson.type === 'FeatureCollection') geojson.features.forEach((f: any) => collect(f.geometry));
+        else collect(geojson.geometry || geojson);
+
+        if (coords.length > 0) {
+            const lons = coords.map(c => c[0]);
+            const lats = coords.map(c => c[1]);
+            const bounds: [[number, number], [number, number]] = [
+                [Math.min(...lons) - 0.01, Math.min(...lats) - 0.01],
+                [Math.max(...lons) + 0.01, Math.max(...lats) + 0.01]
+            ];
+
+            mapRef.current.fitBounds(bounds, { padding: 40, duration: 1000 });
         }
-
-    }, [geojson, isMapLoaded]);
+    }, [geojson]);
 
     return (
-        <div 
-            id="map" 
-            className='flex flex-1 w-full h-full' 
-            ref={mapContainerRef} 
-        />
+        <div className="flex flex-1 w-full h-full relative">
+            <Map
+                {...viewState}
+                ref={mapRef}
+                onMove={evt => setViewState(evt.viewState)}
+                mapStyle={mapStyle}
+                mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+                style={{ width: '100%', height: '100%' }}
+            >
+                <NavigationControl position="top-right" />
+
+                {geojson && (
+                    <>
+                        <Source id="selected-data" type="geojson" data={geojson}>
+                            <Layer {...lineLayerStyle} />
+                            <Layer {...circleLayerStyle} />
+                        </Source>
+
+                        {/* 渲染卡片 */}
+                        {geojson.features?.map((feature: any, idx: number) => {
+                            if(feature.geometry.type === 'Point') {
+                                const [longitude, latitude] = feature.geometry.coordinates;
+                                return (
+                                    <Marker 
+                                        key={idx}
+                                        anchor="bottom"
+                                        longitude={longitude}
+                                        latitude={latitude}
+                                    >
+                                        <InfoCard properties={feature.properties} />
+                                    </Marker>
+                                )
+                            }
+                        })}
+                    </>
+                )}
+            </Map>
+        </div>
     );
-}
+};
 
 export default CoreMap;

@@ -7,7 +7,7 @@ import { MapDataContext } from '@/lib/mapContext'
 import ChatDialog from '@/components/ChatDialog';
 
 
-const LeftCard = () => {
+const LeftCard: React.FC = () => {
     const [files, setFiles] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const { geofilename, setGeofilename } = useContext(MapDataContext);
