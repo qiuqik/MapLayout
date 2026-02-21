@@ -1,4 +1,3 @@
-'use client';
 import React from 'react'; 
 import { ChakraProvider } from '@chakra-ui/react';
 import '@/styles/globals.css'
@@ -10,11 +9,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/logo2.svg" type="image/svg+xml" />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <ChakraProvider>{children}</ChakraProvider>
       </body>
     </html>
