@@ -9,12 +9,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
+    <html lang="zh-CN">
       <head>
         <link rel="icon" href="/logo2.svg" type="image/svg+xml" />
       </head>
-      <body suppressHydrationWarning>
-        <ChakraProvider>{children}</ChakraProvider>
+      <body>
+        {children}
       </body>
     </html>
   )

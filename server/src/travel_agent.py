@@ -6,6 +6,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from dotenv import load_dotenv
 from datetime import datetime
+from src.amap_service import AMapService
 
 class ChartSeriesItem(BaseModel):
     title: Optional[str] = Field(None, description="柱状图/折线图数据名称")
@@ -90,6 +91,8 @@ class TravelPlannerAgent:
         ])
         
         self.chain = self.prompt | self.structured_llm
+        # 高德 API 服务
+        self.amap_service = AMapService()
 
     def run(self, user_query: str) -> str:
         """
@@ -98,6 +101,37 @@ class TravelPlannerAgent:
         print(f"正在规划行程: {user_query} ...")
         try:
             result: GeoData = self.chain.invoke({"input": user_query})
+            # 区分 point/line
+            point_features = []
+            line_feature = None
+            
+            for feature in result.features:
+                if feature.geometry.type == "Point" and feature.properties.type == "point":
+                    point_features.append(feature)
+                elif feature.geometry.type == "LineString" and feature.properties.type == "line":
+                    line_feature = feature
+            
+            line_coords = []
+            
+            # 修正 POI 点位坐标
+            for feature in point_features:
+                keyword = feature.properties.title
+                
+                coords = self.amap_service.search_poi(keyword)
+                if coords:
+                    feature.geometry.coordinates = list(coords)
+                    print(f"✅ 已通过高德地图修正 [{keyword}] 坐标为 {coords}")
+                else:
+                    print(f"⚠️ 未找到 [{keyword}] 的高德坐标，保留 LLM 生成的原始坐标")
+                
+                coord = feature.geometry.coordinates
+                if isinstance(coord, list) and len(coord) == 2:
+                    line_coords.append(coord)
+            
+            # 串联路线
+            if line_feature and len(line_coords) >= 2:
+                line_feature.geometry.coordinates = line_coords
+                
             return result.model_dump_json(indent=4)
         except Exception as e:
             return json.dumps({"error": str(e)}, indent=4)
@@ -117,19 +151,3 @@ class TravelPlannerAgent:
             f.write(geojson)
             print(f"\n已保存为{filepath}")
         return filename
-    
-# 帮我规划成都 3 日游，预算 1500 元，想以吃美食和逛小众景点为主
-# 规划西安 2 日游，预算 1000 元，主要想去历史古迹，不想走太多路
-# 做一份青岛 3 日游攻略，预算 2000 元，主打海滨风光和海鲜美食
-# 帮我安排杭州 1 日游，预算 200 元，想逛西湖周边还能打卡网红茶饮店
-# 规划厦门 3 日游，预算 1800 元，主打鼓浪屿和海边散步，偏爱安静的地方
-# 做一份重庆 2 日游路线，预算 1200 元，想打卡洪崖洞还能吃地道火锅
-# 帮我设计苏州 3 日游，预算 2000 元，主要逛园林和江南水乡，适合拍照
-# 规划北京 4 日游，预算 3000 元，想走经典景点，带老人孩子不累的路线
-# 做一份丽江 2 日游攻略，预算 1600 元，主打古城闲逛和雪山脚下打卡
-# 帮我安排桂林 3 日游，预算 2200 元，想坐船游漓江，看山水风光
-# 规划长沙 2 日游，预算 1000 元，主要吃特色小吃，打卡网红景点
-# 做一份昆明 3 日游路线，预算 1800 元，想逛滇池和翠湖，适合慢节奏游玩
-# 帮我规划南京 3 日游，预算 2000 元，主打历史景点，顺便吃当地特色小吃
-# 规划三亚 3 日游，预算 3500 元，想住海边附近，主打沙滩和海鲜
-# 做一份武汉 2 日游攻略，预算 1200 元，想逛黄鹤楼和户部巷，吃湖北菜

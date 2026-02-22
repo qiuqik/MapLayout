@@ -20,7 +20,6 @@ class VLMAgent:
         
         self.output_dir = output_dir
     
-    
 
     def image_to_base64(self, image_path: str) -> str:
         # 读取图片格式
@@ -36,17 +35,49 @@ class VLMAgent:
 
     def analyze_image(self, image_path: str) -> str:
         """
-        核心方法：调用VLM模型分析图片，返回Mapbox样式JSON字符串
-
-        image_url: 可访问的图片 URL
-        返回：模型返回内容（string 格式，期望为 mapbox 风格 JSON）
+        核心方法：调用VLM模型分析图片，返回严格遵循规定的 Mapbox 样式JSON字符串
         """
-        prompt = (
-            "你是一个地图规划设计师，你需要从用户给定的的旅游规划图提取以下元素："
-            "背景主色调、判断是否需要底层地图、坐标点 icon、路线样式（颜色、宽度、直/弯等）、"
-            "卡片样式（颜色、边框、字体颜色、字体样式）、坐标点与卡片之间连线样式（单箭头/直线/曲线）\n"
-            "请以 mapbox 样式 json 文件格式输出。"
-        )
+        prompt = """你是一个专业的地图规划设计师和前端开发工程师。你需要仔细观察用户给定的旅游规划图，并提取样式特征。
+请务必按照以下 JSON 格式返回结果，严格遵守给定的键名和可选的数值或枚举值：
+
+{
+  "mapConfig": {
+    "BaseMap": "枚举值：必须从 'blank'、'standard'、'satellite' 中选择",
+    "backgroundColor": "十六进制颜色码，如 '#f8fafc'，仅在 BaseMap 为 'blank' 时生效"
+  },
+  "routes": {
+    "color": "路线的十六进制颜色码，如 '#f97316'", 
+    "width": "路线宽度的数字，如 4",
+    "lineStatus": "枚举值：必须从 'StraightLine' 或 'NavigationCurve' 中选择" 
+  },
+  "points": {
+    "type": "枚举值：必须从 'default-marker' 或 'div-svg' 中选择",
+    "color": "途径点的十六进制颜色码，如 '#ea580c'",
+    "svg": "如果 type 是 'div-svg'，请根据图片中的POI 坐标点的图标风格生成对应的 svg 代码；如果是 'default-marker'，请填 'none'"
+  },
+  "connectLine": {
+    "color": "信息卡片与坐标点之间连线的十六进制颜色码",
+    "type": "枚举值：必须从 'straight' 或 'SmoothCurve' 中选择", 
+    "arrow": "枚举值：必须从 'Point2Card'、'Card2Point'、'none' 中选择"
+  },
+  "card": {
+    "borderColor": "卡片边框的十六进制颜色码，如果没有边框请填 'none'",
+    "backgroundColor": "卡片背景的十六进制颜色码",
+    "textColor": "卡片字体的十六进制颜色码",
+    "title": "布尔值(true/false)，图中卡片是否显示标题",
+    "category": "布尔值(true/false)，图中卡片是否显示分类信息",
+    "rating": "布尔值(true/false)，图中卡片是否显示评分",
+    "desc": "布尔值(true/false)，图中卡片是否显示描述内容",
+    "tags": "布尔值(true/false)，图中卡片是否显示标签",
+    "chart": "布尔值(true/false)，图中卡片是否显示图表",
+    "address": "布尔值(true/false)，图中卡片是否显示地址",
+    "openTime": "布尔值(true/false)，图中卡片是否显示开放时间",
+    "ticketPrice": "布尔值(true/false)，图中卡片是否显示门票价格"
+  }
+}
+
+注意：只返回标准的 JSON 格式对象，不要包含多余的 markdown 代码块标识（如 ```json）或任何说明性文字。布尔值请直接使用小写的 true 或 false。
+"""
         
         try:
             image_base64 = self.image_to_base64(image_path)
@@ -61,14 +92,24 @@ class VLMAgent:
                         ],
                     }
                 ],
+                # 输出 JSON
                 response_format={"type": "json_object"}
             )
 
             content = completion.choices[0].message.content.strip()
+            
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.startswith("```"):
+                content = content[3:]
+            if content.endswith("```"):
+                content = content[:-3]
+            content = content.strip()
+
             json.loads(content)
             return content
-        except json.JSONDecodeError:
-            raise ValueError("模型返回内容不是有效的JSON格式，请检查prompt或模型响应")
+        except json.JSONDecodeError as e:
+            raise ValueError(f"模型返回内容不是有效的JSON格式: {str(e)} \n返回内容: {content}")
         except Exception as e:
             raise RuntimeError(f"调用VLM模型失败：{str(e)}")
     
@@ -76,9 +117,6 @@ class VLMAgent:
     def save_result(self, json_content: str) -> str:
         """
         将JSON内容保存到output/stylejson目录，文件名带时间戳
-        
-        :param json_content: 要保存的JSON字符串
-        :return: 保存的文件完整路径
         """
         os.makedirs(self.output_dir, exist_ok=True)
 
@@ -94,3 +132,4 @@ class VLMAgent:
             return out_path
         except Exception as e:
             raise RuntimeError(f"保存文件失败：{str(e)}")
+

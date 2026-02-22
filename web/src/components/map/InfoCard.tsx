@@ -18,6 +18,15 @@ export interface CardStyle {
   borderColor?: string;
   backgroundColor?: string;
   textColor?: string;
+  title?: string;
+  category?: string;
+  rating?: string;
+  desc?: string;
+  tags?: string;
+  chart?: string;
+  address?: string;
+  openTime?: string;
+  ticketPrice?: string;
 }
 
 interface InfoCardProps {
@@ -47,7 +56,7 @@ const InfoCard: React.FC<InfoCardProps> = ({ properties, cardStyle, type = "poin
         setIsMounted(true);
     }, []);
 
-    const { title, category, desc, rating, tags, chartData } = properties;
+    const { title, category, desc, rating, tags, chartData, width, height } = properties;
 
     const renderChart = () => {
         if (!chartData) {
@@ -123,32 +132,34 @@ const InfoCard: React.FC<InfoCardProps> = ({ properties, cardStyle, type = "poin
       backgroundColor: cardStyle?.backgroundColor ?? '#ffffff',
       color: cardStyle?.textColor ?? '#1e293b',
       ...borderStyle,
+      width: width ?? 256,
+      height: height ?? 180
     };
 
     return (
         <div
-          className="w-64 rounded-lg shadow-lg p-3"
+          className="rounded-lg shadow-lg p-3"
           style={containerStyle}
         >
             <div className="mb-2">
                 <h3 className="text-sm font-bold mb-1" style={{ color: cardStyle?.textColor ?? '#1e293b' }}>{title}</h3>
-                {category && (
+                {cardStyle.category && category && (
                     <p className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block">
                         {category}
                     </p>
                 )}
-                {rating && (
+                {cardStyle.rating && rating && (
                     <div className="text-xs text-yellow-600 ml-2 inline-block">
                         ⭐ {rating}
                     </div>
                 )}
             </div>
 
-            {desc && (
-                <p className="text-xs mb-2 line-clamp-2" style={{ color: cardStyle?.textColor ?? '#374151' }}>{desc}</p>
+            {cardStyle.desc && desc && (
+                <p className="text-xs mb-2" style={{ color: cardStyle?.textColor ?? '#374151' }}>{desc}</p>
             )}
 
-            {tags && tags.length > 0 && (
+            {cardStyle.tags && tags && tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 mb-2">
                     {tags.slice(0, 3).map((tag, idx) => (
                         <span key={idx} className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.06)', color: cardStyle?.textColor ?? '#374151' }}>
@@ -158,16 +169,16 @@ const InfoCard: React.FC<InfoCardProps> = ({ properties, cardStyle, type = "poin
                 </div>
             )}
 
-            {/* {renderChart()} */}
+            {cardStyle.chart && renderChart()}
 
-            <div className="mt-2 pt-2 border-t space-y-1 text-xs" style={{ borderColor: 'rgba(0,0,0,0.08)', color: cardStyle?.textColor ?? '#4b5563' }}>
-                {properties.address && (
+            <div className="mt-2 pt-2 space-y-1 text-xs" style={{ borderColor: 'rgba(0,0,0,0.08)', color: cardStyle?.textColor ?? '#4b5563' }}>
+                {cardStyle.address && properties.address && (
                     <p><span className="font-semibold">📍</span> {properties.address}</p>
                 )}
-                {properties.openTime && (
+                {cardStyle.openTime && properties.openTime && (
                     <p><span className="font-semibold">🕐</span> {properties.openTime}</p>
                 )}
-                {properties.ticketPrice && (
+                {cardStyle.ticketPrice && properties.ticketPrice && (
                     <p><span className="font-semibold">🎫</span> {properties.ticketPrice}</p>
                 )}
             </div>

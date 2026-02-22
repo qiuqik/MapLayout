@@ -68,3 +68,28 @@ export const gcj02ToWgs84 = (gcjCoord: [number, number]): [number, number] => {
 
   return [parseFloat(wgs84Lng.toFixed(6)), parseFloat(wgs84Lat.toFixed(6))];
 };
+
+/**
+ * WGS84(Mapbox坐标系) 转 GCJ-02(高德坐标系)
+ * @param wgsCoord WGS84坐标 [lng, lat]
+ * @returns GCJ-02坐标 [lng, lat]
+ */
+export const wgs84ToGcj02 = (wgsCoord: [number, number]): [number, number] => {
+  const [wgsLng, wgsLat] = wgsCoord;
+  if (isOutOfChina(wgsLng, wgsLat)) {
+    return [wgsLng, wgsLat];
+  }
+  let gcjLng = wgsLng;
+  let gcjLat = wgsLat;
+  for (let i = 0; i < 3; i++) {
+    const dLat = transformLat(gcjLng - 105.0, gcjLat - 35.0);
+    const dLng = transformLng(gcjLng - 105.0, gcjLat - 35.0);
+    const radLat = (gcjLat / 180.0) * Math.PI;
+    const magic = Math.sin(radLat);
+    const magic2 = 1 - 0.00669342162296594323 * magic * magic;
+    const sqrtMagic2 = Math.sqrt(magic2);
+    gcjLat = wgsLat + (dLat * 180.0) / ((6378245.0 * (1 - 0.00669342162296594323)) / (magic2 * sqrtMagic2) * Math.PI);
+    gcjLng = wgsLng + (dLng * 180.0) / (6378245.0 / sqrtMagic2 * Math.cos(radLat) * Math.PI);
+  }
+  return [parseFloat(gcjLng.toFixed(6)), parseFloat(gcjLat.toFixed(6))];
+};

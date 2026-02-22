@@ -1,26 +1,35 @@
 {
   "mapConfig": {
-    "BaseMap": "blank",
-    "backgroundColor": "#e0f2fe"
+    "BaseMap": "standard",
+    "backgroundColor": "#f8fafc"
   },
   "routes": {
-    "color": "#000000",
-    "width": 3,
+    "color": "#dc2626",
+    "width": 4,
     "lineStatus": "NavigationCurve"
   },
   "points": {
     "type": "div-svg",
-    "color": "#1d4ed8",
-    "svg": "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='#facc15' stroke='#ffffff' stroke-width='1'><path d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/><polyline points='9 22 9 12 15 12 15 22'/></svg>"
+    "color": "#ea580c",
+    "svg": "<svg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><circle cx='12' cy='12' r='10' stroke='#ea580c' stroke-width='2'/><circle cx='12' cy='12' r='4' fill='#ea580c'/></svg>"
   },
   "connectLine": {
-    "color": "#b91c1c",
-    "type": "straight",
+    "color": "#6b7280",
+    "type": "SmoothCurve",
     "arrow": "Point2Card"
   },
   "card": {
-    "borderColor": "none",
-    "backgroundColor": "#fde68a",
-    "textColor": "#1e293b"
+    "borderColor": "#d1d5db",
+    "backgroundColor": "#ffffff",
+    "textColor": "#1f2937",
+    "title": true,
+    "category": false,
+    "rating": false,
+    "desc": false,
+    "tags": false,
+    "chart": false,
+    "address": false,
+    "openTime": false,
+    "ticketPrice": false
   }
 }

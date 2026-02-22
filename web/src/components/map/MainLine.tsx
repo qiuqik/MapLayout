@@ -21,12 +21,16 @@ async function fetchWalkingRoute(
   coordinates: number[][],
   token: string
 ): Promise<GeoJSON.Position[]> {
-  const coords = coordinates.map((c) => `${c[0]},${c[1]}`).join(';');
-  const url = `${MAPBOX_DIRECTIONS_API}/${coords}?geometries=geojson&access_token=${token}`;
-  const res = await fetch(url);
-  const data = await res.json();
-  if (data.routes?.[0]?.geometry?.coordinates) {
-    return data.routes[0].geometry.coordinates;
+  try {
+    const coords = coordinates.map((c) => `${c[0]},${c[1]}`).join(';');
+    const url = `${MAPBOX_DIRECTIONS_API}/${coords}?geometries=geojson&access_token=${token}`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.routes?.[0]?.geometry?.coordinates) {
+      return data.routes[0].geometry.coordinates;
+    }
+  } catch (e) {
+    console.warn('Mapbox Directions API 失败，使用直线:', e);
   }
   return coordinates;
 }
@@ -84,7 +88,12 @@ const MainLine: React.FC<MainLineProps> = ({ geojson, routesStyle, mapboxToken }
     }
 
     if (lineStatus === 'NavigationCurve' && mapboxToken) {
-      buildNavigationGeoJSON(lineFeatures, mapboxToken).then(setRouteData);
+      buildNavigationGeoJSON(lineFeatures, mapboxToken)
+        .then(setRouteData)
+        .catch((e) => {
+          console.warn('NavigationCurve 失败，回退到直线:', e);
+          setRouteData({ type: 'FeatureCollection', features: lineFeatures });
+        });
     } else if (lineStatus === 'SmoothCurve') {
       const features = lineFeatures.map((f) => ({
         ...f,

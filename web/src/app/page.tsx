@@ -14,15 +14,15 @@ const CoreMap = dynamic(() => import('@/components/CoreMap'), {
 
 export default function Page() {
   return (
-    <MapProvider>
-      <div className="flex flex-col w-screen h-screen overflow-hidden">
-        <Header />
-        <div className="flex flex-1 overflow-hidden">
-          <LeftCard />
-          <CoreMap />
-          {/* <RightCard /> */}
+      <MapProvider>
+        <div className="flex flex-col w-screen h-screen overflow-hidden">
+          <Header />
+          <div className="flex flex-1 overflow-hidden">
+            <LeftCard />
+            <CoreMap />
+            {/* <RightCard /> */}
+          </div>
         </div>
-      </div>
-    </MapProvider>
+      </MapProvider>
   )
 }

@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse, FileResponse
 import os
 import json
 
-from fastapi import UploadFile, File
+from fastapi import UploadFile, File, Body
 from datetime import datetime
 import src.travel_agent as travel_agent
 import src.vlm_agent as vlm_agent
@@ -35,13 +35,13 @@ async def analyze(message: ChatMessage):
     # 处理输入文本
     user_input = message.message
 
-    # print(f"收到用户消息: {message.message}")
-    # try:
-    #     agent = travel_agent.TravelPlannerAgent()
-    #     json_output = agent.run(user_input)
-    #     geo_file_path = agent.save_file(json_output)
-    # except Exception as e:
-    #     return JSONResponse(status_code=500, content={"error": str(e)})
+    print(f"收到用户消息: {message.message}")
+    try:
+        agent = travel_agent.TravelPlannerAgent()
+        json_output = agent.run(user_input)
+        geo_file_path = agent.save_file(json_output)
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
     # 处理输入参考图
     image_name = message.imageFilename
@@ -56,9 +56,10 @@ async def analyze(message: ChatMessage):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
     return {
-        "geofilepath": 'geojson_20260212_000412.json',
-        # "geofilepath": geo_file_path,
-        "stylefilepath": style_file_path
+        # "geofilepath": 'geojson_20260212_000412.json',
+        "geofilepath": geo_file_path,
+        "stylefilepath": style_file_path,
+        # "stylefilepath": 'mapbox_style_20260222_182936.json'
     }
 
 
@@ -96,6 +97,23 @@ async def list_style_files():
         files = []
     return {"files": files}
 
+
+
+# 保存 geojson 文件
+@app.put("/files/{name}")
+async def save_geojson_file(name: str, content: dict = Body(...)):
+    base_path = os.path.dirname(__file__)
+    geojson_path = os.path.join(base_path, 'output', 'geojson', name)
+    if 'geojson' not in name:
+        return JSONResponse(status_code=400, content={"error": "只能更新 geojson 文件"})
+    if not os.path.isfile(geojson_path):
+        return JSONResponse(status_code=404, content={"error": "文件不存在"})
+    try:
+        with open(geojson_path, 'w', encoding='utf-8') as f:
+            json.dump(content, f, ensure_ascii=False, indent=4)
+        return {"success": True, "message": "保存成功"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 # 返回指定文件，包括 geojson/stylejson/images

@@ -5,7 +5,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import type { StyleSpecification } from 'mapbox-gl';
 import Map, { NavigationControl, MapRef, Marker } from 'react-map-gl/mapbox';
 import { MapDataContext } from '@/lib/mapContext';
-import { gcj02ToWgs84 } from '@/lib/gcl2wgs';
+import { gcj02ToWgs84, wgs84ToGcj02 } from '@/lib/gcl2wgs';
 import dynamic from 'next/dynamic';
 
 import MainLine from './map/MainLine';
@@ -40,17 +40,21 @@ export interface MapStyleConfig {
     borderColor?: string;
     backgroundColor?: string;
     textColor?: string;
+    width?: number;
+    height?: number;
   };
 }
 
 const CARD_OFFSET = 0.01;
 
 const CoreMap: React.FC = () => {
-  const { geofilename } = useContext(MapDataContext);
+  const { geofilename, stylename } = useContext(MapDataContext);
   const mapRef = useRef<MapRef>(null);
 
   const [geojson, setGeojson] = useState<any>(null);
+  const rawGeojsonRef = useRef<any>(null);
   const [mapStyle, setMapStyle] = useState<MapStyleConfig | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const [viewState, setViewState] = useState({
     longitude: 116.4074,
     latitude: 39.9042,
@@ -85,16 +89,18 @@ const CoreMap: React.FC = () => {
 
   useEffect(() => {
     const fetchMapStyle = async () => {
+      if (!stylename) return;
       try {
-        const res = await fetch('/mapbox_style_000.json');
+        const res = await fetch(`http://localhost:8000/files/${encodeURIComponent(stylename)}`);
         const data = await res.json();
+        console.log(data);
         setMapStyle(data);
       } catch (error) {
         console.error('加载本地样式失败，使用默认样式:', error);
       }
     };
     fetchMapStyle();
-  }, []);
+  }, [stylename]);
 
   const coordinateTrans = (geodata: any): any => {
     if (!geodata?.features) return geodata;
@@ -120,6 +126,7 @@ const CoreMap: React.FC = () => {
       try {
         const res = await fetch(`http://localhost:8000/files/${encodeURIComponent(geofilename)}`);
         const data = await res.json();
+        rawGeojsonRef.current = JSON.parse(JSON.stringify(data));
         const transformedData = coordinateTrans(data);
         setGeojson(transformedData);
       } catch (e) {
@@ -128,6 +135,39 @@ const CoreMap: React.FC = () => {
     };
     fetchGeoJson();
   }, [geofilename]);
+
+  const saveGeojson = async (content: any) => {
+    if (!geofilename) return;
+    try {
+      const res = await fetch(`http://localhost:8000/files/${encodeURIComponent(geofilename)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(content),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || '保存失败');
+    } catch (e) {
+      console.error('Save GeoJSON Error:', e);
+    }
+  };
+
+  const handleCardDragEnd = (featureIdx: number, lngLat: { lng: number; lat: number }) => {
+    const newCoord: [number, number] = [lngLat.lng, lngLat.lat];
+    setGeojson((prev: any) => {
+      if (!prev?.features) return prev;
+      const next = JSON.parse(JSON.stringify(prev));
+      if (next.features[featureIdx]?.geometry?.type === 'Point') {
+        next.features[featureIdx].properties = next.features[featureIdx].properties || {};
+        next.features[featureIdx].properties.cardcoord = newCoord;
+      }
+      return next;
+    });
+    if (rawGeojsonRef.current?.features?.[featureIdx]?.geometry?.type === 'Point') {
+      rawGeojsonRef.current.features[featureIdx].properties = rawGeojsonRef.current.features[featureIdx].properties || {};
+      rawGeojsonRef.current.features[featureIdx].properties.cardcoord = wgs84ToGcj02(newCoord);
+      saveGeojson(rawGeojsonRef.current);
+    }
+  };
 
   useEffect(() => {
     if (!geojson || !mapRef.current) return;
@@ -156,8 +196,10 @@ const CoreMap: React.FC = () => {
     }
   }, [geojson]);
 
-  const pointFeatures =
-    geojson?.features?.filter((f: any) => f.geometry?.type === 'Point') ?? [];
+  const pointFeaturesWithIndex =
+    geojson?.features
+      ?.map((f: any, i: number) => ({ feature: f, originalIndex: i }))
+      ?.filter(({ feature }: any) => feature.geometry?.type === 'Point') ?? [];
   const routesStyle = mapStyle?.routes ?? {
     color: '#f97316',
     width: 4,
@@ -179,6 +221,7 @@ const CoreMap: React.FC = () => {
       <Map
         {...viewState}
         ref={mapRef}
+        onLoad={() => setMapLoaded(true)}
         onMove={(evt) => setViewState(evt.viewState)}
         mapStyle={resolvedMapStyle ?? 'mapbox://styles/mapbox/streets-v12'}
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
@@ -194,7 +237,7 @@ const CoreMap: React.FC = () => {
               mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
             />
 
-            {pointFeatures.map((feature: any, idx: number) => {
+            {pointFeaturesWithIndex.map(({ feature, originalIndex }: any, idx: number) => {
               const [lng, lat] = feature.geometry.coordinates;
               const cardCoord: [number, number] = feature.properties.cardcoord ?? [lng + CARD_OFFSET, lat + CARD_OFFSET];
               const pointCoord: [number, number] = [lng, lat];
@@ -205,6 +248,11 @@ const CoreMap: React.FC = () => {
                     pointCoord={pointCoord}
                     cardCoord={cardCoord}
                     connectLineStyle={connectLineStyle}
+                    cardWidth={cardStyle?.width ?? 256}
+                    cardHeight={cardStyle?.height ?? 180}
+                    mapRef={mapRef}
+                    mapLoaded={mapLoaded}
+                    viewState={viewState}
                     index={idx}
                   />
                   <MainPoint
@@ -218,6 +266,8 @@ const CoreMap: React.FC = () => {
                     longitude={cardCoord[0]}
                     latitude={cardCoord[1]}
                     anchor="bottom-left"
+                    draggable
+                    onDragEnd={(e) => handleCardDragEnd(originalIndex, e.lngLat)}
                   >
                     <InfoCard properties={feature.properties} cardStyle={cardStyle} />
                   </Marker>
