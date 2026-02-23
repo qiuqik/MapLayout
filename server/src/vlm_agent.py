@@ -44,7 +44,7 @@ class VLMAgent:
 
 {
   "mapConfig": {
-    "baseMap": "枚举值：必须从 'blank'、'standard'、'satellite' 中选择",
+    "baseMap": "枚举值：必须从 'blank'、'standard'、'satellite' 中选择，blank 表明底图非地图，standard 表明底图为标准地图，satellite 表明底图为卫星图",
     "backgroundColor": "十六进制颜色码，仅在 baseMap 为 'blank' 时生效"
   },
   "route": {
@@ -53,14 +53,14 @@ class VLMAgent:
     "style": "枚举值：'straightLine' 或 'navigationCurve'" 
   },
   "point": {
-    "type": "枚举值：'default' 或 'svg'",
+    "type": "枚举值：'none' 或 'default' 或 'svg'，若 POI 标记为特殊图标，填 svg，若无 POI 标记填 'none'",
     "color": "途径点的十六进制颜色码",
-    "iconSvg": "如果 type 是 'svg'，请生成对应的 svg 代码；否则填 'none'"
+    "iconSvg": "如果 type 是 'svg'，请识别图中 POI 标记并生成尽可能相似的 svg 代码；否则填 'none'"
   },
   "connectLine": {
     "color": "连线的十六进制颜色码",
-    "type": "枚举值：'straight' 或 'curve'", 
-    "arrowDirection": "枚举值：'none'、'point-to-card'、'card-to-point'"
+    "type": "枚举值：'straight' 或 'curve'，连接线若为直线填'straight'，若为弧线填 'curve'", 
+    "arrowDirection": "枚举值：'none'、'point-to-card'、'card-to-point'，表明连接线箭头方向，无箭头填 'none'"
   },
   "card": {
     "containerStyle": {

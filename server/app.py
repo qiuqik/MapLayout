@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 import os
 import json
+import asyncio
 
 from fastapi import UploadFile, File, Body
 from datetime import datetime
@@ -32,49 +33,43 @@ class ChatMessage(BaseModel):
 
 @app.post('/api/agent')
 async def analyze(message: ChatMessage):
-    # 处理输入文本
     user_input = message.message
+    print(f"收到用户消息: {user_input}")
 
-    print(f"收到用户消息: {message.message}")
-    try:
-        agent = travel_agent.TravelPlannerAgent()
-        json_output = agent.run(user_input)
-        geo_file_path = agent.save_file(json_output)
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-    # 处理输入参考图
+    # 检查图片路径
     image_name = message.imageFilename
     image_path = os.path.join(os.path.dirname(__file__), 'images', image_name)
     if not os.path.exists(image_path):
-        raise FileNotFoundError(f"图片文件不存在：{image_path}")
-    try:
-        agent = vlm_agent.VLMAgent(os.path.join(os.path.dirname(__file__), 'output/stylejson'))
+        return JSONResponse(status_code=404, content={"error": f"图片文件不存在：{image_path}"})
+
+    # Travel Agent (文本规划)
+    def run_travel_agent():
+        agent = travel_agent.TravelPlannerAgent()
+        json_output = agent.run(user_input)
+        return agent.save_file(json_output)
+
+    # VLM Agent (视觉样式)
+    def run_vlm_agent():
+        output_dir = os.path.join(os.path.dirname(__file__), 'output/stylejson')
+        agent = vlm_agent.VLMAgent(output_dir)
         json_content = agent.analyze_image(image_path)
-        style_file_path = agent.save_result(json_content)
+        full_path = agent.save_result(json_content)
+        return os.path.basename(full_path)
+
+    try:
+        # 并发运行同步阻塞任务
+        geo_file_name, style_file_name = await asyncio.gather(
+            asyncio.to_thread(run_travel_agent),
+            asyncio.to_thread(run_vlm_agent)
+        )
     except Exception as e:
+        print(f"执行Agent时发生错误: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
     return {
-        # "geofilepath": 'geojson_20260212_000412.json',
-        "geofilepath": geo_file_path,
-        "stylefilepath": style_file_path,
-        # "stylefilepath": 'mapbox_style_20260222_182936.json'
+        "geofilepath": geo_file_name,
+        "stylefilepath": style_file_name
     }
-
-
-
-# 模拟返回 json
-# @app.post("/api/agentmoni")
-# async def chat(message: ChatMessage):
-#     user_input = message.message;
-#     print(f"收到用户消息: {message.message}")
-#     filepath = os.path.join(os.path.dirname(__file__), 'output/geojson_20260212_000412.json')
-#     with open(filepath, 'r', encoding='utf-8') as fh:
-#             json_output = json.load(fh)
-#     return {
-#         "filepath": 'geojson_20260212_000412.json'
-#         }
 
 
 # 返回所有 geojson 文件

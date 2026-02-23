@@ -208,7 +208,7 @@ const CoreMap: React.FC = () => {
       ?.map((f: any, i: number) => ({ feature: f, originalIndex: i }))
       ?.filter(({ feature }: any) => feature.geometry?.type === 'Point') ?? [];
   
-  // ================= 默认样式适配新 JSON 标准 =================
+  // 默认样式
   const routesStyle = mapStyle?.route ?? {
     color: '#f97316',
     width: 4,
@@ -228,7 +228,7 @@ const CoreMap: React.FC = () => {
     elements: {}
   };
 
-  // 尝试从 containerStyle 提取卡片宽高，连线计算会用到
+  // 尝试从 containerStyle 提取卡片宽高，用于连线计算
   const parsedCardWidth = parseInt(String(cardStyle.containerStyle?.width)) || 256;
   const parsedCardHeight = parseInt(String(cardStyle.containerStyle?.height)) || 180;
 
