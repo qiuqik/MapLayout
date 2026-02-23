@@ -15,18 +15,18 @@ interface ChartData {
 }
 
 export interface CardStyle {
-  borderColor?: string;
-  backgroundColor?: string;
-  textColor?: string;
-  title?: string;
-  category?: string;
-  rating?: string;
-  desc?: string;
-  tags?: string;
-  chart?: string;
-  address?: string;
-  openTime?: string;
-  ticketPrice?: string;
+  containerStyle?: React.CSSProperties;
+  elements?: {
+    title?: { show?: boolean; style?: React.CSSProperties };
+    desc?: { show?: boolean; style?: React.CSSProperties };
+    tags?: { show?: boolean; containerStyle?: React.CSSProperties; itemStyle?: React.CSSProperties };
+    category?: { show?: boolean; style?: React.CSSProperties };
+    rating?: { show?: boolean; style?: React.CSSProperties };
+    address?: { show?: boolean; style?: React.CSSProperties };
+    openTime?: { show?: boolean; style?: React.CSSProperties };
+    ticketPrice?: { show?: boolean; style?: React.CSSProperties };
+    chart?: { show?: boolean; style?: React.CSSProperties };
+  };
 }
 
 interface InfoCardProps {
@@ -57,6 +57,7 @@ const InfoCard: React.FC<InfoCardProps> = ({ properties, cardStyle, type = "poin
     }, []);
 
     const { title, category, desc, rating, tags, chartData, width, height } = properties;
+    const elements = cardStyle?.elements || {};
 
     const renderChart = () => {
         if (!chartData) {
@@ -112,7 +113,7 @@ const InfoCard: React.FC<InfoCardProps> = ({ properties, cardStyle, type = "poin
         }
 
         return (
-            <div className="mt-2 p-2 bg-gray-50 rounded">
+            <div className="mt-2 p-2 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.02)', ...elements.chart?.style }}>
                 <p className="text-xs font-semibold text-gray-700 mb-2">{chartTitle}</p>
                 {isMounted && (
                     <ReactECharts
@@ -125,63 +126,87 @@ const InfoCard: React.FC<InfoCardProps> = ({ properties, cardStyle, type = "poin
         );
     };
 
-    const borderStyle = cardStyle?.borderColor && cardStyle.borderColor !== 'none'
-      ? { borderWidth: 1, borderStyle: 'solid' as const, borderColor: cardStyle.borderColor }
-      : { border: 'none' };
-    const containerStyle = {
-      backgroundColor: cardStyle?.backgroundColor ?? '#ffffff',
-      color: cardStyle?.textColor ?? '#1e293b',
-      ...borderStyle,
-      width: width ?? 256,
-      height: height ?? 180
+    // 托底样式
+    const containerBaseStyle: React.CSSProperties = {
+        backgroundColor: '#ffffff',
+        width: width ?? 256,
+        minHeight: height ?? 180,
+        ...cardStyle?.containerStyle
     };
 
     return (
         <div
-          className="rounded-lg shadow-lg p-3"
-          style={containerStyle}
+            className="rounded-lg shadow-lg p-3 box-border flex flex-col"
+            style={containerBaseStyle}
         >
-            <div className="mb-2">
-                <h3 className="text-sm font-bold mb-1" style={{ color: cardStyle?.textColor ?? '#1e293b' }}>{title}</h3>
-                {cardStyle.category && category && (
-                    <p className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block">
-                        {category}
-                    </p>
-                )}
-                {cardStyle.rating && rating && (
-                    <div className="text-xs text-yellow-600 ml-2 inline-block">
-                        ⭐ {rating}
+            <div className="mb-2 flex items-center flex-wrap gap-2">
+                {/* 标题 */}
+                {elements.title?.show && title && (
+                    <div className="text-sm font-bold m-0" style={{color: '#1e293b', ...elements.title.style }}>
+                        {title}
                     </div>
+                )}
+                
+                {/* 分类 */}
+                {elements.category?.show && category && (
+                    <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: '#eff6ff', color: '#2563eb', ...elements.category.style }}>
+                        {category}
+                    </span>
+                )}
+                
+                {/* 评分 */}
+                {elements.rating?.show && rating && (
+                    <span className="text-xs" style={{ color: '#ca8a04', ...elements.rating.style }}>
+                        ⭐ {rating}
+                    </span>
                 )}
             </div>
 
-            {cardStyle.desc && desc && (
-                <p className="text-xs mb-2" style={{ color: cardStyle?.textColor ?? '#374151' }}>{desc}</p>
+            {/* 描述 */}
+            {elements.desc?.show && desc && (
+                <p className="text-xs mb-2 leading-relaxed" style={{ color: '#374151', ...elements.desc.style }}>
+                    {desc}
+                </p>
             )}
 
-            {cardStyle.tags && tags && tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-2">
+            {/* 标签 */}
+            {elements.tags?.show && tags && tags.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2" style={elements.tags.containerStyle}>
                     {tags.slice(0, 3).map((tag, idx) => (
-                        <span key={idx} className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(0,0,0,0.06)', color: cardStyle?.textColor ?? '#374151' }}>
+                        <span 
+                            key={idx} 
+                            className="text-xs px-2 py-0.5 rounded" 
+                            style={{ backgroundColor: 'rgba(0,0,0,0.06)', color: '#374151', ...elements.tags?.itemStyle }}
+                        >
                             {tag}
                         </span>
                     ))}
                 </div>
             )}
 
-            {cardStyle.chart && renderChart()}
+            {/* 图表 */}
+            {elements.chart?.show && renderChart()}
 
-            <div className="mt-2 pt-2 space-y-1 text-xs" style={{ borderColor: 'rgba(0,0,0,0.08)', color: cardStyle?.textColor ?? '#4b5563' }}>
-                {cardStyle.address && properties.address && (
-                    <p><span className="font-semibold">📍</span> {properties.address}</p>
-                )}
-                {cardStyle.openTime && properties.openTime && (
-                    <p><span className="font-semibold">🕐</span> {properties.openTime}</p>
-                )}
-                {cardStyle.ticketPrice && properties.ticketPrice && (
-                    <p><span className="font-semibold">🎫</span> {properties.ticketPrice}</p>
-                )}
-            </div>
+            {/* 地址、时间、价格 */}
+            {(elements.address?.show || elements.openTime?.show || elements.ticketPrice?.show) && (
+                <div className="mt-auto pt-2 space-y-1 text-xs" style={{ borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+                    {elements.address?.show && properties.address && (
+                        <p style={{ color: '#4b5563', ...elements.address.style }}>
+                            <span className="font-semibold mr-1">📍</span> {properties.address}
+                        </p>
+                    )}
+                    {elements.openTime?.show && properties.openTime && (
+                        <p style={{ color: '#4b5563', ...elements.openTime.style }}>
+                            <span className="font-semibold mr-1">🕐</span> {properties.openTime}
+                        </p>
+                    )}
+                    {elements.ticketPrice?.show && properties.ticketPrice && (
+                        <p style={{ color: '#4b5563', ...elements.ticketPrice.style }}>
+                            <span className="font-semibold mr-1">🎫</span> {properties.ticketPrice}
+                        </p>
+                    )}
+                </div>
+            )}
         </div>
     )
 }

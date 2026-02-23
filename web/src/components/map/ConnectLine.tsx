@@ -6,8 +6,8 @@ import { Source, Layer, LayerProps, Marker } from 'react-map-gl/mapbox';
 
 export interface ConnectLineStyle {
   color?: string;
-  type?: 'straight' | 'SmoothCurve';
-  arrow?: 'none' | 'Point2Card' | 'Card2Point';
+  type?: 'straight' | 'curve';
+  arrowDirection?: 'none' | 'point-to-card' | 'card-to-point';
 }
 
 interface ConnectLineProps {
@@ -66,7 +66,7 @@ function lineCoord(
   card: [number, number],
   lineType: ConnectLineStyle['type']
 ): GeoJSON.Position[] {
-  if (lineType === 'SmoothCurve') {
+  if (lineType === 'curve') {
     const mid: [number, number] = [
       (point[0] + card[0]) / 2 + (card[1] - point[1]) * 0.02,
       (point[1] + card[1]) / 2 + (point[0] - card[0]) * 0.02,
@@ -87,7 +87,7 @@ const ConnectLine: React.FC<ConnectLineProps> = ({
   viewState,
   index = 0,
 }) => {
-  const { color = '#7f3249', type = 'straight', arrow = 'none' } = connectLineStyle;
+  const { color = '#7f3249', type = 'straight', arrowDirection = 'none' } = connectLineStyle;
 
   // 计算卡片与点的交点
   const cardEndCoord = useMemo((): [number, number] => {
@@ -149,7 +149,7 @@ const ConnectLine: React.FC<ConnectLineProps> = ({
     id: `connect-line-${index}`,
     type: 'line',
     layout: {
-      'line-join': type === 'SmoothCurve' ? 'round' : 'miter',
+      'line-join': type === 'curve' ? 'round' : 'miter',
       'line-cap': 'round',
     },
     paint: {
@@ -158,24 +158,24 @@ const ConnectLine: React.FC<ConnectLineProps> = ({
     },
   };
 
-  const arrowEndCoord = arrow === 'Point2Card' ? cardEndCoord : arrow === 'Card2Point' ? pointCoord : null;
+  const arrowEndCoord = arrowDirection === 'point-to-card' ? cardEndCoord : arrowDirection === 'card-to-point' ? pointCoord : null;
 
   const arrowRotation = useMemo(() => {
-    if (!arrowEndCoord || !arrow) return 0;
+    if (!arrowEndCoord || !arrowDirection) return 0;
     const [from, to] =
-      arrow === 'Point2Card'
+      arrowDirection === 'point-to-card'
         ? [pointCoord, cardEndCoord]
-        : arrow === 'Card2Point'
+        : arrowDirection === 'card-to-point'
           ? [cardEndCoord, pointCoord]
           : null;
     const dx = to[0] - from[0];
     const dy = to[1] - from[1];
     const angleRad = Math.atan2(dx, dy);
     return (angleRad * 180) / Math.PI;
-  }, [arrowEndCoord, arrow, pointCoord, cardEndCoord]);
+  }, [arrowEndCoord, arrowDirection, pointCoord, cardEndCoord]);
 
   return (
-    <div>
+    <div className='relative z-[100]'>
       <Source id={`connect-line-source-${index}`} type="geojson" data={geojson}>
         <Layer {...lineLayerStyle} />
       </Source>

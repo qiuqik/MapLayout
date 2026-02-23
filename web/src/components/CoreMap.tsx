@@ -18,30 +18,37 @@ const InfoCard = dynamic(() => import('./map/InfoCard'), {
 
 export interface MapStyleConfig {
   mapConfig?: {
-    BaseMap?: 'blank' | 'standard' | 'satellite';
+    baseMap?: 'blank' | 'standard' | 'satellite';
     backgroundColor?: string;
   };
-  routes?: {
+  route?: {
     color?: string;
     width?: number;
-    lineStatus?: 'StraightLine' | 'SmoothCurve' | 'NavigationCurve';
+    style?: 'straightLine' | 'navigationCurve';
   };
-  points?: {
-    type?: 'default-marker';
+  point?: {
+    type?: 'default' | 'svg';
     color?: string;
-    svg?: string;
+    iconSvg?: string;
   };
   connectLine?: {
     color?: string;
-    type?: 'straight' | 'SmoothCurve';
-    showArrow?: 'none' | 'Point2Card' | 'Card2Point';
+    type?: 'straight' | 'curve';
+    arrowDirection?: 'none' | 'point-to-card' | 'card-to-point';
   };
   card?: {
-    borderColor?: string;
-    backgroundColor?: string;
-    textColor?: string;
-    width?: number;
-    height?: number;
+    containerStyle?: React.CSSProperties;
+    elements?: {
+      title?: { show?: boolean; style?: React.CSSProperties };
+      desc?: { show?: boolean; style?: React.CSSProperties };
+      tags?: { show?: boolean; containerStyle?: React.CSSProperties; itemStyle?: React.CSSProperties };
+      category?: { show?: boolean; style?: React.CSSProperties };
+      rating?: { show?: boolean; style?: React.CSSProperties };
+      address?: { show?: boolean; style?: React.CSSProperties };
+      openTime?: { show?: boolean; style?: React.CSSProperties };
+      ticketPrice?: { show?: boolean; style?: React.CSSProperties };
+      chart?: { show?: boolean; style?: React.CSSProperties };
+    };
   };
 }
 
@@ -62,14 +69,14 @@ const CoreMap: React.FC = () => {
   });
 
   const mapStyleUrl = useMemo(() => {
-    const base = mapStyle?.mapConfig?.BaseMap ?? 'standard';
+    const base = mapStyle?.mapConfig?.baseMap ?? 'standard';
     if (base === 'blank') return null;
     if (base === 'satellite') return 'mapbox://styles/mapbox/satellite-streets-v12';
     return 'mapbox://styles/mapbox/streets-v12';
-  }, [mapStyle?.mapConfig?.BaseMap]);
+  }, [mapStyle?.mapConfig?.baseMap]);
 
   const blankMapStyle = useMemo(() => {
-    if (mapStyle?.mapConfig?.BaseMap !== 'blank') return undefined;
+    if (mapStyle?.mapConfig?.baseMap !== 'blank') return undefined;
     const bg = mapStyle?.mapConfig?.backgroundColor ?? '#f8fafc';
     return {
       version: 8 as const,
@@ -82,10 +89,10 @@ const CoreMap: React.FC = () => {
         },
       ],
     } as StyleSpecification;
-  }, [mapStyle?.mapConfig?.BaseMap, mapStyle?.mapConfig?.backgroundColor]);
+  }, [mapStyle?.mapConfig?.baseMap, mapStyle?.mapConfig?.backgroundColor]);
 
   const resolvedMapStyle: string | StyleSpecification | undefined =
-    mapStyle?.mapConfig?.BaseMap === 'blank' ? blankMapStyle : mapStyleUrl ?? undefined;
+    mapStyle?.mapConfig?.baseMap === 'blank' ? blankMapStyle : mapStyleUrl ?? undefined;
 
   useEffect(() => {
     const fetchMapStyle = async () => {
@@ -93,7 +100,7 @@ const CoreMap: React.FC = () => {
       try {
         const res = await fetch(`http://localhost:8000/files/${encodeURIComponent(stylename)}`);
         const data = await res.json();
-        console.log(data);
+        console.log("加载到的 MapStyle:", data);
         setMapStyle(data);
       } catch (error) {
         console.error('加载本地样式失败，使用默认样式:', error);
@@ -200,21 +207,30 @@ const CoreMap: React.FC = () => {
     geojson?.features
       ?.map((f: any, i: number) => ({ feature: f, originalIndex: i }))
       ?.filter(({ feature }: any) => feature.geometry?.type === 'Point') ?? [];
-  const routesStyle = mapStyle?.routes ?? {
+  
+  // ================= 默认样式适配新 JSON 标准 =================
+  const routesStyle = mapStyle?.route ?? {
     color: '#f97316',
     width: 4,
-    lineStatus: 'StraightLine' as const,
+    style: 'straightLine' as const,
   };
-  const pointsStyle = mapStyle?.points ?? {
-    type: 'default-marker',
+  const pointsStyle = mapStyle?.point ?? {
+    type: 'default' as const,
     color: '#ea580c',
   };
   const connectLineStyle = mapStyle?.connectLine ?? {
     color: '#7f3249',
     type: 'straight' as const,
-    showArrow: 'none' as const,
+    arrowDirection: 'none' as const,
   };
-  const cardStyle = mapStyle?.card ?? {};
+  const cardStyle = mapStyle?.card ?? {
+    containerStyle: { width: 256, height: 180 }, // 默认宽高
+    elements: {}
+  };
+
+  // 尝试从 containerStyle 提取卡片宽高，连线计算会用到
+  const parsedCardWidth = parseInt(String(cardStyle.containerStyle?.width)) || 256;
+  const parsedCardHeight = parseInt(String(cardStyle.containerStyle?.height)) || 180;
 
   return (
     <div className="flex flex-1 w-full h-full relative">
@@ -248,8 +264,8 @@ const CoreMap: React.FC = () => {
                     pointCoord={pointCoord}
                     cardCoord={cardCoord}
                     connectLineStyle={connectLineStyle}
-                    cardWidth={cardStyle?.width ?? 256}
-                    cardHeight={cardStyle?.height ?? 180}
+                    cardWidth={parsedCardWidth}
+                    cardHeight={parsedCardHeight}
                     mapRef={mapRef}
                     mapLoaded={mapLoaded}
                     viewState={viewState}

@@ -17,9 +17,8 @@ const LeftCard: React.FC = () => {
         fetch('http://localhost:8000/geofiles')
             .then(res => res.json())
             .then(data => {
-                // 按照文件名称排序
                 data.files.sort((a: string, b: string) => {
-                    return a.localeCompare(b);
+                    return b.localeCompare(a);
                 });
                 if (data && data.files) {
                     setGeofiles(data.files);
@@ -33,7 +32,7 @@ const LeftCard: React.FC = () => {
             .then(res => res.json())
             .then(data => {
                 data.files.sort((a: string, b: string) => {
-                    return a.localeCompare(b);
+                    return b.localeCompare(a);
                 });
                 if (data && data.files) {
                     setStylefiles(data.files);

@@ -4,9 +4,9 @@ import React from 'react';
 import { Marker } from 'react-map-gl/mapbox';
 
 export interface PointsStyle {
-  type?: 'default-marker';
+  type?: 'default' | 'svg';
   color?: string;
-  svg?: string;
+  iconSvg?: string;
 }
 
 interface MainPointProps {
@@ -35,13 +35,13 @@ const MainPoint: React.FC<MainPointProps> = ({
   pointsStyle,
   index = 0,
 }) => {
-  const { type = 'default-marker', color = '#ea580c', svg = '' } = pointsStyle;
+  const { type = 'default', color = '#ea580c', iconSvg = '' } = pointsStyle;
 
   const MarkerIcon =
-    type === 'default-marker' ? (
+    type === 'default' ? (
       <DefaultMarker color={color} />
-    ) : type === 'div-svg' ? (
-      <div dangerouslySetInnerHTML={{ __html: svg }} />
+    ) : type === 'svg' ? (
+      <div dangerouslySetInnerHTML={{ __html: iconSvg }} />
     ) : (
       null
     );
@@ -51,7 +51,7 @@ const MainPoint: React.FC<MainPointProps> = ({
       key={`main-point-${index}`}
       longitude={longitude}
       latitude={latitude}
-      anchor={type === 'default-marker' ? 'center' : 'bottom'}
+      anchor={type === 'default' ? 'center' : 'bottom'}
     >
       <div style={{ width: 24, height: 24 }}>
         {MarkerIcon}

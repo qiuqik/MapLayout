@@ -6,7 +6,7 @@ import { Source, Layer, LayerProps } from 'react-map-gl/mapbox';
 export interface RoutesStyle {
   color?: string;
   width?: number;
-  lineStatus?: 'StraightLine' | 'SmoothCurve' | 'NavigationCurve';
+  style?: 'straightLine' | 'smoothCurve' | 'navigationCurve';
 }
 
 interface MainLineProps {
@@ -71,7 +71,7 @@ function smoothCurveCoords(coords: number[][]): number[][] {
 const MainLine: React.FC<MainLineProps> = ({ geojson, routesStyle, mapboxToken }) => {
   const [routeData, setRouteData] = useState<GeoJSON.FeatureCollection<GeoJSON.LineString> | null>(null);
 
-  const { color = '#f97316', width = 4, lineStatus = 'StraightLine' } = routesStyle;
+  const { color = '#f97316', width = 4, style = 'straightLine' } = routesStyle;
   const lineFeatures = useMemo(
     () =>
       geojson?.features?.filter(
@@ -87,14 +87,14 @@ const MainLine: React.FC<MainLineProps> = ({ geojson, routesStyle, mapboxToken }
       return;
     }
 
-    if (lineStatus === 'NavigationCurve' && mapboxToken) {
+    if (style === 'navigationCurve' && mapboxToken) {
       buildNavigationGeoJSON(lineFeatures, mapboxToken)
         .then(setRouteData)
         .catch((e) => {
           console.warn('NavigationCurve 失败，回退到直线:', e);
           setRouteData({ type: 'FeatureCollection', features: lineFeatures });
         });
-    } else if (lineStatus === 'SmoothCurve') {
+    } else if (style === 'smoothCurve') {
       const features = lineFeatures.map((f) => ({
         ...f,
         geometry: {
@@ -106,7 +106,7 @@ const MainLine: React.FC<MainLineProps> = ({ geojson, routesStyle, mapboxToken }
     } else {
       setRouteData({ type: 'FeatureCollection', features: lineFeatures });
     }
-  }, [lineStatus, lineFeatures, mapboxToken]);
+  }, [style, lineFeatures, mapboxToken]);
 
   if (!routeData?.features?.length) return null;
 
@@ -114,7 +114,7 @@ const MainLine: React.FC<MainLineProps> = ({ geojson, routesStyle, mapboxToken }
     id: 'main-route-line',
     type: 'line',
     layout: {
-      'line-join': lineStatus === 'SmoothCurve' ? 'round' : 'miter',
+      'line-join': style === 'smoothCurve' ? 'round' : 'miter',
       'line-cap': 'round',
     },
     paint: {

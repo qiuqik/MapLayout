@@ -115,7 +115,7 @@ class TravelPlannerAgent:
             
             # 修正 POI 点位坐标
             for feature in point_features:
-                keyword = feature.properties.title
+                keyword = feature.properties.title + " " + feature.properties.address
                 
                 coords = self.amap_service.search_poi(keyword)
                 if coords:
