@@ -68,6 +68,18 @@ const CoreMap: React.FC = () => {
     zoom: 12,
   });
 
+  const [cardSizes, setCardSizes] = useState<{ [key: number]: { width: number; height: number } }>({});
+
+  const handleCardResize = (idx: number, width: number, height: number) => {
+    setCardSizes(prev => {
+      const current = prev[idx];
+      if (current && current.width === width && current.height === height) {
+        return prev;
+      }
+      return { ...prev, [idx]: { width, height } };
+    });
+  };
+
   const mapStyleUrl = useMemo(() => {
     const base = mapStyle?.mapConfig?.baseMap ?? 'standard';
     if (base === 'blank') return null;
@@ -264,8 +276,8 @@ const CoreMap: React.FC = () => {
                     pointCoord={pointCoord}
                     cardCoord={cardCoord}
                     connectLineStyle={connectLineStyle}
-                    cardWidth={parsedCardWidth}
-                    cardHeight={parsedCardHeight}
+                    cardWidth={cardSizes[idx]?.width ?? parsedCardWidth}
+                    cardHeight={cardSizes[idx]?.height ?? parsedCardHeight}
                     mapRef={mapRef}
                     mapLoaded={mapLoaded}
                     viewState={viewState}
@@ -285,7 +297,11 @@ const CoreMap: React.FC = () => {
                     draggable
                     onDragEnd={(e) => handleCardDragEnd(originalIndex, e.lngLat)}
                   >
-                    <InfoCard properties={feature.properties} cardStyle={cardStyle} />
+                    <InfoCard 
+                      properties={feature.properties} 
+                      cardStyle={cardStyle} 
+                      onResize={(w, h) => handleCardResize(idx, w, h)}
+                    />
                   </Marker>
                 </React.Fragment>
               );

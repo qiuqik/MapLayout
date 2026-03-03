@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactECharts from 'echarts-for-react';
 
 interface ChartData {
@@ -45,9 +45,10 @@ interface InfoCardProps {
   };
   cardStyle?: CardStyle;
   type?: "point";
+  onResize?: (width: number, height: number) => void;
 }
 
-const InfoCard: React.FC<InfoCardProps> = ({ properties, cardStyle, type = "point" }) => {
+const InfoCard: React.FC<InfoCardProps> = ({ properties, cardStyle, type = "point", onResize }) => {
     if (!properties) {
         return null;
     }
@@ -55,6 +56,15 @@ const InfoCard: React.FC<InfoCardProps> = ({ properties, cardStyle, type = "poin
     useEffect(() => {
         setIsMounted(true);
     }, []);
+
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (containerRef.current && onResize) {
+            const { offsetWidth, offsetHeight } = containerRef.current;
+            onResize(offsetWidth, offsetHeight);
+        }
+    }, [isMounted, properties, onResize]);
 
     const { title, category, desc, rating, tags, chartData, width, height } = properties;
     const elements = cardStyle?.elements || {};
@@ -129,17 +139,18 @@ const InfoCard: React.FC<InfoCardProps> = ({ properties, cardStyle, type = "poin
     // 托底样式
     const containerBaseStyle: React.CSSProperties = {
         backgroundColor: '#ffffff',
-        width: width ?? 256,
-        minHeight: height ?? 180,
+        maxWidth: width ?? 1024,
+        maxHeight: height ?? 512,
         ...cardStyle?.containerStyle
     };
 
     return (
         <div
+            ref={containerRef}
             className="rounded-lg shadow-lg p-3 box-border flex flex-col"
             style={containerBaseStyle}
         >
-            <div className="mb-2 flex items-center flex-wrap gap-2">
+            <div className="flex items-center flex-wrap gap-2">
                 {/* 标题 */}
                 {elements.title?.show && title && (
                     <div className="text-sm font-bold m-0" style={{color: '#1e293b', ...elements.title.style }}>
