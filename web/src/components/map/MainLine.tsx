@@ -21,18 +21,69 @@ async function fetchWalkingRoute(
   coordinates: number[][],
   token: string
 ): Promise<GeoJSON.Position[]> {
+  const MAX_WAYPOINTS = 5;
+  if (coordinates.length > MAX_WAYPOINTS) {
+    console.warn(`自动截断并分段规划`);
+    // 分段规划
+    const allRoutes: GeoJSON.Position[] = [];
+    for (let i = 0; i < coordinates.length - 1; i += MAX_WAYPOINTS - 1) {
+      const segment = coordinates.slice(i, i + MAX_WAYPOINTS);
+      const segmentRoute = await fetchSingleRoute(segment, token);
+      allRoutes.push(...segmentRoute);
+    }
+    return allRoutes;
+  }
+
+  try {
+    const coords = coordinates.map((c) => `${c[0]},${c[1]}`).join(';');
+    const url = `${MAPBOX_DIRECTIONS_API}/${coords}?geometries=geojson&access_token=${token}`;
+    
+    // 检查URL长度，避免超出浏览器限制
+    if (url.length > 2000) {
+      console.warn('URL长度超出限制，使用直线');
+      return coordinates;
+    }
+
+    const res = await fetch(url);
+    
+    if (!res.ok) {
+      throw new Error(`Mapbox API 返回错误: ${res.status} ${res.statusText}`);
+    }
+
+    const data = await res.json();
+    if (data.message) {
+      throw new Error(`Mapbox API 错误: ${data.message}`);
+    }
+
+    const routeCoords = data.routes?.[0]?.geometry?.coordinates;
+    if (routeCoords) {
+      return routeCoords;
+    } else {
+      console.warn('Mapbox API 返回无路线数据');
+      return coordinates;
+    }
+  } catch (e) {
+    console.warn('Mapbox Directions API 失败，使用直线:', e);
+    return coordinates;
+  }
+}
+
+// 单次请求单段路线
+async function fetchSingleRoute(
+  coordinates: number[][],
+  token: string
+): Promise<GeoJSON.Position[]> {
   try {
     const coords = coordinates.map((c) => `${c[0]},${c[1]}`).join(';');
     const url = `${MAPBOX_DIRECTIONS_API}/${coords}?geometries=geojson&access_token=${token}`;
     const res = await fetch(url);
+    if (!res.ok) throw new Error(`段请求失败: ${res.status}`);
     const data = await res.json();
-    if (data.routes?.[0]?.geometry?.coordinates) {
-      return data.routes[0].geometry.coordinates;
-    }
+    return data.routes?.[0]?.geometry?.coordinates || coordinates;
   } catch (e) {
-    console.warn('Mapbox Directions API 失败，使用直线:', e);
+    console.warn('单段路线请求失败，使用直线:', e);
+    return coordinates;
   }
-  return coordinates;
 }
 
 async function buildNavigationGeoJSON(
