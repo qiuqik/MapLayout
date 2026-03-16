@@ -15,6 +15,7 @@ class StyleCodeGenerationNode:
         self.llm = llm
         
         style_example = '''{
+  "_used_visual_ids": ["basemap_illustration", "point_vis_1", "point_vis_2", "area_vis_1", "area_vis_2", "route_vis_1", "label_vis_1", "card_vis_1", "edge_vis_1", "global_vis_1", "global_vis_2"],
   "BaseMap": [
     {
       "type": "blank",
@@ -24,11 +25,11 @@ class StyleCodeGenerationNode:
   "Point": [
     {
       "visual_id": "point_vis_1",
-      "iconSvg": "<svg width='24' height='24' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><path d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z' fill='#d32f2f'/></svg>"
+      "iconSvg": "<svg></svg>"
     },
     {
       "visual_id": "point_vis_2",
-      "iconSvg": "<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'><path d='M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z' fill='#fbbf24' stroke='#b45309' stroke-width='1.5'/><circle cx='12' cy='9' r='3.5' fill='white'/><path d='M12 6l-3 3v3h6V9l-3-3z' fill='#1e40af'/></svg>"
+      "iconSvg": "<svg></svg>"
     }
   ],
   "Area":[
@@ -64,7 +65,7 @@ class StyleCodeGenerationNode:
   "Card": [
     {
       "visual_id": "card_vis_1",
-      "template": "<div style='background:#FFE0B2; border:1px solid #FFB74D; border-radius:8px; padding:10px; width:200px; box-shadow:0 4px 6px rgba(0,0,0,0.1);'><h3 style='margin:0 0 4px 0; font-size:14px; font-weight:bold; color:#E65100;'>{{properties.name}}</h3><p style='margin:0; font-size:12px; color:#555; line-height:1.4;'>{{properties.description}}</p><p style='margin:0; font-size:12px; color:#555; line-height:1.4;'>{{properties.open_time}}</p></div>"
+      "template": "<div style='xx'><h3>{{properties.name}}</h3><p >{{properties.description}}</p><p>{{properties.open_time}}</p></div>"
     }
   ],
   "Edge": [
@@ -79,11 +80,11 @@ class StyleCodeGenerationNode:
   "Global": [
     {
       "visual_id": "global_vis_1",
-      "template": "<div style='position: absolute; top: 20px; left: 20px; z-index: 100; font-size: 18px; font-weight: bold; color: #333; line-height: 1.4;'><h3>{global_properties[0].title}</h3><p style='font-size: 12px; color: #666;'>{global_properties[0].description}</p></div>"
+      "template": "<div style='xx'><h3>{global_properties[0].title}</h3><p>{global_properties[0].description}</p></div>"
     },
     {
       "visual_id": "global_vis_2",
-      "template": "<div style='position: absolute; top: 20px; left: 20px; z-index: 100; font-size: 18px; font-weight: bold; color: #333; line-height: 1.4;'><h3>{global_properties[0].title}</h3><p style='font-size: 12px; color: #666;'>{global_properties[1].description}</p></div>"
+      "template": "<div style='xx'><h3>{global_properties[0].title}</h3><p style='xx'>{global_properties[0].description}</p></div>"
     }
   ]
 }'''
@@ -98,28 +99,22 @@ class StyleCodeGenerationNode:
 你的任务是：对 visual.json 进行重构输出，为前端提供直接可用的样式与渲染模板。
 
 ## 核心重构规则：
-1. **按类去重与精准过滤**：输出数组中的对象代表“视觉大类”。
-    - 对于所有情况（Area, Card, Point 等），只有样式不同才会有多个对象。例如：如果 geojson 中所有卡片都引用了同一个 card_visual_id，那么 `Card` 数组中只输出一个通用的模板对象即可；如果两个区域的颜色不同，`Area` 数组才分别输出这两个不同 visual_id 的配置。
-    - **仅输出 geojson 中被实际引用的 visual_id 项**。
-2. **精准过滤**：对于 visual.json 中没有提及的项无需输出；且只输出 geojson 中被实际引用（存在）的 visual_id 项。
-3. **BaseMap 底图**：type 可取值为 "blank"/"satellite"/"standard"。如果 type 为 "blank"，**必须输出 `iconSvg` 字段**
-    - **严禁生成复杂的插画、风景、树木、建筑或纹理！** 大量复杂的 `<path>` 会导致代码冗长且极度难看。
-    - 请只提取原图最核心的“整体背景色”或“大面积渐变色（如天空到沙漠的过渡）”。
-    - 只需用极简的 SVG 代码输出一个铺满全屏的 `<rect>`，并填充纯色或简单的 `<linearGradient>` 渐变即可。
-4. **Point 标记**：**必须输出 `iconSvg` 字段**。请根据 visual.json 的描述，编写精美的内联 SVG 代码（如城市水滴坐标、单色圆点、建筑图案等），确保支持透明背景与正确的 viewBox。
-5. **Area 区域**：根据视觉描述，输出多边形的样式配置，通常包含 `backgroundColor` (十六进制), `borderColor`, `borderWidth`, 以及 `opacity` (透明度数值)。
-6. **Route 路线**：只需输出 `color` (HEX格式)、`width` (数字) 以及 `style` 字段。请根据参考图判断并输出 `style` 值为 `"navigationCurve"`（曲线） 或 `"straightLine"`（直线）。
-7. **Edge 连线**：输出 `anchored_from`, `anchored_to`, `color`, 以及 `type` (如 `"straight"`, `"dashed"`)。
-8. **模板渲染 (Label, Card, Global)**：
+1. **精准过滤 (白名单机制)**：你必须仔细检查 geojson，**仅输出 geojson 中实际出现的 visual_id**。不能输出 geojson 中未引用的任何 Area, Card, Edge 或 Point 样式！
+2. **BaseMap 底图 (极简抽象原则)**：type 可取值为 "blank"/"satellite"/"standard"。如果 type 为 "blank"，必须输出 `iconSvg` 字段。
+    - 对于`iconSvg` 字段，**禁用 viewBox**，只需用极简的 SVG 代码填充纯色或简单的 `<linearGradient>` 渐变即可。（❌错误示范：`width="100"`，✅正确示范：`width="100%"`）
+3. **Point 标记**：必须输出精美的内联 SVG 代码到 `iconSvg` 字段（如城市水滴坐标、单色圆点、建筑图案等）。
+4. **Area 区域**：根据视觉描述，输出多边形的样式配置，通常包含 `backgroundColor` (十六进制), `borderColor`, `borderWidth`, 以及 `opacity` (透明度数值)。
+5. **Route 路线**：只需输出 `color` (HEX格式)、`width` (数字) 以及 `style` 字段。请根据参考图判断并输出 `style` 值为 `"navigationCurve"`（曲线） 或 `"straightLine"`（直线）。
+6. **Edge 连线**：输出 `anchored_from`, `anchored_to`, `color`, 以及 `type` (如 `"straight"`, `"dashed"`)。
+7. **模板渲染 (Label, Card, Global)**：
    - 必须输出 `template` 字段，包含纯正的内联 HTML/CSS 代码。
-   - 样式需贴合原图描述（颜色、圆角、阴影、字体大小等）。
+   - 样式需贴合参考图（颜色、圆角、阴影、字体大小等）。
    - 变量注入：使用 `{{properties.字段名}}` 占位；如果是 Global 元素，请使用 `{{global_properties[0].字段名}}`（注意数组索引）。
    - Global 元素必须自带绝对定位 CSS（如 `position: absolute; top: 20px; z-index: 100;`）。
 
-
 ## 输出格式要求：
-严格输出 JSON 格式。最外层 Key 严格遵循视觉大类（BaseMap, Area, Point, Route, Label, Card, Edge, Global），内部为对象数组。
-（请仔细检查你的 SVG 语法和 HTML 内联样式的闭合规范）"""
+严格输出 JSON 格式。
+**为了保证过滤准确，你必须在 JSON 最顶部优先输出 `"_used_visual_ids"` 数组字段**，列出你在 geojson 中找到的所有 visual_id，随后的所有分类输出，**必须严格限制在这个白名单内**。"""
         
         self.system_prompt = system_prompt
     

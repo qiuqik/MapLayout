@@ -93,14 +93,37 @@ export default function TravelMap({ geojson, styleCode }: TravelMapProps) {
 
   useEffect(() => {
     if (mapRef.current && (transformedData.points.length > 0 || displayLines.length > 0 || transformedData.polygons.length > 0)) {
-      const viewState = getMapViewState;
-      mapRef.current.flyTo({
-        center: [viewState.longitude, viewState.latitude],
-        zoom: viewState.zoom,
-        duration: 1500
+      const coords: number[][] = [];
+      
+      transformedData.points.forEach((feature: any) => {
+        coords.push(feature.geometry.coordinates);
       });
+      
+      displayLines.forEach((feature: any) => {
+        feature.geometry.coordinates.forEach((coord: number[]) => {
+          coords.push(coord);
+        });
+      });
+      
+      transformedData.polygons.forEach((feature: any) => {
+        feature.geometry.coordinates.forEach((ring: number[][]) => {
+          ring.forEach((coord: number[]) => {
+            coords.push(coord);
+          });
+        });
+      });
+      
+      if (coords.length > 0) {
+        const lons = coords.map((c) => c[0]);
+        const lats = coords.map((c) => c[1]);
+        const bounds: [[number, number], [number, number]] = [
+          [Math.min(...lons) - 0.01, Math.min(...lats) - 0.01],
+          [Math.max(...lons) + 0.01, Math.max(...lats) + 0.01],
+        ];
+        mapRef.current.fitBounds(bounds, { padding: 40, duration: 1500 });
+      }
     }
-  }, [transformedData, displayLines, getMapViewState]);
+  }, [transformedData, displayLines]);
 
   const transformedLayers = {
     type: 'FeatureCollection',
@@ -145,7 +168,7 @@ export default function TravelMap({ geojson, styleCode }: TravelMapProps) {
         <AreaRenderer areaStyles={areaStyles} transformedLayers={transformedLayers} />
         <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} />
         <PointRenderer points={transformedData.points} pointStyles={pointStyles} />
-        <CardRenderer points={transformedData.points} cardStyles={cardStyles} globalProps={transformedData.globalProps} />
+        <CardRenderer points={transformedData.points} polygons={transformedData.polygons} cardStyles={cardStyles} globalProps={transformedData.globalProps} />
         <LabelRenderer points={transformedData.points} labelStyles={labelStyles} globalProps={transformedData.globalProps} />
       </Map>
       

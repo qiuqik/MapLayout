@@ -171,46 +171,50 @@ export const calculateMapViewState = (transformedData: TransformedMapData) => {
     };
   }
 
-  let minLng = 180;
-  let maxLng = -180;
-  let minLat = 90;
-  let maxLat = -90;
+  const coords: number[][] = [];
 
   points.forEach((feature: any) => {
-    const [lng, lat] = feature.geometry.coordinates;
-    minLng = Math.min(minLng, lng);
-    maxLng = Math.max(maxLng, lng);
-    minLat = Math.min(minLat, lat);
-    maxLat = Math.max(maxLat, lat);
+    coords.push(feature.geometry.coordinates);
   });
 
   lines.forEach((feature: any) => {
     feature.geometry.coordinates.forEach((coord: number[]) => {
-      const [lng, lat] = coord;
-      minLng = Math.min(minLng, lng);
-      maxLng = Math.max(maxLng, lng);
-      minLat = Math.min(minLat, lat);
-      maxLat = Math.max(maxLat, lat);
+      coords.push(coord);
     });
   });
 
   polygons.forEach((feature: any) => {
     feature.geometry.coordinates.forEach((ring: number[][]) => {
       ring.forEach((coord: number[]) => {
-        const [lng, lat] = coord;
-        minLng = Math.min(minLng, lng);
-        maxLng = Math.max(maxLng, lng);
-        minLat = Math.min(minLat, lat);
-        maxLat = Math.max(maxLat, lat);
+        coords.push(coord);
       });
     });
   });
+
+  if (coords.length === 0) {
+    return {
+      longitude: 116.397,
+      latitude: 39.94,
+      zoom: 10.5,
+    };
+  }
+
+  const lons = coords.map((c) => c[0]);
+  const lats = coords.map((c) => c[1]);
+  
+  const minLng = Math.min(...lons) - 0.01;
+  const maxLng = Math.max(...lons) + 0.01;
+  const minLat = Math.min(...lats) - 0.01;
+  const maxLat = Math.max(...lats) + 0.01;
 
   const centerLng = (minLng + maxLng) / 2;
   const centerLat = (minLat + maxLat) / 2;
   const lngDiff = maxLng - minLng;
   const latDiff = maxLat - minLat;
-  const zoom = Math.min(15, Math.floor(11 - Math.log(Math.max(lngDiff, latDiff))));
+  
+  const lngZoom = Math.log2(360 / lngDiff);
+  const latZoom = Math.log2(180 / latDiff);
+  const zoom = Math.min(15, Math.max(8, Math.min(lngZoom, latZoom) - 0.5));
 
   return {
     longitude: centerLng,
