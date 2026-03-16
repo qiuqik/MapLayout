@@ -10,6 +10,7 @@ from fastapi import UploadFile, File, Body
 from datetime import datetime
 import src.travel_agent as travel_agent
 import src.vlm_agent as vlm_agent
+from src.multi_modal_agent import MultiModalMapAgent
 
 app = FastAPI()
 
@@ -30,6 +31,11 @@ app.add_middleware(
 class ChatMessage(BaseModel):
     message: str
     imageFilename: str
+
+class MapAgentRequest(BaseModel):
+    message: str
+    imageFilename: str
+    geojsonFilename: str | None = None
 
 @app.post('/api/agent')
 async def analyze(message: ChatMessage):
@@ -92,6 +98,16 @@ async def list_style_files():
         files = []
     return {"files": files}
 
+# 返回所有 mapbox_spec 文件
+@app.get("/mapboxspecfiles")
+async def list_mapbox_spec_files():
+    base = os.path.join(os.path.dirname(__file__), 'output/mapbox_spec')
+    try:
+        files = [f for f in os.listdir(base) if f.endswith('.json')]
+    except Exception:
+        files = []
+    return {"files": files}
+
 
 
 # 保存 geojson 文件
@@ -118,9 +134,10 @@ async def get_file(name: str):
     geojson_path = os.path.join(base_path, 'output/geojson', name)
     stylejson_path = os.path.join(base_path, 'output/stylejson', name)
     image_path = os.path.join(base_path, 'images', name)
+    mapbox_spec_path = os.path.join(base_path, 'output/mapbox_spec', name)
 
     # geojson
-    if 'geojson' in name and os.path.isfile(geojson_path):
+    if os.path.isfile(geojson_path):
         try:
             with open(geojson_path, 'r', encoding='utf-8') as fh:
                 data = json.load(fh)
@@ -128,8 +145,17 @@ async def get_file(name: str):
         except Exception:
             return JSONResponse(status_code=500, content={"error": "cannot read file"})
     
+    # mapbox spec (多模态输出)
+    if os.path.isfile(mapbox_spec_path):
+        try:
+            with open(mapbox_spec_path, 'r', encoding='utf-8') as fh:
+                data = json.load(fh)
+            return data
+        except Exception:
+            return JSONResponse(status_code=500, content={"error": "cannot read file"})
+
     # stylejson
-    if 'mapbox' in name and os.path.isfile(stylejson_path):
+    if os.path.isfile(stylejson_path):
         try:
             with open(stylejson_path, 'r', encoding='utf-8') as fh:
                 data = json.load(fh)
@@ -138,7 +164,7 @@ async def get_file(name: str):
             return JSONResponse(status_code=500, content={"error": "cannot read file"})
 
     # image
-    if 'image' in name and os.path.isfile(image_path):
+    if os.path.isfile(image_path):
         return FileResponse(image_path)
     
     return JSONResponse(status_code=404, content={"error": "not found"})
@@ -172,6 +198,218 @@ async def upload_image(file: UploadFile = File(...)):
         )
 
 
+@app.post('/api/multimodal/agent')
+async def multimodal_agent(request: MapAgentRequest):
+    """多模态地图生成 Agent 一站式流程
+    
+    输入: 用户文本 + 参考图片
+    输出: GeoJSON + Mapbox 样式代码
+    
+    完整流程:
+    - 节点 A: 意图理解 (Intent Enrichment)
+    - 节点 B: 视觉元素提取 (Visual Feature Extraction)
+    - 节点 C: GeoJSON 生成 (GeoJSON Generation)
+    - 节点 D: Style Code 生成 (Style Code Generation)
+    """
+    user_input = request.message
+    image_name = request.imageFilename
+    
+    print("=" * 60)
+    print("🚀 启动多模态地图生成 Agent")
+    print(f"   用户需求: {user_input[:50]}...")
+    print(f"   参考图片: {image_name}")
+    print("=" * 60)
+    
+    image_path = None
+    if image_name:
+        image_path = os.path.join(os.path.dirname(__file__), 'images', image_name)
+        if not os.path.exists(image_path):
+            return JSONResponse(status_code=404, content={"error": f"图片文件不存在：{image_path}"})
+    
+    def run_multimodal_agent():
+        output_dir = os.path.join(os.path.dirname(__file__), 'output')
+        agent = MultiModalMapAgent(output_dir)
+        result = agent.run(user_text=user_input, image_path=image_path)
+        return result
+    
+    try:
+        result = await asyncio.to_thread(run_multimodal_agent)
+        
+        if "error" in result:
+            return JSONResponse(status_code=500, content={"error": result["error"]})
+        
+        session_dir = result.get("session_dir", "")
+        geojson_basename = None
+        style_basename = None
+        
+        if "geojson" in result:
+            geojson_data = result["geojson"]
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            geojson_filename = f"geojson_{timestamp}.json"
+            
+            geojson_dir = os.path.join(os.path.dirname(__file__), 'output/geojson')
+            os.makedirs(geojson_dir, exist_ok=True)
+            geojson_path = os.path.join(geojson_dir, geojson_filename)
+            
+            with open(geojson_path, "w", encoding="utf-8") as f:
+                json.dump(geojson_data, f, ensure_ascii=False, indent=2)
+            geojson_basename = geojson_filename
+        
+        if "style_code" in result:
+            style_data = result["style_code"]
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            style_filename = f"style_{timestamp}.json"
+            
+            style_dir = os.path.join(os.path.dirname(__file__), 'output/mapbox_spec')
+            os.makedirs(style_dir, exist_ok=True)
+            style_path = os.path.join(style_dir, style_filename)
+            
+            with open(style_path, "w", encoding="utf-8") as f:
+                json.dump(style_data, f, ensure_ascii=False, indent=2)
+            style_basename = style_filename
+        
+        print("=" * 60)
+        print("✅ 多模态地图生成完成!")
+        print(f"   会话目录: {session_dir}")
+        print("=" * 60)
+        
+        return {
+            "session_id": result.get("session_id"),
+            "session_dir": session_dir,
+            "geofilepath": geojson_basename,
+            "specfilepath": style_basename,
+            "intent": result.get("intent"),
+            "validation": result.get("validation")
+        }
+        
+    except Exception as e:
+        print(f"❌ 多模态 Agent 执行失败: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.get("/api/multimodal/sessions")
+async def list_multimodal_sessions():
+    """列出所有多模态会话"""
+    base = os.path.join(os.path.dirname(__file__), 'output')
+    try:
+        sessions = []
+        for item in os.listdir(base):
+            item_path = os.path.join(base, item)
+            if os.path.isdir(item_path) and ("_" in item or "session" in item):
+                sessions.append({
+                    "session_id": item,
+                    "path": item_path,
+                    "created": item.split("_")[0] if "_" in item else "unknown"
+                })
+        sessions.sort(key=lambda x: x["created"], reverse=True)
+    except Exception:
+        sessions = []
+    return {"sessions": sessions}
+
+
+@app.get("/api/multimodal/session/{session_id}")
+async def get_multimodal_session(session_id: str):
+    """获取指定会话的完整历史"""
+    base = os.path.join(os.path.dirname(__file__), 'output', session_id)
+    if not os.path.exists(base):
+        return JSONResponse(status_code=404, content={"error": "会话不存在"})
+    
+    result = {}
+    
+    for subdir in ["node1", "node2", "node3", "node4"]:
+        subdir_path = os.path.join(base, subdir)
+        if os.path.exists(subdir_path):
+            files = [f for f in os.listdir(subdir_path) if f.endswith('.json')]
+            if files:
+                latest_file = sorted(files)[-1]
+                filepath = os.path.join(subdir_path, latest_file)
+                
+                if os.path.getsize(filepath) == 0:
+                    print(f"⚠️ 文件为空: {filepath}")
+                    continue
+                
+                try:
+                    with open(filepath, "r", encoding="utf-8") as f:
+                        content = f.read().strip()
+                        if not content:
+                            print(f"⚠️ 文件内容为空: {filepath}")
+                            continue
+                        
+                        try:
+                            result[subdir] = json.loads(content)
+                        except json.JSONDecodeError as e:
+                            print(f"⚠️ JSON 解析失败: {filepath}, 错误: {e}")
+                            continue
+                except Exception as e:
+                    print(f"⚠️ 读取文件失败: {filepath}, 错误: {e}")
+                    continue
+    
+    # 提取前端需要的字段
+    if "node3" in result:
+        result["geojson"] = result["node3"]
+    if "node4" in result:
+        result["style_code"] = result["node4"]
+    
+    return result
+
+
+@app.post('/api/multimodal/retry')
+async def multimodal_retry(request: MapAgentRequest):
+    """重试机制: 当 GeoJSON 生成失败时，重新进行意图理解和 GeoJSON 生成"""
+    user_input = request.message
+    
+    print("=" * 60)
+    print("🔄 触发重试机制")
+    print(f"   用户需求: {user_input[:50]}...")
+    print("=" * 60)
+    
+    def run_with_retry():
+        output_dir = os.path.join(os.path.dirname(__file__), 'output')
+        agent = MultiModalMapAgent(output_dir)
+        
+        state = agent.intent_node.execute(
+            type('AgentState', (), {
+                'user_text': user_input,
+                'intent_enriched': None,
+                'error': None
+            })()
+        )
+        
+        if state.error:
+            return {"error": state.error}
+        
+        state = agent.geojson_node.execute(
+            type('AgentState', (), {
+                'intent_enriched': state.intent_enriched,
+                'visual_features': {},
+                'geojson_data': None,
+                'error': None,
+                'retry_count': 0
+            })()
+        )
+        
+        if state.error:
+            return {"error": state.error, "retry_count": state.retry_count}
+        
+        return {"geojson": state.geojson_data, "intent": state.intent_enriched}
+    
+    try:
+        result = await asyncio.to_thread(run_with_retry)
+        
+        if "error" in result:
+            return JSONResponse(status_code=500, content={
+                "error": result["error"],
+                "retry_count": result.get("retry_count", 0)
+            })
+        
+        return {
+            "geojson": result.get("geojson"),
+            "intent": result.get("intent")
+        }
+        
+    except Exception as e:
+        print(f"❌ 重试机制执行失败: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 if __name__ == "__main__":

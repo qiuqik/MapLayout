@@ -1,6 +1,5 @@
 .env
 /output
-/__pycache__
-server/__pycache__
-*/__pycache__
+__pycache__/
 /images
+
