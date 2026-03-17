@@ -17,11 +17,14 @@ class VisualStructureNode:
         self.llm = llm
         
         visual_example = '''{
-  "BaseMap": [{
-    "visual_id": "basemap_illustration",
-    "type": "blank",
-    "description": "手绘插画风格底图，包含渐变色背景（天空蓝到沙漠黄）以及底部的湖泊与胡杨林景观插画"
-  }],
+  "_style_extraction_thought": "观察到图中有 9 个橙色卡片和 9 个红色箭头，虽然卡片文字不同，但样式完全一致，因此合并为 1 个 Card 类和 1 个 Edge 类；观察到没有区域划分，因此不输出 Area 项；观察到路线有黑色实线和红色虚线两种样式，因此拆分为 2 个 Route 类...",
+  "BaseMap": [
+    {
+      "visual_id": "basemap_illustration",
+      "type": "blank",
+      "description": "手绘风格底图，包含渐变色背景（天空蓝到沙漠黄）"
+    }
+  ],
   "Point": [
     {
       "visual_id": "point_vis_1",
@@ -30,32 +33,32 @@ class VisualStructureNode:
     {
       "visual_id": "point_vis_2",
       "description": "城市图标（标准水滴型地标）"
-    }
+    },
   ],
-  "Area": [
+  "Area":[
     {
-      "visual_id": "area_vis_1",
-      "description": "浅蓝色地理区域"
+      "visual_id":"area_vis_1",
+      "description":"浅蓝色地理区域",
     },
     {
-      "visual_id": "area_vis_2",
-      "description": "浅黄色地理区域"
+      "visual_id":"area_vis_2",
+      "description":"浅黄色地理区域",
     }
   ],
   "Route": [
     {
       "visual_id": "route_vis_1",
-      "description": "黑色的主环线，连接乌鲁木齐、库尔勒、阿克苏、塔县等地，形成闭环"
+      "description": "黑色的主环线形成闭环"
     },
     {
       "visual_id": "route_vis_2",
-      "description": "红色的沙漠公路支线，连接阿拉尔与和田"
+      "description": "红色的沙漠公路支线"
     }
   ],
   "Label": [
     {
       "visual_id": "label_vis_1",
-      "description": "文本标签：乌鲁木齐",
+      "description": "文本标签",
       "anchored_to": ["point_vis_1", "point_vis_2"]
     }
   ],
@@ -77,26 +80,20 @@ class VisualStructureNode:
   "Global": [
     {
       "visual_id": "global_vis_1",
-      "description": "顶部黑色大字标题：秋季南疆环线攻略，行程主题"
+      "description": "顶部黑色大字标题：行程主题"
     },
     {
       "visual_id": "global_vis_2",
-      "description": "左上角橙色背景条幅：乌进喀出，不走回头路，对行程的简单总结"
+      "description": "左上角橙色背景条幅：对行程的简单总结"
     }
   ]
 }'''
 
         safe_visual_example = _escape_prompt_braces(visual_example)
         
-        system_prompt = f"""你是一个专业的地图数据可视化架构师。你的任务是分析用户上传的旅游路线参考图，将其拆解为高度抽象的前端渲染组件集。
-请不要关注具体的文字内容，而是关注"有什么类型的视觉元素"以及"元素之间的关联"。
+        system_prompt = f"""你是一个专业的地图数据可视化架构师（偏向前端 UI 组件库设计）。你的任务是分析用户上传的旅游路线参考图，提取出高度抽象的前端渲染组件库（UI Classes）。
 
-## 核心抽象规则（样式去重/合并）：
-你输出的每个数组代表的是“视觉样式类（Class）”而非“数据实例”。**只有当视觉样式不一致时，才在数组中分为多个对象。**
-- 例如：如果图中有多个高亮区域，但它们的背景色和透明度一致，那么 `Area` 数组只提取一个对象；如果 Area1 是红底，Area2 是蓝底，才包含两个对象。
-- 同理，如果所有的悬浮信息卡都是绿底黑字，那么 `Card` 数组只包含一个对象；如果所有路线都是红色虚线，`Route` 数组也只保留一个。
-- 此逻辑对所有类别（Area, Card, Label, Point, Route, Edge, Global）均绝对适用。
-
+## 分类体系：
 必须严格使用以下 8 种分类体系，所有分类的输出都必须是数组（即使只有一个元素）：
 1. BaseMap: 底图基底（必须包含 type 属性，值为 standard/satellite/blank，并描述背景颜色、渐变或插画风格）
 2. Point: 标记具体位置的图形（描述形状、颜色、内部图标图案）
@@ -107,12 +104,23 @@ class VisualStructureNode:
 7. Edge: 纯视觉牵引线（如从卡片指向地标或区域的连线、箭头）
 8. Global: 非地图地理实质元素的全局装饰（如顶部大标题、角落总结条幅等）
 
+## 核心输出规则（重要）：
+1. **绝对分离“样式”与“内容” (无视具体文字)**：
+   - 你只能看到“颜色、形状、粗细、排版”，绝对不要被图上的具体地名、景点名干扰！
+   - 错误做法：看到图上有 9 个橙色卡片分别写着不同景点，就输出 9 个 Card 对象。
+   - 正确做法：发现它们都是“橙色背景+文字”的排版，**直接合并为 1 个 Card 对象**（统称为“橙色信息卡片”）。
+
+2. **严格的 1:N 样式提取逻辑 (类提取)**：
+   - 所有分类数组代表的是“样式大类（Class）”，绝不是“图上的个数（Instance）”。
+   - **只有当视觉样式（如背景颜色、形状、边框）真的不一致时，才允许在数组中拆分为多个对象**。比如：图上既有浅蓝色卡片，又有浅绿色卡片，才输出 2 个 Card 对象。
+   - **`description` 字段中严禁出现任何具体的地理名称或文本内容！**（只能描述颜色、形状、透明度等 UI 属性）。
+
 **输出要求：**
-1. 严格输出 JSON 格式，不要多余的话。
-2. 确保每个元素都有唯一且语义化的 `visual_id`（如 basemap_illustration, area_vis_1, point_vis_1）。
-3. 使用 `description` 详细描述元素的颜色、形状和视觉特征。
-4. 分析依附关系：使用 `anchored_from`（起点）和 `anchored_to`（终点/目标对象，如指向 Point 或 Area）。注意，`anchored_to` 可以是字符串或字符串数组。
+1. 严格输出 JSON 格式。
+2. 确保每个对象都有唯一的 `visual_id`。
+4. 分析依附关系：使用 `anchored_from`（起点）和 `anchored_to`（终点）。注意，`anchored_to` 可以是字符串或字符串数组。
 5. **如果某类元素在图中没有出现，则省略该数组。**
+6. 为了确保你真正做到了“按样式去重”，**你必须在 JSON 的最顶部首先输出一个 `"_style_extraction_thought"` 字段**，简要分析你观察到的各类元素及其数量，以及你是如何把它们按颜色/形状进行合并归类的。
 
 **JSON 模板示例：**
 {safe_visual_example}
