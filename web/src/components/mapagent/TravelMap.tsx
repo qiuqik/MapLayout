@@ -21,17 +21,43 @@ import LabelRenderer from './renderers/LabelRenderer';
 
 import type { LayoutItemInput, LayoutItemOutput, LeaderLine } from '@/app/agent/layout/types';
 import { buildObstacleRects, buildObstacleSegments } from '@/app/agent/layout/obstacles';
-import { buildCostFieldFromRects } from '@/app/agent/layout/costField';
-import { runForceLayout } from '@/app/agent/layout/forceLayout';
+import { buildCostFieldFromRects, type CostField } from '@/app/agent/layout/costField';
+import { runForceLayout, type LayoutParams } from '@/app/agent/layout/forceLayout';
+import DebugOverlay from './DebugOverlay';
+import type { ForceParamsOverride, FieldParamsOverride } from './ForceParamsPanel';
+
+const DEFAULT_FORCE: LayoutParams = {
+  linkStrength: 0.16,
+  lift: 22,
+  collideStrength: 3.5,
+  fieldStrength: 1.8,
+  boundsPadding: 12,
+  alpha: 1,
+  alphaDecay: 0.045,
+  alphaMin: 0.001,
+  iterations: 360,
+  leaderThreshold: 28,
+};
+
+const DEFAULT_FIELD: FieldParamsOverride = {
+  sigma: 28,
+  strength: 1400,
+  obstaclePadding: 6,
+  cellSize: 24,
+};
 
 interface TravelMapProps {
   geojson: any;
   styleCode: any;
+  showHeatmap?: boolean;
+  forceParams?: Partial<ForceParamsOverride>;
+  fieldParams?: Partial<FieldParamsOverride>;
 }
 
-export default function TravelMap({ geojson, styleCode }: TravelMapProps) {
+export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams }: TravelMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [processedLines, setProcessedLines] = useState<any[]>([]);
+  const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
   const [layoutState, setLayoutState] = useState<{
     inputs: LayoutItemInput[];
     outputs: LayoutItemOutput[];
@@ -169,11 +195,14 @@ export default function TravelMap({ geojson, styleCode }: TravelMapProps) {
     sprite: 'mapbox://sprites/mapbox/streets-v12'
   };
 
-  const mapStyle = baseMapStyle?.type === 'blank' 
-    ? blankMapStyle
-    : baseMapStyle?.type === 'satellite'
-      ? 'mapbox://styles/mapbox/satellite-v9'
-      : 'mapbox://styles/mapbox/streets-v12';
+  const mapStyle = showHeatmap
+    ? 'mapbox://sprites/mapbox/streets-v12'
+    // ? 'mapbox://styles/mapbox/light-v11'
+    : baseMapStyle?.type === 'blank'
+      ? blankMapStyle
+      : baseMapStyle?.type === 'satellite'
+        ? 'mapbox://styles/mapbox/satellite-v9'
+        : 'mapbox://styles/mapbox/streets-v12';
 
   const buildLayoutInputs = useCallback((): LayoutItemInput[] => {
     const inputs: LayoutItemInput[] = [];
@@ -321,14 +350,14 @@ export default function TravelMap({ geojson, styleCode }: TravelMapProps) {
     );
     const segments = buildObstacleSegments({ linesPx, polygonsPx });
 
+    const mergedField = { ...DEFAULT_FIELD, ...fieldParams };
     const field = buildCostFieldFromRects(obstacles, {
       width: viewport.width,
       height: viewport.height,
-      cellSize: 24,
-      sigma: 28,
-      strength: 1400,
-      obstaclePadding: 6,
+      ...mergedField,
     }, segments);
+
+    setDebugCostField(field);
 
     const prevById = new Map(layoutState.outputs.map((o) => [o.id, { x: o.cx, y: o.cy }]));
     const ready = layoutState.inputs.map((it) => {
@@ -348,22 +377,11 @@ export default function TravelMap({ geojson, styleCode }: TravelMapProps) {
     const { outputs, leaderLines } = runForceLayout(
       ready,
       { viewport, costField: field },
-      {
-        linkStrength: 0.16,
-        lift: 22,
-        collideStrength: 3.5,
-        fieldStrength: 1.8,
-        boundsPadding: 12,
-        alpha: 1,
-        alphaDecay: 0.045,
-        alphaMin: 0.001,
-        iterations: 360,
-        leaderThreshold: 28,
-      }
+      { ...DEFAULT_FORCE, ...forceParams }
     );
 
     setLayoutState((s) => ({ ...s, viewport, outputs, leaderLines }));
-  }, [displayLines, transformedData.points, transformedData.polygons]);
+  }, [displayLines, transformedData.points, transformedData.polygons, forceParams, fieldParams]);
 
   useEffect(() => {
     if (layoutState.inputs.length === 0) return;
@@ -379,10 +397,14 @@ export default function TravelMap({ geojson, styleCode }: TravelMapProps) {
   }, [recomputeLayout]);
 
       
+  // showHeatmap: standard map + line/point/polygon only, no label/card/global/background
+  // normal/debug: all components
+  const hideOverlays = showHeatmap;
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <BaseMapRenderer baseMapStyle={baseMapStyle} />
-      
+      {!hideOverlays && <BaseMapRenderer baseMapStyle={baseMapStyle} />}
+
       <MapGL
         ref={mapRef}
         initialViewState={getMapViewState}
@@ -395,7 +417,7 @@ export default function TravelMap({ geojson, styleCode }: TravelMapProps) {
         <AreaRenderer areaStyles={areaStyles} transformedLayers={transformedLayers} />
         <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} />
         <PointRenderer points={transformedData.points} pointStyles={pointStyles} />
-        {layoutState.outputs.length === 0 && (
+        {!hideOverlays && layoutState.outputs.length === 0 && (
           <>
             <CardRenderer
               points={transformedData.points}
@@ -411,47 +433,52 @@ export default function TravelMap({ geojson, styleCode }: TravelMapProps) {
           </>
         )}
       </MapGL>
-      
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 5,
-          pointerEvents: 'none',
-        }}
-      >
-        <svg
-          width="100%"
-          height="100%"
-          style={{ position: 'absolute', inset: 0, overflow: 'visible' }}
+
+      {/* Cost field heat map overlay */}
+      {showHeatmap && <DebugOverlay costField={debugCostField} />}
+
+      {!hideOverlays && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 5,
+            pointerEvents: 'none',
+          }}
         >
-          {layoutState.leaderLines.map((l) => (
-            <line
-              key={`leader-${l.id}`}
-              x1={l.x1}
-              y1={l.y1}
-              x2={l.x2}
-              y2={l.y2}
-              stroke="rgba(0,0,0,0.45)"
-              strokeWidth={1}
-              strokeDasharray="3 3"
+          <svg
+            width="100%"
+            height="100%"
+            style={{ position: 'absolute', inset: 0, overflow: 'visible' }}
+          >
+            {layoutState.leaderLines.map((l) => (
+              <line
+                key={`leader-${l.id}`}
+                x1={l.x1}
+                y1={l.y1}
+                x2={l.x2}
+                y2={l.y2}
+                stroke="rgba(0,0,0,0.45)"
+                strokeWidth={1}
+                strokeDasharray="3 3"
+              />
+            ))}
+          </svg>
+
+          {layoutState.outputs.map((o) => (
+            <div
+              key={o.id}
+              style={{
+                position: 'absolute',
+                left: `${o.x}px`,
+                top: `${o.y}px`,
+                pointerEvents: 'auto',
+              }}
+              dangerouslySetInnerHTML={{ __html: o.html }}
             />
           ))}
-        </svg>
-
-        {layoutState.outputs.map((o) => (
-          <div
-            key={o.id}
-            style={{
-              position: 'absolute',
-              left: `${o.x}px`,
-              top: `${o.y}px`,
-              pointerEvents: 'auto',
-            }}
-            dangerouslySetInnerHTML={{ __html: o.html }}
-          />
-        ))}
-      </div>
+        </div>
+      )}
 
       <div
         ref={measureRootRef}
@@ -470,7 +497,7 @@ export default function TravelMap({ geojson, styleCode }: TravelMapProps) {
         ))}
       </div>
 
-      <GlobalRenderer globalElements={globalElements} globalProps={transformedData.globalProps} />
+      {!hideOverlays && <GlobalRenderer globalElements={globalElements} globalProps={transformedData.globalProps} />}
     </div>
   );
 }

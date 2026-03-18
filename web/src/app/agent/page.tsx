@@ -2,20 +2,40 @@
 
 import React, { useEffect, useState } from 'react';
 import AgentDialog from '@/components/mapagent/AgentDialog';
-import TravelMap from '@/components/mapagent/TravelMap';
 import { AgentMapProvider, useAgentMap } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
 import dynamic from 'next/dynamic';
+import ForceParamsPanel, { type ForceParamsOverride, type FieldParamsOverride } from '@/components/mapagent/ForceParamsPanel';
 
 const TravelMapWithNoSSR = dynamic(
   () => import('@/components/mapagent/TravelMap'),
   { ssr: false }
 );
 
+const DEFAULT_FORCE_OVERRIDE: ForceParamsOverride = {
+  linkStrength: 0.16,
+  lift: 22,
+  collideStrength: 3.5,
+  fieldStrength: 1.8,
+  iterations: 360,
+  leaderThreshold: 28,
+};
+
+const DEFAULT_FIELD_OVERRIDE: FieldParamsOverride = {
+  sigma: 28,
+  strength: 1400,
+  obstaclePadding: 6,
+  cellSize: 24,
+};
+
 function AgentPageContent() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [currentSession, setCurrentSession] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<string>('node1');
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [forceParams, setForceParams] = useState<ForceParamsOverride>({ ...DEFAULT_FORCE_OVERRIDE });
+  const [fieldParams, setFieldParams] = useState<FieldParamsOverride>({ ...DEFAULT_FIELD_OVERRIDE });
   const { setSpecfilename, setManifest, setGeojson, manifest, geojson } = useAgentMap();
 
   const loadSession = async (sessionId: string) => {
@@ -79,7 +99,44 @@ function AgentPageContent() {
         </div>
         
         <Separator className="my-4" />
-        
+
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            onClick={() => setShowHeatmap(v => !v)}
+            style={{
+              flex: 1,
+              padding: '5px 8px',
+              borderRadius: 6,
+              border: `1.5px solid ${showHeatmap ? '#f59e0b' : '#d1d5db'}`,
+              background: showHeatmap ? '#fffbeb' : '#f9fafb',
+              color: showHeatmap ? '#b45309' : '#374151',
+              fontWeight: 600,
+              fontSize: 11,
+              cursor: 'pointer',
+            }}
+          >
+            {showHeatmap ? '🟠 Heatmap ON' : '🌡 Heatmap'}
+          </button>
+          <button
+            onClick={() => setShowDebugPanel(v => !v)}
+            style={{
+              flex: 1,
+              padding: '5px 8px',
+              borderRadius: 6,
+              border: `1.5px solid ${showDebugPanel ? '#3b82f6' : '#d1d5db'}`,
+              background: showDebugPanel ? '#eff6ff' : '#f9fafb',
+              color: showDebugPanel ? '#1d4ed8' : '#374151',
+              fontWeight: 600,
+              fontSize: 11,
+              cursor: 'pointer',
+            }}
+          >
+            {showDebugPanel ? '🔵 Debug ON' : '⚙ Debug'}
+          </button>
+        </div>
+
+        <Separator className="my-4" />
+
         <div className="flex-1 flex flex-col overflow-hidden">
           <h3 className="text-sm font-medium mb-2">Node Outputs</h3>
           
@@ -143,7 +200,23 @@ function AgentPageContent() {
 
       </div>
       
-      <TravelMapWithNoSSR geojson={geojson} styleCode={manifest} />
+      <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
+        <TravelMapWithNoSSR
+          geojson={geojson}
+          styleCode={manifest}
+          showHeatmap={showHeatmap}
+          forceParams={forceParams}
+          fieldParams={fieldParams}
+        />
+        {showDebugPanel && (
+          <ForceParamsPanel
+            forceParams={forceParams}
+            fieldParams={fieldParams}
+            onForceChange={updates => setForceParams(p => ({ ...p, ...updates }))}
+            onFieldChange={updates => setFieldParams(p => ({ ...p, ...updates }))}
+          />
+        )}
+      </div>
     </div>
   );
 }
