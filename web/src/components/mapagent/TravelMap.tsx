@@ -364,6 +364,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
       // 宽高测不到时给一个保守的默认值，保证布局可用
       const width = it.width > 0 ? it.width : 80;
       const height = it.height > 0 ? it.height : 32;
+      console.log(width, height, it.anchorLngLat.lng, it.anchorLngLat.lat);
       const p = project(it.anchorLngLat.lng, it.anchorLngLat.lat);
       return {
         ...it,

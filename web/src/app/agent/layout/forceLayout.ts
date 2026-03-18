@@ -115,7 +115,10 @@ export function runForceLayout(
 ): { outputs: LayoutItemOutput[]; leaderLines: LeaderLine[] } {
   const nodes: SimNode[] = inputs.map((it) => {
     const targetX = it.anchorPx.x;
-    const targetY = it.anchorPx.y - params.lift;
+    // n.y is the vertical CENTER of the element.
+    // We want the bottom edge to sit `lift` px above the anchor,
+    // so center = anchorPx.y - lift - height/2.
+    const targetY = it.anchorPx.y - params.lift - it.height / 2;
     const start = it.prevCenter ?? { x: targetX, y: targetY };
     return {
       id: it.id,
@@ -188,8 +191,8 @@ export function runForceLayout(
 
   const outputs: LayoutItemOutput[] = inputs.map((it) => {
     const n = nodes.find((x) => x.id === it.id)!;
-    const x = n.x - it.width / 2;
-    const y = n.y - it.height;
+    const x = n.x - it.width / 2;   // n.x is center x → top-left x
+    const y = n.y - it.height / 2;  // n.y is center y → top-left y
     return {
       ...it,
       anchorPx: it.anchorPx,
