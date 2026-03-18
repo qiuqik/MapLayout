@@ -278,7 +278,15 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
       if (same) {
         return s;
       }
-      return { ...s, inputs: next, outputs: [], leaderLines: [] };
+      // Preserve already-measured width/height values when IDs change
+      const merged = next.map(newItem => {
+        const oldItem = s.inputs.find(it => it.id === newItem.id);
+        if (oldItem && oldItem.width > 0 && oldItem.height > 0) {
+          return { ...newItem, width: oldItem.width, height: oldItem.height };
+        }
+        return newItem;
+      });
+      return { ...s, inputs: merged, outputs: [], leaderLines: [] };
     });
   }, [buildLayoutInputs]);
 
@@ -287,27 +295,42 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     if (!root) return;
     if (layoutState.inputs.length === 0) return;
 
-    let changed = false;
-    const measured = layoutState.inputs.map((it) => {
-      // 只测量还没有尺寸的元素，避免无限 setState 循环
-      if (it.width > 0 && it.height > 0) {
+    // Give the browser more time to render HTML and apply styles
+    const timer = setTimeout(() => {
+      let changed = false;
+      const measured = layoutState.inputs.map((it) => {
+        if (it.width > 0 && it.height > 0) return it;
+        const el = root.querySelector(
+          `[data-layout-id="${CSS.escape(it.id)}"]`
+        ) as HTMLElement | null;
+        
+        if (!el) {
+          return it;
+        }
+        
+        // Use scrollWidth/scrollHeight for content sizing
+        const width = Math.ceil(el.scrollWidth);
+        const height = Math.ceil(el.scrollHeight);
+        
+        if (width > 0 && height > 0) {
+          changed = true;
+          return { ...it, width, height };
+        }
+        
+        // Fallback to getBoundingClientRect if scrollWidth/scrollHeight don't work
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          changed = true;
+          return { ...it, width: Math.ceil(rect.width), height: Math.ceil(rect.height) };
+        }
+        
         return it;
-      }
-      const el = root.querySelector(
-        `[data-layout-id="${CSS.escape(it.id)}"]`
-      ) as HTMLElement | null;
-      const rect = el?.getBoundingClientRect();
-      const width = rect?.width ?? 0;
-      const height = rect?.height ?? 0;
-      if (width > 0 && height > 0) {
-        changed = true;
-        return { ...it, width, height };
-      }
-      return it;
-    });
+      });
+      if (!changed) return;
+      setLayoutState((s) => ({ ...s, inputs: measured }));
+    }, 300);
 
-    if (!changed) return;
-    setLayoutState((s) => ({ ...s, inputs: measured }));
+    return () => clearTimeout(timer);
   }, [layoutState.inputs]);
 
   const recomputeLayout = useCallback(() => {
@@ -361,10 +384,9 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
     const prevById = new Map(layoutState.outputs.map((o) => [o.id, { x: o.cx, y: o.cy }]));
     const ready = layoutState.inputs.map((it) => {
-      // 宽高测不到时给一个保守的默认值，保证布局可用
+      // Use measured dimensions, fallback to conservative defaults if not yet measured
       const width = it.width > 0 ? it.width : 80;
       const height = it.height > 0 ? it.height : 32;
-      console.log(width, height, it.anchorLngLat.lng, it.anchorLngLat.lat);
       const p = project(it.anchorLngLat.lng, it.anchorLngLat.lat);
       return {
         ...it,
@@ -382,7 +404,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     );
 
     setLayoutState((s) => ({ ...s, viewport, outputs, leaderLines }));
-  }, [displayLines, transformedData.points, transformedData.polygons, forceParams, fieldParams]);
+  }, [displayLines, transformedData.points, transformedData.polygons, forceParams, fieldParams, layoutState.inputs]);
 
   useEffect(() => {
     if (layoutState.inputs.length === 0) return;
@@ -481,20 +503,33 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         </div>
       )}
 
+      {/* Off-screen measurement sandbox.
+          For position: absolute children, we need a large visible container
+          so the browser can calculate their dimensions. */}
       <div
         ref={measureRootRef}
         style={{
-          position: 'absolute',
-          left: -100000,
-          top: -100000,
-          width: 0,
-          height: 0,
-          overflow: 'hidden',
+          position: 'fixed',
           visibility: 'hidden',
+          pointerEvents: 'none',
+          zIndex: -1,
+          width: '2000px',
+          height: '2000px',
+          display: 'block',
         }}
       >
         {layoutState.inputs.map((it) => (
-          <div key={`measure-${it.id}`} data-layout-id={it.id} dangerouslySetInnerHTML={{ __html: it.html }} />
+          <div
+            key={`measure-${it.id}`}
+            data-layout-id={it.id}
+            style={{ 
+              position: 'relative',
+              display: 'inline-block',
+              width: 'auto',
+              height: 'auto',
+            }}
+            dangerouslySetInnerHTML={{ __html: it.html }}
+          />
         ))}
       </div>
 
