@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Button } from "@/components/ui/button"
-import { UploadIcon, Wand2Icon, SparklesIcon } from "lucide-react"
+import React, { useRef, useState } from 'react';
+import { SparklesIcon, UploadIcon, Wand2Icon, XIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useAgentMap } from '@/lib/agentMapContext';
+
+const API_BASE_URL = 'http://localhost:8000';
 
 interface AgentDialogProps {
   className?: string;
@@ -15,19 +17,27 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
   const [progress, setProgress] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const { setSpecfilename, setManifest, setGeojson } = useAgentMap();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
 
-  useEffect(() => {
-  }, []);
+  const { setSpecfilename, setManifest, setGeojson } = useAgentMap();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const clearImage = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('请选择图片文件');
+      alert('请选择有效的图片文件');
+      clearImage();
       return;
     }
 
@@ -36,44 +46,34 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
     formData.append('file', file);
 
     try {
-      const res = await fetch("http://localhost:8000/api/upload-image", {
+      const res = await fetch(`${API_BASE_URL}/api/upload-image`, {
         method: "POST",
         body: formData,
       });
 
+      if (!res.ok) throw new Error('上传接口响应异常');
+
       const data = await res.json();
-      const imageName = data.filepath;
-      setSelectedImage(imageName);
-      
-      const previewUrl = `http://localhost:8000/files/${imageName}`;
-      setImagePreview(previewUrl);
+      setSelectedImage(data.filepath);
+      setImagePreview(`${API_BASE_URL}/files/${data.filepath}`);
     } catch (err) {
       console.error("图片上传失败:", err);
-      alert('图片上传失败');
+      alert('图片上传失败，请重试');
+      clearImage();
     } finally {
       setLoading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
   };
 
   const handleSubmit = async () => {
-    if (!selectedImage) return;
-    
-    if (!message.trim()) {
-      alert('请输入旅行需求描述');
-      return;
-    }
+    if (!selectedImage) return alert('请先上传参考图片');
+    if (!message.trim()) return alert('请输入旅行需求描述');
     
     setLoading(true);
-    
-    const apiEndpoint = 'http://localhost:8000/api/multimodal/agent';
-    
-    setProgress('正在启动多模态地图生成 Agent...');
+    setProgress('正在生成路线与地图数据，请稍候...'); // 单一真实的 Loading 状态
     
     try {
-      const response = await fetch(apiEndpoint, {
+      const response = await fetch(`${API_BASE_URL}/api/multimodal/agent`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -89,48 +89,37 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
 
       const data = await response.json();
       
-      setProgress('正在分析用户意图...');
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      setProgress('正在提取视觉特征...');
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      setProgress('正在生成 GeoJSON 数据...');
-      
+      // 并行拉取地图数据，减少实际等待时间
+      const fetchPromises = [];
+
       if (data.geofilepath) {
-        const geoRes = await fetch(`http://localhost:8000/files/${encodeURIComponent(data.geofilepath)}`);
-        const geoData = await geoRes.json();
-        setGeojson(geoData);
+        const geoPromise = fetch(`${API_BASE_URL}/files/${encodeURIComponent(data.geofilepath)}`)
+          .then(res => res.json())
+          .then(setGeojson);
+        fetchPromises.push(geoPromise);
       }
-      
-      setProgress('正在生成 Mapbox 样式...');
       
       if (data.specfilepath) {
-        const specRes = await fetch(`http://localhost:8000/files/${encodeURIComponent(data.specfilepath)}`);
-        const specData = await specRes.json();
-        setManifest(specData);
-        setSpecfilename(data.specfilepath);
+        const specPromise = fetch(`${API_BASE_URL}/files/${encodeURIComponent(data.specfilepath)}`)
+          .then(res => res.json())
+          .then(specData => {
+            setManifest(specData);
+            setSpecfilename(data.specfilepath);
+          });
+        fetchPromises.push(specPromise);
       }
-      
-      setProgress('完成！');
+
+      await Promise.all(fetchPromises);
+      setProgress('处理完成！');
 
     } catch (error: any) {
       console.error('Agent 错误:', error);
-      alert(error.message || '分析失败，请重试');
+      alert(error.message || '分析失败，请检查网络或重试');
       setProgress('');
     } finally {
       setLoading(false);
       setTimeout(() => setProgress(''), 3000);
     }
-  };
-
-  const resetForm = () => {
-    setMessage('');
-    setSelectedImage(null);
-    setImagePreview(null);
-    setProgress('');
   };
 
   return (
@@ -151,13 +140,13 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
           disabled={loading}
         >
           <UploadIcon className="w-4 h-4 mr-2" />
-          {selectedImage ? selectedImage.slice(-10) : 'Select Reference Image'}
+          {selectedImage ? selectedImage.slice(-10) : '选择参考图片'}
         </Button>
         
         <Button 
           onClick={handleSubmit} 
           disabled={loading || !selectedImage || !message.trim()}
-          className="bg-gray-800 hover:bg-gray-700 text-white"
+          className="bg-gray-800 hover:bg-gray-700 text-white transition-colors"
           size="sm"
         >
           {loading ? (
@@ -170,56 +159,58 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
 
       {imagePreview && (
         <div 
-          className="relative rounded-md overflow-hidden border cursor-pointer hover:opacity-90 transition-opacity"
+          className="relative rounded-md overflow-hidden border cursor-pointer hover:opacity-90 transition-opacity bg-gray-50"
           onClick={() => setImageModalOpen(true)}
         >
           <img 
             src={imagePreview} 
             alt="Reference Image Preview" 
-            className="h-32 w-auto mx-auto"
+            className="h-32 w-auto mx-auto object-cover"
           />
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setSelectedImage(null);
-              setImagePreview(null);
-            }}
-            className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-black/70"
+            onClick={clearImage}
+            className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-black/80 transition-colors"
+            title="移除图片"
           >
-            ×
+            <XIcon className="w-4 h-4" />
           </button>
         </div>
       )}
       
       {imageModalOpen && imagePreview && (
         <div 
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
           onClick={() => setImageModalOpen(false)}
         >
-          <img 
-            src={imagePreview} 
-            alt="Reference Image" 
-            className="max-w-full max-h-full object-contain"
-          />
-          <button
-            onClick={() => setImageModalOpen(false)}
-            className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full w-10 h-10 flex items-center justify-center text-2xl"
-          >
-            ×
-          </button>
+          <div className="relative max-w-full max-h-full">
+            <img 
+              src={imagePreview} 
+              alt="Reference Image" 
+              className="max-w-full max-h-[90vh] object-contain rounded-lg"
+            />
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setImageModalOpen(false);
+              }}
+              className="absolute -top-12 right-0 bg-white/20 hover:bg-white/40 text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors"
+            >
+              <XIcon className="w-6 h-6" />
+            </button>
+          </div>
         </div>
       )}
       
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        placeholder="Please enter your travel requirements, e.g., I want to travel to Beijing for 3 days with a budget of 5000 yuan..."
-        className="w-full min-h-[80px] p-2 text-sm border rounded-md resize-none"
+        placeholder="请输入您的旅行需求，例如：我想去北京玩3天，预算5000元..."
+        className="w-full min-h-[80px] p-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-gray-800/50"
         disabled={loading}
       />
       
       {progress && (
-        <div className="text-sm text-blue-600 bg-blue-50 p-2 rounded-md">
+        <div className="text-sm text-blue-700 bg-blue-50 p-2 rounded-md animate-in fade-in slide-in-from-top-1">
           {progress}
         </div>
       )}

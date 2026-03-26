@@ -25,11 +25,11 @@ class StyleCodeGenerationNode:
   "Point": [
     {
       "visual_id": "point_vis_1",
-      "iconSvg": "<svg></svg>"
+      "iconSvg": "<svg viewBox='0 0 100 100' style='width:12px; height:12px; display:block;''><circle cx='50%' cy='50%' r='40%' fill='#FFC107' stroke='#F57C00' stroke-width='15%'/></svg>"
     },
     {
       "visual_id": "point_vis_2",
-      "iconSvg": "<svg></svg>"
+      "iconSvg": "<svg viewBox='0 0 100 100' style='width:12px; height:12px; display:block;''><circle cx='50%' cy='50%' r='40%' fill='#FFC107' stroke='#F57C00' stroke-width='15%'/></svg>"
     }
   ],
   "Area":[

@@ -165,10 +165,32 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         const lons = coords.map((c) => c[0]);
         const lats = coords.map((c) => c[1]);
         const bounds: [[number, number], [number, number]] = [
-          [Math.min(...lons) - 0.01, Math.min(...lats) - 0.01],
-          [Math.max(...lons) + 0.01, Math.max(...lats) + 0.01],
+          [Math.min(...lons), Math.min(...lats)],
+          [Math.max(...lons), Math.max(...lats)],
         ];
-        mapRef.current.fitBounds(bounds, { padding: 40, duration: 1500 });
+
+        // Target: route occupies ~60% of the canvas on both axes.
+        // → 20% padding on each side horizontally, 20% on each side vertically.
+        // Global components (title panel, overview card) typically sit at the top,
+        // so shift the vertical center downward by adding extra top padding and
+        // subtracting the same amount from the bottom, keeping total vPad constant.
+        const raw = mapRef.current as any;
+        const mapInstance = raw?.getMap ? raw.getMap() : raw;
+        const { width, height } = mapInstance.getContainer().getBoundingClientRect();
+
+        const hPad = Math.round(width * 0.20);          // 20% each side → 60% horizontal
+        const vPadBase = Math.round(height * 0.20);     // 20% each side → 60% vertical
+        const globalOffset = Math.round(height * 0.08); // extra top bias for global components
+
+        mapRef.current.fitBounds(bounds, {
+          padding: {
+            top:    vPadBase + globalOffset,
+            bottom: Math.max(20, vPadBase - globalOffset),
+            left:   hPad,
+            right:  hPad,
+          },
+          duration: 1500,
+        });
       }
     }
   }, [transformedData, displayLines]);

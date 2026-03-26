@@ -30,11 +30,9 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, glob
           >
             <div
               style={{
-                width: 12,
-                height: 12,
+                width: 20,
+                height: 20,
                 pointerEvents: 'none',
-                display: 'inline-block',
-                // overflow: 'hidden',
               }}
               dangerouslySetInnerHTML={{ __html: htmlStr }}
             />

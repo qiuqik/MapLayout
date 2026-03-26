@@ -7,6 +7,9 @@ import { Separator } from '@/components/ui/separator';
 import dynamic from 'next/dynamic';
 import ForceParamsPanel, { type ForceParamsOverride, type FieldParamsOverride } from '@/components/mapagent/ForceParamsPanel';
 
+// --- 配置常量 ---
+const API_BASE_URL = 'http://localhost:8000';
+
 const TravelMapWithNoSSR = dynamic(
   () => import('@/components/mapagent/TravelMap'),
   { ssr: false }
@@ -28,179 +31,170 @@ const DEFAULT_FIELD_OVERRIDE: FieldParamsOverride = {
   cellSize: 24,
 };
 
+// Node 面板的 Tab 配置
+const NODE_TABS = [
+  { id: 'node1', label: 'Intent Recognition' },
+  { id: 'node2', label: 'Visual Structure' },
+  { id: 'node3', label: 'Geo Data' },
+  { id: 'node4', label: 'Style Code' },
+] as const;
+
+type TabId = typeof NODE_TABS[number]['id'];
+
 function AgentPageContent() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [currentSession, setCurrentSession] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<string>('node1');
+  const [activeTab, setActiveTab] = useState<TabId>('node1');
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [forceParams, setForceParams] = useState<ForceParamsOverride>({ ...DEFAULT_FORCE_OVERRIDE });
   const [fieldParams, setFieldParams] = useState<FieldParamsOverride>({ ...DEFAULT_FIELD_OVERRIDE });
+  
   const { setSpecfilename, setManifest, setGeojson, manifest, geojson } = useAgentMap();
 
+  // 加载特定会话数据
   const loadSession = async (sessionId: string) => {
     try {
-      const res = await fetch(`http://localhost:8000/api/multimodal/session/${sessionId}`);
+      const res = await fetch(`${API_BASE_URL}/api/multimodal/session/${sessionId}`);
       const data = await res.json();
       
       setCurrentSession(data);
       
-      if (data.geojson) {
-        setGeojson(data.geojson);
-      }
+      if (data.geojson) setGeojson(data.geojson);
+      if (data.style_code) setManifest(data.style_code);
       
-      if (data.style_code) {
-        setManifest(data.style_code);
-      }
     } catch (error) {
       console.error('加载会话失败:', error);
     }
   };
 
+  // 初始化获取会话列表并排序
   useEffect(() => {
-    fetch('http://localhost:8000/api/multimodal/sessions')
+    fetch(`${API_BASE_URL}/api/multimodal/sessions`)
       .then(res => res.json())
       .then(data => {
-        const sessionList = data.sessions || [];
+        let sessionList = data.sessions || [];
+        
+        // 按照 session_id 降序排列 (保证最新的排在最前)
+        sessionList = sessionList.sort((a: any, b: any) => 
+          b.session_id.localeCompare(a.session_id)
+        );
+
         setSessions(sessionList);
+        
         if (sessionList.length > 0) {
           loadSession(sessionList[0].session_id);
         }
       })
-      .catch(err => console.error(err));
+      .catch(err => console.error('获取历史会话失败:', err));
   }, []);
 
   return (
-    <div className="flex flex-1 overflow-hidden">
-      <div className="flex flex-col flex-shrink-0 w-[21%] h-full bg-white shadow-lg p-4 z-10">
-        <div className="sticky top-0 z-10 mb-4">
-          <h1 className="text-lg font-semibold">AgentMapLayout</h1>
+    <div className="flex flex-1 overflow-hidden bg-gray-50">
+      {/* 左侧控制栏 */}
+      <div className="flex flex-col flex-shrink-0 w-[21%] min-w-[300px] h-full bg-white shadow-lg p-4 z-10 border-r">
+        <div className="sticky top-0 z-10 mb-4 bg-white pb-2">
+          <h1 className="text-lg font-bold text-gray-800 tracking-tight">AgentMap Layout</h1>
         </div>
         
         <AgentDialog />
         
-        <Separator className="my-4" />
+        <Separator className="my-5" />
         
-        <h3 className="text-sm font-medium mb-1">Historical Sessions</h3>
-        <div className="mt-2 h-32 overflow-auto">
-          {sessions.length === 0 && <div className="text-xs text-gray-500">No sessions</div>}
-          <ul className="space-y-1">
-            {sessions.map(s => (
-              <li key={s.session_id}>
-                <button
-                  className="w-full text-sm text-left px-2 py-1 rounded hover:bg-gray-100 truncate"
-                  onClick={() => loadSession(s.session_id)}
-                >
-                  {s.session_id}
-                </button>
-              </li>
-            ))}
-          </ul>
+        {/* 历史会话列表 */}
+        <h3 className="text-sm font-semibold text-gray-700 mb-2">Historical Sessions</h3>
+        <div className="h-36 overflow-y-auto pr-1 space-y-1 custom-scrollbar">
+          {sessions.length === 0 ? (
+            <div className="text-xs text-gray-400 text-center mt-4">暂无历史会话</div>
+          ) : (
+            <ul className="space-y-1">
+              {sessions.map(s => (
+                <li key={s.session_id}>
+                  <button
+                    className={`w-full text-sm text-left px-3 py-1.5 rounded-md transition-colors truncate ${
+                      currentSession?.session_id === s.session_id 
+                        ? 'bg-blue-50 text-blue-700 font-medium' 
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                    onClick={() => loadSession(s.session_id)}
+                  >
+                    {s.session_id}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         
-        <Separator className="my-4" />
+        <Separator className="my-5" />
 
-        <div style={{ display: 'flex', gap: 6 }}>
+        {/* 视图控制开关 (已将 Inline Style 转为 Tailwind) */}
+        <div className="flex gap-2">
           <button
             onClick={() => setShowHeatmap(v => !v)}
-            style={{
-              flex: 1,
-              padding: '5px 8px',
-              borderRadius: 6,
-              border: `1.5px solid ${showHeatmap ? '#f59e0b' : '#d1d5db'}`,
-              background: showHeatmap ? '#fffbeb' : '#f9fafb',
-              color: showHeatmap ? '#b45309' : '#374151',
-              fontWeight: 600,
-              fontSize: 11,
-              cursor: 'pointer',
-            }}
+            className={`flex-1 px-2 py-1.5 rounded-md border-[1.5px] text-[11px] font-semibold transition-all ${
+              showHeatmap 
+                ? 'border-amber-500 bg-amber-50 text-amber-700' 
+                : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+            }`}
           >
             {showHeatmap ? '🟠 Heatmap ON' : '🌡 Heatmap'}
           </button>
           <button
             onClick={() => setShowDebugPanel(v => !v)}
-            style={{
-              flex: 1,
-              padding: '5px 8px',
-              borderRadius: 6,
-              border: `1.5px solid ${showDebugPanel ? '#3b82f6' : '#d1d5db'}`,
-              background: showDebugPanel ? '#eff6ff' : '#f9fafb',
-              color: showDebugPanel ? '#1d4ed8' : '#374151',
-              fontWeight: 600,
-              fontSize: 11,
-              cursor: 'pointer',
-            }}
+            className={`flex-1 px-2 py-1.5 rounded-md border-[1.5px] text-[11px] font-semibold transition-all ${
+              showDebugPanel 
+                ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+            }`}
           >
             {showDebugPanel ? '🔵 Debug ON' : '⚙ Debug'}
           </button>
         </div>
 
-        <Separator className="my-4" />
+        <Separator className="my-5" />
 
+        {/* 多节点输出展示区 (DRY 优化后) */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <h3 className="text-sm font-medium mb-2">Node Outputs</h3>
+          <h3 className="text-sm font-semibold text-gray-700 mb-2">Node Outputs</h3>
           
-          <div className="flex border-b">
-            <button 
-              className={`flex-1 text-xs py-1 px-2 ${activeTab === 'node1' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500'}`}
-              onClick={() => setActiveTab('node1')}
-            >
-              Intent Recognition
-            </button>
-            <button 
-              className={`flex-1 text-xs py-1 px-2 ${activeTab === 'node2' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500'}`}
-              onClick={() => setActiveTab('node2')}
-            >
-              Visual Structure
-            </button>
-            <button 
-              className={`flex-1 text-xs py-1 px-2 ${activeTab === 'node3' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500'}`}
-              onClick={() => setActiveTab('node3')}
-            >
-              Geo Data
-            </button>
-            <button 
-              className={`flex-1 text-xs py-1 px-2 ${activeTab === 'node4' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500'}`}
-              onClick={() => setActiveTab('node4')}
-            >
-              Style Code
-            </button>
+          <div className="flex border-b border-gray-200">
+            {NODE_TABS.map(tab => (
+              <button 
+                key={tab.id}
+                className={`flex-1 text-[11px] py-1.5 px-1 transition-colors relative ${
+                  activeTab === tab.id 
+                    ? 'text-blue-600 font-medium' 
+                    : 'text-gray-500 hover:text-gray-800'
+                }`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                {tab.label}
+                {activeTab === tab.id && (
+                  <span className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-blue-500" />
+                )}
+              </button>
+            ))}
           </div>
           
-          <div className="flex-1 overflow-auto mt-2 text-xs">
-            {currentSession && activeTab === 'node1' && (
-              <div className="p-2 bg-gray-50 rounded">
-                <pre className="whitespace-pre-wrap">{JSON.stringify(currentSession.node1, null, 2)}</pre>
+          <div className="flex-1 overflow-auto mt-3 text-xs custom-scrollbar">
+            {currentSession && currentSession[activeTab] ? (
+              <div className="p-3 bg-gray-50/80 rounded-md border border-gray-100 h-full">
+                <pre className="whitespace-pre-wrap font-mono text-gray-700">
+                  {JSON.stringify(currentSession[activeTab], null, 2)}
+                </pre>
               </div>
-            )}
-            
-            {currentSession && activeTab === 'node2' && (
-              <div className="p-2 bg-gray-50 rounded">
-                <pre className="whitespace-pre-wrap">{JSON.stringify(currentSession.node2, null, 2)}</pre>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400 p-4 text-center border border-dashed rounded-md">
+                {currentSession ? '暂无该节点输出数据' : '请在上方选择一个会话以查看详情'}
               </div>
-            )}
-            
-            {currentSession && activeTab === 'node3' && (
-              <div className="p-2 bg-gray-50 rounded">
-                <pre className="whitespace-pre-wrap">{JSON.stringify(currentSession.node3, null, 2)}</pre>
-              </div>
-            )}
-            
-            {currentSession && activeTab === 'node4' && (
-              <div className="p-2 bg-gray-50 rounded">
-                <pre className="whitespace-pre-wrap">{JSON.stringify(currentSession.node4, null, 2)}</pre>
-              </div>
-            )}
-            
-            {!currentSession && (
-              <div className="p-2 text-gray-500">Select a session to view node outputs</div>
             )}
           </div>
         </div>
-
       </div>
       
-      <div style={{ position: 'relative', flex: 1, overflow: 'hidden' }}>
+      {/* 右侧地图主视图 */}
+      <div className="relative flex-1 overflow-hidden">
         <TravelMapWithNoSSR
           geojson={geojson}
           styleCode={manifest}
@@ -224,7 +218,7 @@ function AgentPageContent() {
 export default function AgentPage() {
   return (
     <AgentMapProvider>
-      <div className="flex flex-col w-screen h-screen overflow-hidden">
+      <div className="flex flex-col w-screen h-screen overflow-hidden font-sans">
         <AgentPageContent />
       </div>
     </AgentMapProvider>
