@@ -24,6 +24,11 @@ class AgentState(BaseModel):
     
     error: Optional[str] = Field(None, description="错误信息")
     retry_count: int = Field(0, description="重试次数")
+    # 校验 
+    is_valid: bool = False             
+    failed_node: str = ""              # 校验失败的节点名称 (如 "node1", "node3")
+    validation_feedback: str = ""      # 给失败节点的修改建议
+    validation_retry_count: int = 0    # 防止无限循环的全局重试计数器
 
 
 def _escape_prompt_braces(s: str) -> str:

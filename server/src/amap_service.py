@@ -39,7 +39,7 @@ class AMapService:
         
         # 二次检索：使用 inputtips API
         print(f"📍 一级检索失败，触发二级检索 (inputtips): {keyword}")
-        result = self._search_poi_fallback(keyword, location)
+        result = self._search_poi_fallback(keyword, city, location)
         if result:
             return result
         
@@ -73,12 +73,16 @@ class AMapService:
             
         return None
     
-    def _search_poi_fallback(self, keyword: str, location: Optional[str] = None) -> Optional[Tuple[float, float]]:
+    def _search_poi_fallback(self, keyword: str, city: str = "", location: Optional[str] = None) -> Optional[Tuple[float, float]]:
         """二级检索：使用输入提示 API (v3/assistant/inputtips)"""
         params = {
             "key": self.api_key,
             "keywords": keyword
         }
+        
+        # 如果提供了城市，添加到请求参数
+        if city:
+            params["city"] = city
         
         # 如果提供了中心坐标，添加到请求参数
         if location:

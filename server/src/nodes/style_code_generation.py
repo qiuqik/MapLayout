@@ -107,8 +107,7 @@ class StyleCodeGenerationNode:
 5. **Route 路线**：只需输出 `color` (HEX格式)、`width` (数字) 以及 `style` 字段。请根据参考图判断并输出 `style` 值为 `"navigationCurve"`（曲线） 或 `"straightLine"`（直线）。
 6. **Edge 连线**：输出 `anchored_from`, `anchored_to`, `color`, 以及 `type` (如 `"straight"`, `"dashed"`)。
 7. **模板渲染 (Label, Card, Global)**：
-   - 必须输出 `template` 字段，包含纯正的内联 HTML/CSS 代码。
-   - 必须输出模版 style 宽度，不输出高度，且不能含有注释。
+   - 必须输出 `template` 字段，包含纯正的内联 HTML/CSS 代码。字段内必须包含宽度，不输出高度。不能含有注释。
    - 样式需贴合参考图（颜色、圆角、阴影、字体大小、居中等）。
    - 变量注入：使用 `{{properties.字段名}}` 占位；如果是 Global 元素，请使用 `{{global_properties[0].字段名}}`（注意数组索引）。
    - Global 元素必须自带绝对定位 CSS（如 `position: absolute; top: 20px; z-index: 100;`）。

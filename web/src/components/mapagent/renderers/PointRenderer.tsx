@@ -30,13 +30,14 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, glob
           >
             <div
               style={{
-                width: 24,
-                height: 24,
+                width: 12,
+                height: 12,
                 pointerEvents: 'none',
+                display: 'inline-block',
+                // overflow: 'hidden',
               }}
               dangerouslySetInnerHTML={{ __html: htmlStr }}
             />
-            {/* <div>{feature.properties?.name}</div> */}
           </Marker>
         );
       })}
