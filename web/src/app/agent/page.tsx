@@ -13,17 +13,17 @@ const TravelMapWithNoSSR = dynamic(
 );
 
 const DEFAULT_FORCE_OVERRIDE: ForceParamsOverride = {
-  linkStrength: 0.16,
-  lift: 22,
+  linkStrength: 0.4,
+  lift: 2,
   collideStrength: 3.5,
-  fieldStrength: 1.8,
+  fieldStrength: 5.5,
   iterations: 360,
   leaderThreshold: 28,
 };
 
 const DEFAULT_FIELD_OVERRIDE: FieldParamsOverride = {
   sigma: 28,
-  strength: 1400,
+  strength: 4500,
   obstaclePadding: 6,
   cellSize: 24,
 };

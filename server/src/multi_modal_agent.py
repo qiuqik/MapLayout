@@ -107,13 +107,14 @@ class MultiModalMapAgent:
     def __init__(self, output_dir: str = "output"):
         load_dotenv(".env")
         
-        self.vlm_key = os.getenv("QwenVLM_API_KEY")
         self.openai_key = os.getenv("OPENAI_API_KEY")
         self.http_proxy = os.getenv("HTTP_PROXY")
-        self.llm_model = os.getenv("LLM_MODEL", "gpt-4o")
+        self.llm_model = os.getenv("LLM_MODEL", "gpt-5")
+        self.vlm_model_type = os.getenv("VLM_MODEL", "qwen").lower()
         
-        if not self.vlm_key:
-            raise RuntimeError("⚠️ .env 文件中未配置 QwenVLM_API_KEY")
+        if self.vlm_model_type not in ["qwen", "gemini"]:
+            raise ValueError(f"⚠️ VLM_MODEL 必须为 'qwen' 或 'gemini'，当前值: {self.vlm_model_type}")
+        
         if not self.openai_key:
             raise RuntimeError("⚠️ .env 文件中未配置 OPENAI_API_KEY")
         
@@ -124,12 +125,8 @@ class MultiModalMapAgent:
             temperature=0.7
         )
         
-        self.llm_for_vlm = ChatOpenAI(
-            api_key=self.vlm_key,
-            model="qwen-vl-max",
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-            temperature=0.7
-        )
+        # 根据 VLM_MODEL 类型初始化对应的 VLM 模型
+        self.llm_for_vlm = self._init_vlm_model()
         
         self.amap_service = AMapService()
         self.session_manager = SessionManager(output_dir)
@@ -138,6 +135,32 @@ class MultiModalMapAgent:
         self.visual_node = VisualStructureNode(self.llm_for_vlm)
         self.geojson_node = GeoJSONGenerationNode(self.llm_for_text, self.amap_service)
         self.style_node = StyleCodeGenerationNode(self.llm_for_vlm)
+    
+    def _init_vlm_model(self) -> ChatOpenAI:
+        """初始化 VLM 模型（支持 QwenVLM 或 Gemini）"""
+        if self.vlm_model_type == "qwen":
+            qwen_key = os.getenv("QwenVLM_API_KEY")
+            if not qwen_key:
+                raise RuntimeError("⚠️ .env 文件中未配置 QwenVLM_API_KEY")
+            
+            return ChatOpenAI(
+                api_key=qwen_key,
+                model="qwen-vl-max",
+                base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                temperature=0.7
+            )
+        
+        elif self.vlm_model_type == "gemini":
+            gemini_key = os.getenv("GEMINI_API_KEY")
+            if not gemini_key:
+                raise RuntimeError("⚠️ .env 文件中未配置 GEMINI_API_KEY")
+            
+            return ChatOpenAI(
+                api_key=gemini_key,
+                model="gemini-3-pro-preview",
+                base_url=self.http_proxy,
+                temperature=0.7
+            )
     
     def run(self, user_text: str, image_path: Optional[str] = None, session_id: Optional[str] = None) -> Dict[str, Any]:
         """执行完整的多模态地图生成流程"""
@@ -157,6 +180,7 @@ class MultiModalMapAgent:
         print("🚀 开始多模态地图生成流程")
         print(f"   用户需求: {user_text[:50]}...")
         print(f"   参考图片: {image_path or '无'}")
+        print(f"   VLM 模型: {self.vlm_model_type.upper()}")
         print("=" * 60)
         
         # 并行执行 Node 1 和 Node 2

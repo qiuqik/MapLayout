@@ -2,7 +2,7 @@ import time
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from ..utils.agent_utils import AgentState, _escape_prompt_braces, _extract_first_json_object, _robust_json_loads
-from ..utils.geo_utils import compute_convex_hull
+# from ..utils.geo_utils import compute_convex_hull
 from ..amap_service import AMapService
 
 
@@ -167,7 +167,7 @@ class GeoJSONGenerationNode:
 1.[Node 1 用户的旅行规划文本 (代表核心内容)]
 2.[Node 2 地图视觉元素字典 visual.json (代表UI容器)]
 
-你的核心任务是：将用户的旅行规划提取为标准的 GeoJSON 格式。**你必须将 Node 1 的内容，想方设法"装填"进 Node 2 提供的视觉容器中。**
+你的核心任务是：将用户的旅行规划提取为标准的 GeoJSON 格式。注意地点之间的相似性和均衡性，两个地点不能过于相似，地点之间不能过于密集。**你必须将 Node 1 的内容，想方设法"装填"进 Node 2 提供的视觉容器中。**
 
 ## 核心语义桥接规则 (重要)：
 1. **剥离参考图的原有业务含义**：visual.json 中的描述（如"新疆、滑雪场"）仅仅是 UI 样式的参考。你绝对不能因为文本是"重庆"，视觉是"新疆"就丢弃这些视觉分类！
@@ -181,7 +181,8 @@ class GeoJSONGenerationNode:
 1. 全局属性 (global_properties)：
    - 必须在 FeatureCollection 顶层生成 `global_properties` 数组。将文本中的总揽信息提取为对象，并绑定 visual.json 中的 Global 类 `visual_id`。
 2. **地理实体映射 (features)**：
-   - Feature 的 `geometry.type` 必须是 `Point`、`LineString` 或 `Polygon`。
+   - Feature 的 `geometry.type` 必须是 `Point`、`LineString` 或 `Polygon`。且必须指代具体地点，不能指代样式。
+   - `LineString` 中必须提及所有`Point`，`Polygon`与`LineString`和`Point`要密切相关。
    - 必须绑定对应的 `visual_id`。
    - 对于任意一个Feature，如果存在卡片或标签 anchor_to 该 Feature，请**直接在该 Feature 的 properties 中追加**：
      - `card_coord`:[卡片的经纬度坐标]
@@ -191,7 +192,7 @@ class GeoJSONGenerationNode:
      - 卡片或标签需要展示的详细信息
 3. **生成 Area (Polygon)**：
    - 只需在 coordinates 数组中，平铺放入【所有属于该区域的 Point 的经纬度坐标】（形如 `[[[lng1, lat1],[lng2, lat2]...]]`），下游会自动计算闭合凸包。
-
+   - 若 Area 只有一个则不生成 Polygon
 ## 输出格式要求：
 严格输出 JSON 格式。
 为了保证你的桥接逻辑清晰，**你必须在 JSON 的最顶部首先输出一个 `"_mapping_thought"` 字段**，详细说明你是如何将 Node 1 的内容分组、包装，并映射到 Node 2 的视觉容器上的。
@@ -213,7 +214,7 @@ class GeoJSONGenerationNode:
         if not geojson_data or "features" not in geojson_data:
             return geojson_data
         
-        # 首先修正所有 Point 类型的坐标
+        # 修正所有 Point 类型的坐标
         point_coords_map = {}
         for feature in geojson_data["features"]:
             if feature.get("geometry", {}).get("type") == "Point":
@@ -222,14 +223,15 @@ class GeoJSONGenerationNode:
                 
                 if name:
                     keyword = name
-                    coords = self.amap_service.search_poi(keyword)
+                    point_location = feature["geometry"]["coordinates"]
+                    location_str = f"{point_location[0]},{point_location[1]}"
+                    coords = self.amap_service.search_poi(keyword, location=location_str)
                     
                     if coords:
                         print(f"✅ 已修正 [{keyword}] 坐标: {coords}")
                         old_coords = feature["geometry"]["coordinates"]
                         new_coords = list(coords)
                         feature["geometry"]["coordinates"] = new_coords
-                        # 记录坐标映射，用于后续修正 LineString 和 Polygon
                         point_coords_map[tuple(old_coords)] = new_coords
                     else:
                         print(f"⚠️ 未找到 [{keyword}] 的坐标，保留原始坐标")
@@ -247,34 +249,33 @@ class GeoJSONGenerationNode:
                 feature["geometry"]["coordinates"] = corrected_coords
         
         # 修正 Polygon 类型的坐标并计算最小凸包
+        from shapely.geometry import MultiPoint
+        import numpy as np
         for feature in geojson_data["features"]:
             if feature.get("geometry", {}).get("type") == "Polygon":
-                # 收集所有点（包括修正后的 Point 坐标）
                 all_points = []
+                for p_feat in geojson_data["features"]:
+                    if p_feat.get("geometry", {}).get("type") == "Point":
+                        all_points.append(p_feat["geometry"]["coordinates"])
                 
-                # 首先收集 Polygon 原始坐标
-                coords = feature["geometry"]["coordinates"]
-                for ring in coords:
-                    for coord in ring:
-                        if tuple(coord) in point_coords_map:
-                            all_points.append(tuple(point_coords_map[tuple(coord)]))
-                        else:
-                            all_points.append(tuple(coord))
-                
-                # 然后收集所有 Point 类型的坐标（确保包含所有相关点）
-                for point_feature in geojson_data["features"]:
-                    if point_feature.get("geometry", {}).get("type") == "Point":
-                        point_coords = point_feature["geometry"]["coordinates"]
-                        all_points.append(tuple(point_coords))
-                
-                # 去重
-                all_points = list(set(all_points))
-                
-                # 计算最小凸包
-                convex_hull = compute_convex_hull(all_points)
-                # 更新 Polygon 的 coordinates
-                feature["geometry"]["coordinates"] = [convex_hull]
-                print(f"✅ 已为 Polygon 计算并更新凸包，包含 {len(convex_hull)} 个点")
+                if len(all_points) >= 1:
+                    pts_array = np.array(all_points)
+                    std_dev = np.sqrt(np.sum(np.var(pts_array, axis=0)))
+                    padding_distance = max(0.0005, min(std_dev * 0.2, 0.005))
+                    
+                    hull_geom = MultiPoint(all_points).convex_hull
+                    
+                    if hull_geom.geom_type == 'Point':
+                        smoothed = hull_geom.buffer(padding_distance, quad_segs=10)
+                    else:
+                        smoothed = hull_geom.buffer(padding_distance, quad_segs=10, join_style=1)
+                    
+                    if smoothed.geom_type == 'Polygon':
+                        coords = list(smoothed.exterior.coords)
+                    else:
+                        coords = list(smoothed.convex_hull.buffer(padding_distance, quad_segs=10).exterior.coords)
+                        
+                    feature["geometry"]["coordinates"] = [coords]         
         
         return geojson_data
     

@@ -151,7 +151,7 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
           disabled={loading}
         >
           <UploadIcon className="w-4 h-4 mr-2" />
-          {selectedImage ? selectedImage : 'Select Reference Image'}
+          {selectedImage ? selectedImage.slice(-10) : 'Select Reference Image'}
         </Button>
         
         <Button 

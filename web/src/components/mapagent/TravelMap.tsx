@@ -439,7 +439,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
       >
         <AreaRenderer areaStyles={areaStyles} transformedLayers={transformedLayers} />
         <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} />
-        <PointRenderer points={transformedData.points} pointStyles={pointStyles} />
+        <PointRenderer points={transformedData.points} pointStyles={pointStyles} globalProps={transformedData.globalProps} />
         {!hideOverlays && layoutState.outputs.length === 0 && (
           <>
             <CardRenderer
