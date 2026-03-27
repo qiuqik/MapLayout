@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowUpIcon, X } from "lucide-react"
 import { MapDataContext } from '@/lib/mapContext'
+import { API_BASE_URL, buildFileUrl } from '@/lib/api';
 import { IconCheck, IconInfoCircle, IconPlus } from "@tabler/icons-react"
 import {
   InputGroup,
@@ -48,7 +49,7 @@ const ChatDialog = () => {
 
     // 调用 Agent
     try {
-      const res = await fetch("http://localhost:8000/api/agent", {
+      const res = await fetch(`${API_BASE_URL}/api/agent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -87,7 +88,7 @@ const ChatDialog = () => {
     formData.append('file', file);
 
     try {
-      const res = await fetch("http://localhost:8000/api/upload-image", {
+      const res = await fetch(`${API_BASE_URL}/api/upload-image`, {
         method: "POST",
         body: formData,
       });
@@ -156,7 +157,7 @@ const ChatDialog = () => {
               {imagename && (
                 <div className="relative w-6 h-6 group">
                   <img
-                    src={imagename ? `http://localhost:8000/files/${encodeURIComponent(imagename)}` : ''}
+                    src={imagename ? buildFileUrl(imagename) : ''}
                     alt="reference"
                     className="w-6 h-6 rounded border border-gray-300"
                   />

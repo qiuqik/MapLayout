@@ -4,6 +4,7 @@ import { ArrowUpIcon } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 
 import { MapDataContext } from '@/lib/mapContext'
+import { API_BASE_URL } from '@/lib/api';
 import ChatDialog from '@/components/ChatDialog';
 
 
@@ -14,7 +15,7 @@ const LeftCard: React.FC = () => {
     const { geofilename, stylename, setGeofilename, setStylename } = useContext(MapDataContext);
 
     useEffect(() => {
-        fetch('http://localhost:8000/geofiles')
+        fetch(`${API_BASE_URL}/geofiles`)
             .then(res => res.json())
             .then(data => {
                 data.files.sort((a: string, b: string) => {
@@ -28,7 +29,7 @@ const LeftCard: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        fetch('http://localhost:8000/stylefiles')
+        fetch(`${API_BASE_URL}/stylefiles`)
             .then(res => res.json())
             .then(data => {
                 data.files.sort((a: string, b: string) => {

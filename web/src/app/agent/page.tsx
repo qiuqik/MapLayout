@@ -7,8 +7,9 @@ import { Separator } from '@/components/ui/separator';
 import dynamic from 'next/dynamic';
 import ForceParamsPanel, { type ForceParamsOverride, type FieldParamsOverride } from '@/components/mapagent/ForceParamsPanel';
 
+import { API_BASE_URL } from '@/lib/api';
+
 // --- 配置常量 ---
-const API_BASE_URL = 'http://localhost:8000';
 
 const TravelMapWithNoSSR = dynamic(
   () => import('@/components/mapagent/TravelMap'),

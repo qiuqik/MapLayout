@@ -6,6 +6,7 @@ import type { StyleSpecification } from 'mapbox-gl';
 import Map, { NavigationControl, MapRef, Marker } from 'react-map-gl/mapbox';
 import { MapDataContext } from '@/lib/mapContext';
 import { gcj02ToWgs84, wgs84ToGcj02 } from '@/lib/gcl2wgs';
+import { buildFileUrl } from '@/lib/api';
 import dynamic from 'next/dynamic';
 
 import MainLine from './map/MainLine';
@@ -110,7 +111,7 @@ const CoreMap: React.FC = () => {
     const fetchMapStyle = async () => {
       if (!stylename) return;
       try {
-        const res = await fetch(`http://localhost:8000/files/${encodeURIComponent(stylename)}`);
+        const res = await fetch(buildFileUrl(stylename));
         const data = await res.json();
         console.log("加载到的 MapStyle:", data);
         setMapStyle(data);
@@ -143,7 +144,7 @@ const CoreMap: React.FC = () => {
     if (!geofilename) return;
     const fetchGeoJson = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/files/${encodeURIComponent(geofilename)}`);
+        const res = await fetch(buildFileUrl(geofilename));
         const data = await res.json();
         rawGeojsonRef.current = JSON.parse(JSON.stringify(data));
         const transformedData = coordinateTrans(data);
@@ -158,7 +159,7 @@ const CoreMap: React.FC = () => {
   const saveGeojson = async (content: any) => {
     if (!geofilename) return;
     try {
-      const res = await fetch(`http://localhost:8000/files/${encodeURIComponent(geofilename)}`, {
+      const res = await fetch(buildFileUrl(geofilename), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(content),

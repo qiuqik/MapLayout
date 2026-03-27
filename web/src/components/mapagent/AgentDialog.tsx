@@ -4,8 +4,7 @@ import React, { useRef, useState } from 'react';
 import { SparklesIcon, UploadIcon, Wand2Icon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAgentMap } from '@/lib/agentMapContext';
-
-const API_BASE_URL = 'http://localhost:8000';
+import { API_BASE_URL, buildFileUrl } from '@/lib/api';
 
 interface AgentDialogProps {
   className?: string;
@@ -55,7 +54,7 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
 
       const data = await res.json();
       setSelectedImage(data.filepath);
-      setImagePreview(`${API_BASE_URL}/files/${data.filepath}`);
+      setImagePreview(buildFileUrl(data.filepath));
     } catch (err) {
       console.error("图片上传失败:", err);
       alert('图片上传失败，请重试');
@@ -93,14 +92,14 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
       const fetchPromises = [];
 
       if (data.geofilepath) {
-        const geoPromise = fetch(`${API_BASE_URL}/files/${encodeURIComponent(data.geofilepath)}`)
+        const geoPromise = fetch(buildFileUrl(data.geofilepath))
           .then(res => res.json())
           .then(setGeojson);
         fetchPromises.push(geoPromise);
       }
       
       if (data.specfilepath) {
-        const specPromise = fetch(`${API_BASE_URL}/files/${encodeURIComponent(data.specfilepath)}`)
+        const specPromise = fetch(buildFileUrl(data.specfilepath))
           .then(res => res.json())
           .then(specData => {
             setManifest(specData);

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { MapDataContext } from '@/lib/mapContext'
+import { buildFileUrl } from '@/lib/api';
 import { X } from 'lucide-react'
 
 
@@ -15,7 +16,7 @@ const RightCard: React.FC = () => {
     useEffect(() => {
         if(!geofilename) return;
         try {
-            fetch(`http://localhost:8000/files/${encodeURIComponent(geofilename)}`)
+            fetch(buildFileUrl(geofilename))
                 .then(res => res.json())
                 .then(data => {
                     setGeojson(data);
@@ -38,7 +39,7 @@ const RightCard: React.FC = () => {
             {imagename && (
                 <div className="mb-4 flex-shrink-0 relative group">
                     <img 
-                        src={imagename ? `http://localhost:8000/files/${encodeURIComponent(imagename)}` : ''} 
+                        src={imagename ? buildFileUrl(imagename) : ''} 
                         alt="reference"
                         className="w-full h-auto rounded border border-gray-200"
                     />
