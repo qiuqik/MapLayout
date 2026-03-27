@@ -8,8 +8,6 @@ import asyncio
 
 from fastapi import UploadFile, File, Body
 from datetime import datetime
-import src.travel_agent as travel_agent
-import src.vlm_agent as vlm_agent
 from src.multi_modal_agent import MultiModalMapAgent
 
 app = FastAPI()
@@ -23,59 +21,14 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],  # 允许所有请求方法
-    allow_headers=["*"],  # 允许所有请求头
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
-
-# 定义接收消息的模型
-class ChatMessage(BaseModel):
-    message: str
-    imageFilename: str
 
 class MapAgentRequest(BaseModel):
     message: str
     imageFilename: str
     geojsonFilename: str | None = None
-
-@app.post('/api/agent')
-async def analyze(message: ChatMessage):
-    user_input = message.message
-    print(f"收到用户消息: {user_input}")
-
-    # 检查图片路径
-    image_name = message.imageFilename
-    image_path = os.path.join(os.path.dirname(__file__), 'images', image_name)
-    if not os.path.exists(image_path):
-        return JSONResponse(status_code=404, content={"error": f"图片文件不存在：{image_path}"})
-
-    # Travel Agent (文本规划)
-    def run_travel_agent():
-        agent = travel_agent.TravelPlannerAgent()
-        json_output = agent.run(user_input)
-        return agent.save_file(json_output)
-
-    # VLM Agent (视觉样式)
-    def run_vlm_agent():
-        output_dir = os.path.join(os.path.dirname(__file__), 'output/stylejson')
-        agent = vlm_agent.VLMAgent(output_dir)
-        json_content = agent.analyze_image(image_path)
-        full_path = agent.save_result(json_content)
-        return os.path.basename(full_path)
-
-    try:
-        # 并发运行同步阻塞任务
-        geo_file_name, style_file_name = await asyncio.gather(
-            asyncio.to_thread(run_travel_agent),
-            asyncio.to_thread(run_vlm_agent)
-        )
-    except Exception as e:
-        print(f"执行Agent时发生错误: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-    return {
-        "geofilepath": geo_file_name,
-        "stylefilepath": style_file_name
-    }
 
 
 # 返回所有 geojson 文件
