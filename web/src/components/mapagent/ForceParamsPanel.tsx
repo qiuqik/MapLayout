@@ -66,7 +66,7 @@ function SliderRow({
         min={min} max={max} step={step}
         value={value}
         onChange={e => onChange(Number(e.target.value))}
-        style={{ width: '100%', accentColor: color, cursor: 'pointer' }}
+        style={{ width: '100%', accentColor: color, cursor: 'pointer'}}
       />
     </div>
   );
@@ -108,72 +108,33 @@ export default function ForceParamsPanel({ forceParams, fieldParams, onForceChan
     ? { left: pos.x, top: pos.y, right: 'auto' }
     : { top: 12, right: 12 };
 
-  return (
-    <div
-      ref={panelRef}
-      style={{
-        position: 'absolute',
-        ...posStyle,
-        zIndex: 20,
-        background: 'rgba(8, 8, 20, 0.88)',
-        color: '#e2e8f0',
-        borderRadius: 10,
-        padding: '0 0 14px',
-        width: 260,
-        backdropFilter: 'blur(8px)',
-        fontFamily: '"SF Mono", "Fira Code", monospace',
-        fontSize: 11,
-        boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
-        pointerEvents: 'auto',
-        maxHeight: 'calc(100vh - 60px)',
-        overflowY: 'auto',
-        userSelect: 'none',
-      }}
-    >
-      {/* Drag handle */}
-      <div
-        onMouseDown={onMouseDown}
-        style={{
-          padding: '10px 14px 8px',
-          cursor: dragging ? 'grabbing' : 'grab',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-          marginBottom: 10,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-        }}
-      >
-        <span style={{ opacity: 0.4, fontSize: 10, letterSpacing: 2 }}>⠿</span>
-        <span style={{ fontWeight: 700, fontSize: 12, color: '#fff', letterSpacing: 0.3 }}>⚙ Layout Debug</span>
-      </div>
-      <div style={{ padding: '0 14px' }}>
-
-      <div style={{ marginBottom: 7, fontSize: 9, color: '#7dd3fc', textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 700 }}>
-        Force Simulation
-      </div>
+return (
+  <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm font-sans text-[11px] overflow-hidden">
+    <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 flex items-center gap-1.5">
+      <span className="font-semibold text-gray-800 text-sm">⚙ Layout Debug</span>
+    </div>
+    <div className="p-2.5">
+      <div className="mb-1.5 text-[10px] text-sky-800 uppercase tracking-wider font-semibold">Force Simulation</div>
       {FORCE_SLIDERS.map(({ key, label, min, max, step }) => (
         <SliderRow
-          key={key}
-          label={label} min={min} max={max} step={step}
-          value={forceParams[key]}
-          color="#7dd3fc"
+          key={key} label={label} min={min} max={max} step={step}
+          value={forceParams[key]} color="oklch(44.3% 0.11 240.79)"
           onChange={v => onForceChange({ [key]: v })}
         />
       ))}
 
-      <div style={{ margin: '12px 0 7px', fontSize: 9, color: '#86efac', textTransform: 'uppercase', letterSpacing: 1.2, fontWeight: 700 }}>
-        Repulsion Field
-      </div>
+      <div className="mt-2.5 mb-1.5 text-[10px] text-teal-700 uppercase tracking-wider font-semibold">Repulsion Field</div>
       {FIELD_SLIDERS.map(({ key, label, min, max, step }) => (
         <SliderRow
-          key={key}
-          label={label} min={min} max={max} step={step}
-          value={fieldParams[key]}
-          color="#86efac"
+          key={key} label={label} min={min} max={max} step={step}
+          value={fieldParams[key]} color="oklch(51.1% 0.096 186.391)"
           onChange={v => onFieldChange({ [key]: v })}
         />
       ))}
-      </div>{/* end padding wrapper */}
     </div>
-  );
+  </div>
+);
+
+
+  
 }

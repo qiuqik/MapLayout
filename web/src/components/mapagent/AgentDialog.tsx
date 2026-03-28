@@ -5,6 +5,7 @@ import { SparklesIcon, UploadIcon, Wand2Icon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAgentMap } from '@/lib/agentMapContext';
 import { API_BASE_URL, buildFileUrl } from '@/lib/api';
+import { Separator } from '@/components/ui/separator';
 
 interface AgentDialogProps {
   className?: string;
@@ -35,7 +36,7 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      alert('请选择有效的图片文件');
+      alert('Please select a valid image file');
       clearImage();
       return;
     }
@@ -50,14 +51,14 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
         body: formData,
       });
 
-      if (!res.ok) throw new Error('上传接口响应异常');
+      if (!res.ok) throw new Error('Upload API response error');
 
       const data = await res.json();
       setSelectedImage(data.filepath);
       setImagePreview(buildFileUrl(data.filepath));
     } catch (err) {
-      console.error("图片上传失败:", err);
-      alert('图片上传失败，请重试');
+      console.error("Image upload failed:", err);
+      alert('Image upload failed, please try again');
       clearImage();
     } finally {
       setLoading(false);
@@ -65,11 +66,11 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
   };
 
   const handleSubmit = async () => {
-    if (!selectedImage) return alert('请先上传参考图片');
-    if (!message.trim()) return alert('请输入旅行需求描述');
+    if (!selectedImage) return alert('Please upload a reference image first');
+    if (!message.trim()) return alert('Please enter a travel requirement description');
     
     setLoading(true);
-    setProgress('正在生成路线与地图数据，请稍候...'); // 单一真实的 Loading 状态
+    setProgress('Generating route and map data...'); // 单一真实的 Loading 状态
     
     try {
       const response = await fetch(`${API_BASE_URL}/api/multimodal/agent`, {
@@ -109,11 +110,11 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
       }
 
       await Promise.all(fetchPromises);
-      setProgress('处理完成！');
+      setProgress('Processing completed!');
 
     } catch (error: any) {
-      console.error('Agent 错误:', error);
-      alert(error.message || '分析失败，请检查网络或重试');
+      console.error('Agent error:', error);
+      alert(error.message || 'Analysis failed, please check network or try again');
       setProgress('');
     } finally {
       setLoading(false);
@@ -122,7 +123,9 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
   };
 
   return (
-    <div className={`flex flex-col gap-3 ${className}`}>
+    <div className={`flex flex-col gap-2 ${className}`}>
+      {/* <Separator/> */}
+      <h3 className="text-sm font-semibold text-gray-700 mb-2">Upload Reference Image</h3> 
       <div className="flex items-center gap-2">
         <input
           type="file"
@@ -139,7 +142,7 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
           disabled={loading}
         >
           <UploadIcon className="w-4 h-4 mr-2" />
-          {selectedImage ? selectedImage.slice(-10) : '选择参考图片'}
+          {selectedImage ? selectedImage.slice(-10) : 'Select reference image'}
         </Button>
         
         <Button 
@@ -169,7 +172,7 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
           <button
             onClick={clearImage}
             className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-black/80 transition-colors"
-            title="移除图片"
+            title="Remove image"
           >
             <XIcon className="w-4 h-4" />
           </button>
@@ -178,7 +181,7 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
       
       {imageModalOpen && imagePreview && (
         <div 
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+          className="bg-black/80 z-50 flex items-center justify-center p-2 backdrop-blur-sm"
           onClick={() => setImageModalOpen(false)}
         >
           <div className="relative max-w-full max-h-full">
@@ -203,8 +206,8 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        placeholder="请输入您的旅行需求，例如：我想去北京玩3天，预算5000元..."
-        className="w-full min-h-[80px] p-2 text-sm border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-gray-800/50"
+        placeholder="Enter your travel requirements, e.g. I want to go to Beijing for 3 days, budget 5000 yuan..."
+        className="w-full min-h-[60px] p-2 text-[11px] border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-gray-800/50"
         disabled={loading}
       />
       

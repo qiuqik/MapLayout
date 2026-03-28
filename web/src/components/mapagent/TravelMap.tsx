@@ -459,6 +459,11 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         style={{ width: '100%', height: '100%', zIndex: 1 }}
         onLoad={onMapLoad}
         onMoveEnd={onMoveEnd}
+        scrollZoom={false}
+        dragPan={false}
+        dragRotate={false}
+        keyboard={false}
+        doubleClickZoom={false}
       >
         <AreaRenderer areaStyles={areaStyles} transformedLayers={transformedLayers} />
         <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} />
