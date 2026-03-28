@@ -207,8 +207,8 @@ export function runForceLayout(
     id: o.id,
     x1: o.anchorPx.x,
     y1: o.anchorPx.y,
-    x2: o.x,
-    y2: o.y,
+    x2: o.cx,
+    y2: o.cy,
   }));
 
   return { outputs, leaderLines };

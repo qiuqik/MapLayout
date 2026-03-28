@@ -439,6 +439,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
   const onMoveEnd = useCallback(() => {
     recomputeLayout();
+    console.log("onMoveEnd:",layoutState.inputs);
   }, [recomputeLayout]);
 
       
