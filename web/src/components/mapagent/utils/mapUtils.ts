@@ -1,4 +1,4 @@
-import { gcj02ToWgs84, wgs84ToGcj02 } from '@/lib/gcl2wgs';
+import coordtransform from 'coordtransform';
 
 const MAPBOX_DIRECTIONS_API = 'https://api.mapbox.com/directions/v5/mapbox/walking';
 
@@ -17,39 +17,37 @@ export const transformAllCoordinates = (geojson: any): TransformedMapData => {
   const points: any[] = [];
   const lines: any[] = [];
   const polygons: any[] = [];
-
   for (const feature of geojson.features) {
     const transformedFeature = JSON.parse(JSON.stringify(feature));
-    
     if (feature.geometry?.type === 'Point') {
-      const coord = gcj02ToWgs84(feature.geometry.coordinates as [number, number]);
+      const coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
       transformedFeature.geometry.coordinates = coord;
       transformedFeature.properties = transformedFeature.properties || {};
       transformedFeature.properties.coordinates = coord;
       
       if (feature.properties?.card_coord) {
-        transformedFeature.properties.card_coord = gcj02ToWgs84(feature.properties.card_coord as [number, number]);
+        transformedFeature.properties.card_coord = coordtransform.gcj02towgs84(...feature.properties.card_coord);
       }
       if (feature.properties?.label_coord) {
-        transformedFeature.properties.label_coord = gcj02ToWgs84(feature.properties.label_coord as [number, number]);
+        transformedFeature.properties.label_coord = coordtransform.gcj02towgs84(...feature.properties.label_coord);
       }
       
       points.push(transformedFeature);
     } else if (feature.geometry?.type === 'LineString') {
       const coords = feature.geometry.coordinates;
-      const transformedCoords = coords.map((c: number[]) => gcj02ToWgs84(c as [number, number]));
+      const transformedCoords = coords.map((c: number[]) => coordtransform.gcj02towgs84(...c));
       transformedFeature.geometry.coordinates = transformedCoords;
       lines.push(transformedFeature);
     } else if (feature.geometry?.type === 'Polygon') {
       const coords = feature.geometry.coordinates;
       const transformedCoords = coords.map((ring: number[][]) => 
-        ring.map((c: number[]) => gcj02ToWgs84(c as [number, number]))
+        ring.map((c: number[]) => coordtransform.gcj02towgs84(...c))
       );
       transformedFeature.geometry.coordinates = transformedCoords;
       polygons.push(transformedFeature);
     }
+    
   }
-
   return {
     points,
     lines,

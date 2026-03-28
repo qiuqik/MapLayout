@@ -236,7 +236,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
       const labelStyle = labelStyles.find((l: any) => l.visual_id === feature.properties?.label_visual_id);
       if (labelStyle) {
-        const coord = feature.properties?.label_coord || feature.geometry.coordinates;
+        const coord = feature.geometry.coordinates;
         const [lng, lat] = coord;
         const html = populateTemplate(labelStyle.template, feature.properties, globalProps);
         inputs.push({
@@ -252,7 +252,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
       const cardStyle = cardStyles.find((c: any) => c.visual_id === feature.properties?.card_visual_id);
       if (cardStyle) {
-        const coord = feature.properties?.card_coord || feature.geometry.coordinates;
+        const coord = feature.geometry.coordinates;
         const [lng, lat] = coord;
         const html = populateTemplate(cardStyle.template, feature.properties, globalProps);
         inputs.push({

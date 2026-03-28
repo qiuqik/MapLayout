@@ -203,22 +203,13 @@ export function runForceLayout(
     };
   });
 
-  const leaderLines: LeaderLine[] = outputs
-    .map((o) => {
-      // Find the closest point on the label/card rectangle to the anchor.
-      const x2 = clamp(o.anchorPx.x, o.x, o.x + o.width);
-      const y2 = clamp(o.anchorPx.y, o.y, o.y + o.height);
-      const dist = Math.hypot(x2 - o.anchorPx.x, y2 - o.anchorPx.y);
-      if (dist <= params.leaderThreshold) return null;
-      return {
-        id: o.id,
-        x1: o.anchorPx.x,
-        y1: o.anchorPx.y,
-        x2,
-        y2,
-      };
-    })
-    .filter(Boolean) as LeaderLine[];
+  const leaderLines: LeaderLine[] = outputs.map((o) => ({
+    id: o.id,
+    x1: o.anchorPx.x,
+    y1: o.anchorPx.y,
+    x2: o.x,
+    y2: o.y,
+  }));
 
   return { outputs, leaderLines };
 }
