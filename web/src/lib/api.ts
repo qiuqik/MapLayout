@@ -10,3 +10,13 @@ export const buildApiUrl = (path: string): string => {
 export const buildFileUrl = (filename: string): string => {
   return `${API_BASE_URL}/files/${encodeURIComponent(filename)}`;
 };
+
+export const updateSessionGeojson = async (sessionId: string, geojson: any, filename?: string): Promise<{ success: boolean; filepath?: string; error?: string }> => {
+  const res = await fetch(`${API_BASE_URL}/api/multimodal/session/${sessionId}/update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ geojson, filename }),
+  });
+  const data = await res.json();
+  return data;
+};

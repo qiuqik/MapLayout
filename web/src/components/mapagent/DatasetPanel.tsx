@@ -4,20 +4,26 @@ import React, { useState, useCallback } from 'react';
 import { useAgentMap } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { updateSessionGeojson } from '@/lib/api';
 import coordtransform from 'coordtransform';
+import type { LayoutItemOutput, LayoutItemInput } from '@/app/agent/layout/types';
 
 export type DatasetType = 'origin' | 'layout' | 'groundtruth';
 
 interface DatasetPanelProps {
   onDatasetChange?: (type: DatasetType) => void;
+  onGroundtruthModeChange?: (enabled: boolean) => void;
+  layoutOutputs?: LayoutItemOutput[];
+  layoutInputs?: LayoutItemInput[];
+  groundtruthPositions?: Record<string, { lng: number; lat: number }>;
+  sessionId?: string;
 }
 
 const DATASET_CONFIG: Record<DatasetType, { label: string; suffix: string; description: string }> = {
   origin: {
     label: 'Original',
     suffix: 'geojson_origin.json',
-    description: 'Positions of card/label positions relative to anchors',
+    description: 'Card/label positions at anchor points (no offset)',
   },
   layout: {
     label: 'Layout',
@@ -27,20 +33,28 @@ const DATASET_CONFIG: Record<DatasetType, { label: string; suffix: string; descr
   groundtruth: {
     label: 'Ground Truth',
     suffix: 'geojson_groundtruth.json',
-    description: 'Ground truth positions after human adjustment',
+    description: 'Manually adjusted positions via dragging',
   },
 };
 
-const DatasetPanel: React.FC<DatasetPanelProps> = ({ onDatasetChange }) => {
+const DatasetPanel: React.FC<DatasetPanelProps> = ({
+  onDatasetChange,
+  onGroundtruthModeChange,
+  layoutOutputs = [],
+  layoutInputs = [],
+  groundtruthPositions = {},
+  sessionId,
+}) => {
   const { geojson } = useAgentMap();
-  const [currentDataset, setCurrentDataset] = useState<DatasetType>('origin');
+  const [currentDataset, setCurrentDataset] = useState<DatasetType>('layout');
   const [filename, setFilename] = useState<string>('map_data');
   const [isCapturing, setIsCapturing] = useState(false);
 
   const handleDatasetChange = useCallback((type: DatasetType) => {
     setCurrentDataset(type);
     onDatasetChange?.(type);
-  }, [onDatasetChange]);
+    onGroundtruthModeChange?.(type === 'groundtruth');
+  }, [onDatasetChange, onGroundtruthModeChange]);
 
   const saveDataset = useCallback(async () => {
     if (!geojson) {
@@ -53,32 +67,88 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({ onDatasetChange }) => {
       const config = DATASET_CONFIG[currentDataset];
       const fullFilename = `${filename}_${config.suffix}`;
 
-      const layoutPositions = new Map();
-      if (currentDataset === 'layout') {
-        geojson.features?.forEach((f: any) => {
-          if (f.properties?.card_coord) {
-            const [lng, lat] = f.properties.card_coord;
-            layoutPositions.set(`card-point-${f.properties?.name}`, { lng, lat });
+      const transformed = JSON.parse(JSON.stringify(geojson));
+
+      if (currentDataset === 'origin') {
+        transformed.features = transformed.features.map((feature: any) => {
+          if (feature.geometry?.type === 'Point') {
+            const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
+            feature.properties = feature.properties || {};
+            feature.properties.coordinates = wgs84Coord;
+            feature.properties.card_coord = [...feature.geometry.coordinates];
+            feature.properties.label_coord = [...feature.geometry.coordinates];
           }
-          if (f.properties?.label_coord) {
-            const [lng, lat] = f.properties.label_coord;
-            layoutPositions.set(`label-point-${f.properties?.name}`, { lng, lat });
-          }
+          return feature;
         });
       }
 
-      const transformed = JSON.parse(JSON.stringify(geojson));
-      transformed.features = transformed.features.map((feature: any) => {
-        if (feature.geometry?.type === 'Point') {
-          const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
-          feature.properties = feature.properties || {};
-          feature.properties.coordinates = wgs84Coord;
+      if (currentDataset === 'layout' && layoutOutputs.length > 0) {
+        const outputById = new Map(layoutOutputs.map(o => [o.id, o]));
+        const inputByKind = new Map<string, LayoutItemInput>();
 
-          if (currentDataset === 'layout') {
-            const cardKey = `card-point-${feature.properties?.name}`;
-            const labelKey = `label-point-${feature.properties?.name}`;
-            const cardPos = layoutPositions.get(cardKey);
-            const labelPos = layoutPositions.get(labelKey);
+        layoutInputs.forEach(input => {
+          inputByKind.set(input.id, input);
+        });
+
+        transformed.features = transformed.features.map((feature: any) => {
+          if (feature.geometry?.type === 'Point') {
+            const featureName = feature.properties?.name;
+            const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
+            feature.properties = feature.properties || {};
+            feature.properties.coordinates = wgs84Coord;
+
+            const cardId = `card-point-${featureName}`;
+            const labelId = `label-point-${featureName}`;
+
+            const cardOutput = outputById.get(cardId);
+            const labelOutput = outputById.get(labelId);
+
+            if (cardOutput) {
+              const raw = { x: cardOutput.x, y: cardOutput.y };
+              const mapProxy = {
+                getMap: () => ({
+                  unproject: (px: [number, number]) => {
+                    const lngLat = cardOutput.anchorLngLat;
+                    const scale = 0.00001;
+                    return {
+                      lng: lngLat.lng + (px[0] - cardOutput.anchorPx.x) * scale,
+                      lat: lngLat.lat + (px[1] - cardOutput.anchorPx.y) * scale,
+                    };
+                  }
+                })
+              };
+              const lngLat = mapProxy.getMap().unproject([cardOutput.x, cardOutput.y]);
+              const gcj02Card = coordtransform.wgs84togcj02(lngLat.lng, lngLat.lat);
+              feature.properties.card_coord = gcj02Card;
+            }
+
+            if (labelOutput) {
+              const lngLat = labelOutput.anchorLngLat;
+              const scale = 0.00001;
+              const gcj02Label = coordtransform.wgs84togcj02(
+                lngLat.lng + (labelOutput.x - labelOutput.anchorPx.x) * scale,
+                lngLat.lat + (labelOutput.y - labelOutput.anchorPx.y) * scale
+              );
+              feature.properties.label_coord = gcj02Label;
+            }
+          }
+          return feature;
+        });
+      }
+
+      if (currentDataset === 'groundtruth' && Object.keys(groundtruthPositions).length > 0) {
+        transformed.features = transformed.features.map((feature: any) => {
+          if (feature.geometry?.type === 'Point') {
+            const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
+            feature.properties = feature.properties || {};
+            feature.properties.coordinates = wgs84Coord;
+
+            const featureName = feature.properties?.name;
+            const cardId = `card-point-${featureName}`;
+            const labelId = `label-point-${featureName}`;
+
+            const cardPos = groundtruthPositions[cardId];
+            const labelPos = groundtruthPositions[labelId];
 
             if (cardPos) {
               const gcj02Card = coordtransform.wgs84togcj02(cardPos.lng, cardPos.lat);
@@ -89,9 +159,9 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({ onDatasetChange }) => {
               feature.properties.label_coord = gcj02Label;
             }
           }
-        }
-        return feature;
-      });
+          return feature;
+        });
+      }
 
       const blob = new Blob([JSON.stringify(transformed, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -110,7 +180,111 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({ onDatasetChange }) => {
     } finally {
       setIsCapturing(false);
     }
-  }, [geojson, currentDataset, filename]);
+  }, [geojson, currentDataset, filename, layoutOutputs, layoutInputs, groundtruthPositions]);
+
+  const saveToSession = useCallback(async () => {
+    if (!geojson || !sessionId) {
+      alert('No valid geojson data or session ID available');
+      return;
+    }
+
+    setIsCapturing(true);
+    try {
+      const transformed = JSON.parse(JSON.stringify(geojson));
+
+      if (currentDataset === 'origin') {
+        transformed.features = transformed.features.map((feature: any) => {
+          if (feature.geometry?.type === 'Point') {
+            const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
+            feature.properties = feature.properties || {};
+            feature.properties.coordinates = wgs84Coord;
+            feature.properties.card_coord = [...feature.geometry.coordinates];
+            feature.properties.label_coord = [...feature.geometry.coordinates];
+          }
+          return feature;
+        });
+      }
+
+      if (currentDataset === 'layout' && layoutOutputs.length > 0) {
+        const outputById = new Map(layoutOutputs.map(o => [o.id, o]));
+
+        transformed.features = transformed.features.map((feature: any) => {
+          if (feature.geometry?.type === 'Point') {
+            const featureName = feature.properties?.name;
+            const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
+            feature.properties = feature.properties || {};
+            feature.properties.coordinates = wgs84Coord;
+
+            const cardId = `card-point-${featureName}`;
+            const labelId = `label-point-${featureName}`;
+
+            const cardOutput = outputById.get(cardId);
+            const labelOutput = outputById.get(labelId);
+
+            if (cardOutput) {
+              const lngLat = cardOutput.anchorLngLat;
+              const scale = 0.00001;
+              const gcj02Card = coordtransform.wgs84togcj02(
+                lngLat.lng + (cardOutput.x - cardOutput.anchorPx.x) * scale,
+                lngLat.lat + (cardOutput.y - cardOutput.anchorPx.y) * scale
+              );
+              feature.properties.card_coord = gcj02Card;
+            }
+
+            if (labelOutput) {
+              const lngLat = labelOutput.anchorLngLat;
+              const scale = 0.00001;
+              const gcj02Label = coordtransform.wgs84togcj02(
+                lngLat.lng + (labelOutput.x - labelOutput.anchorPx.x) * scale,
+                lngLat.lat + (labelOutput.y - labelOutput.anchorPx.y) * scale
+              );
+              feature.properties.label_coord = gcj02Label;
+            }
+          }
+          return feature;
+        });
+      }
+
+      if (currentDataset === 'groundtruth' && Object.keys(groundtruthPositions).length > 0) {
+        transformed.features = transformed.features.map((feature: any) => {
+          if (feature.geometry?.type === 'Point') {
+            const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
+            feature.properties = feature.properties || {};
+            feature.properties.coordinates = wgs84Coord;
+
+            const featureName = feature.properties?.name;
+            const cardId = `card-point-${featureName}`;
+            const labelId = `label-point-${featureName}`;
+
+            const cardPos = groundtruthPositions[cardId];
+            const labelPos = groundtruthPositions[labelId];
+
+            if (cardPos) {
+              const gcj02Card = coordtransform.wgs84togcj02(cardPos.lng, cardPos.lat);
+              feature.properties.card_coord = gcj02Card;
+            }
+            if (labelPos) {
+              const gcj02Label = coordtransform.wgs84togcj02(labelPos.lng, labelPos.lat);
+              feature.properties.label_coord = gcj02Label;
+            }
+          }
+          return feature;
+        });
+      }
+
+      const result = await updateSessionGeojson(sessionId, transformed, `${filename}_${DATASET_CONFIG[currentDataset].suffix}`);
+      if (result.success) {
+        alert(`Dataset saved to session: ${sessionId}`);
+      } else {
+        alert(`Error saving to session: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error saving dataset to session:', error);
+      alert('Error saving dataset to session');
+    } finally {
+      setIsCapturing(false);
+    }
+  }, [geojson, currentDataset, sessionId, layoutOutputs, layoutInputs, groundtruthPositions]);
 
   return (
     <div className="flex flex-col h-full">
@@ -137,12 +311,6 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({ onDatasetChange }) => {
         </div>
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Filename</label>
-          {/* <Input
-            className="h-8 text-gray-700 ![font-size:12px] px-2 leading-none"
-            value={filename}
-            onChange={(e) => setFilename(e.target.value)}
-            placeholder="Input filename"
-          /> */}
           <textarea
             value={filename}
             onChange={(e) => setFilename(e.target.value)}
@@ -165,6 +333,17 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({ onDatasetChange }) => {
         >
           {isCapturing ? 'Saving...' : 'Export as GeoJSON'}
         </Button>
+
+        {sessionId && (
+          <Button
+            className="w-full h-8 mb-2 text-[12px]"
+            onClick={saveToSession}
+            disabled={isCapturing || !geojson}
+            variant="default"
+          >
+            {isCapturing ? 'Saving...' : 'Save to Session'}
+          </Button>
+        )}
 
         <Separator />
 

@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import AgentDialog from '@/components/mapagent/AgentDialog';
 import { AgentMapProvider, useAgentMap } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
 import dynamic from 'next/dynamic';
 import ForceParamsPanel, { type ForceParamsOverride, type FieldParamsOverride } from '@/components/mapagent/ForceParamsPanel';
+import type { LayoutItemOutput, LayoutItemInput } from './layout/types';
 
 import { API_BASE_URL } from '@/lib/api';
 import DatasetPanel from '@/components/mapagent/DatasetPanel';
@@ -39,6 +40,19 @@ function AgentPageContent() {
   const [mapDraggable, setMapDraggable] = useState(false);
   const [forceParams, setForceParams] = useState<ForceParamsOverride>({ ...DEFAULT_FORCE_OVERRIDE });
   const [fieldParams, setFieldParams] = useState<FieldParamsOverride>({ ...DEFAULT_FIELD_OVERRIDE });
+  const [layoutOutputs, setLayoutOutputs] = useState<LayoutItemOutput[]>([]);
+  const [layoutInputs, setLayoutInputs] = useState<LayoutItemInput[]>([]);
+  const [groundtruthPositions, setGroundtruthPositions] = useState<Record<string, { lng: number; lat: number }>>({});
+  const [groundtruthMode, setGroundtruthMode] = useState(false);
+
+  const handleLayoutOutput = useCallback((outputs: LayoutItemOutput[], inputs: LayoutItemInput[]) => {
+    setLayoutOutputs(outputs);
+    setLayoutInputs(inputs);
+  }, []);
+
+  const handleGroundtruthChange = useCallback((positions: Record<string, { lng: number; lat: number }>) => {
+    setGroundtruthPositions(positions);
+  }, []);
   
   const { setManifest, setGeojson, manifest, geojson } = useAgentMap();
 
@@ -166,7 +180,13 @@ function AgentPageContent() {
           )}
 
           <Separator className="my-3 bg-gray-400" />
-          <DatasetPanel />
+          <DatasetPanel
+            layoutOutputs={layoutOutputs}
+            layoutInputs={layoutInputs}
+            groundtruthPositions={groundtruthPositions}
+            sessionId={currentSession?.session_id}
+            onGroundtruthModeChange={setGroundtruthMode}
+          />
         </div>
       </div>
 
@@ -179,6 +199,9 @@ function AgentPageContent() {
           forceParams={forceParams}
           fieldParams={fieldParams}
           draggable={mapDraggable}
+          onLayoutOutput={handleLayoutOutput}
+          groundtruthMode={groundtruthMode}
+          onGroundtruthChange={handleGroundtruthChange}
         />
       </div>
     </div>

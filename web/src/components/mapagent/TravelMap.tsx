@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import MapGL, { MapRef } from 'react-map-gl/mapbox';
 import { StyleSpecification } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -18,6 +18,7 @@ import RouteRenderer from './renderers/RouteRenderer';
 import PointRenderer from './renderers/PointRenderer';
 import CardRenderer from './renderers/CardRenderer';
 import LabelRenderer from './renderers/LabelRenderer';
+import DraggableOutput from './DraggableOutput';
 
 import type { LayoutItemInput, LayoutItemOutput, LeaderLine } from '@/app/agent/layout/types';
 import { buildObstacleRects, buildObstacleSegments } from '@/app/agent/layout/obstacles';
@@ -53,9 +54,12 @@ interface TravelMapProps {
   forceParams?: Partial<ForceParamsOverride>;
   fieldParams?: Partial<FieldParamsOverride>;
   draggable?: boolean;
+  onLayoutOutput?: (outputs: LayoutItemOutput[], inputs: LayoutItemInput[]) => void;
+  groundtruthMode?: boolean;
+  onGroundtruthChange?: (positions: Record<string, { lng: number; lat: number }>) => void;
 }
 
-export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false }: TravelMapProps) {
+export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false, onLayoutOutput, groundtruthMode = false, onGroundtruthChange }: TravelMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [processedLines, setProcessedLines] = useState<any[]>([]);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
@@ -65,6 +69,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     leaderLines: LeaderLine[];
     viewport: { width: number; height: number } | null;
   }>({ inputs: [], outputs: [], leaderLines: [], viewport: null });
+  const [groundtruthPositions, setGroundtruthPositions] = useState<Record<string, { lng: number; lat: number }>>({});
   const measureRootRef = useRef<HTMLDivElement | null>(null);
   
   const transformedData = useMemo<TransformedMapData>(() => {
@@ -434,6 +439,18 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     recomputeLayout();
   }, [layoutState.inputs, recomputeLayout]);
 
+  useEffect(() => {
+    if (layoutState.outputs.length > 0 && onLayoutOutput) {
+      onLayoutOutput(layoutState.outputs, layoutState.inputs);
+    }
+  }, [layoutState.outputs, layoutState.inputs, onLayoutOutput]);
+
+  useEffect(() => {
+    if (onGroundtruthChange && Object.keys(groundtruthPositions).length > 0) {
+      onGroundtruthChange(groundtruthPositions);
+    }
+  }, [groundtruthPositions, onGroundtruthChange]);
+
   const onMapLoad = useCallback(() => {
     recomputeLayout();
   }, [recomputeLayout]);
@@ -447,6 +464,34 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
   // showHeatmap: standard map + line/point/polygon only, no label/card/global/background
   // normal/debug: all components
   const hideOverlays = showHeatmap;
+
+  const groundtruthLeaderLines = React.useMemo(() => {
+    if (!mapRef.current || layoutState.outputs.length === 0) return [];
+    const raw = mapRef.current as any;
+    const map = raw?.getMap ? raw.getMap() : raw;
+    if (!map) return [];
+
+    return layoutState.outputs
+      .filter(o => groundtruthPositions[o.id])
+      .map(o => {
+        const gtPos = groundtruthPositions[o.id];
+        const anchorPx = map.project([o.anchorLngLat.lng, o.anchorLngLat.lat]);
+        const gtPx = map.project([gtPos.lng, gtPos.lat]);
+        const cx = gtPx.x + o.width / 2;
+        const cy = gtPx.y + o.height / 2;
+        return {
+          id: o.id,
+          x1: anchorPx.x,
+          y1: anchorPx.y,
+          x2: cx,
+          y2: cy,
+        };
+      });
+  }, [layoutState.outputs, groundtruthPositions, mapRef]);
+
+  const displayLeaderLines = groundtruthMode && groundtruthLeaderLines.length > 0
+    ? groundtruthLeaderLines
+    : layoutState.leaderLines;
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -503,7 +548,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
             height="100%"
             style={{ position: 'absolute', inset: 0, overflow: 'visible' }}
           >
-            {layoutState.leaderLines.map((l) => (
+            {displayLeaderLines.map((l) => (
               <line
                 key={`leader-${l.id}`}
                 x1={l.x1}
@@ -517,18 +562,26 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
             ))}
           </svg>
 
-          {layoutState.outputs.map((o) => (
-            <div
-              key={o.id}
-              style={{
-                position: 'absolute',
-                left: `${o.x}px`,
-                top: `${o.y}px`,
-                pointerEvents: 'auto',
-              }}
-              dangerouslySetInnerHTML={{ __html: o.html }}
-            />
-          ))}
+          {layoutState.outputs.map((o) => {
+            const groundtruthPx = groundtruthPositions[o.id];
+
+            return (
+              <DraggableOutput
+                key={o.id}
+                id={o.id}
+                html={o.html}
+                initialX={o.x}
+                initialY={o.y}
+                anchorLngLat={o.anchorLngLat}
+                enabled={groundtruthMode}
+                mapRef={mapRef}
+                onPositionChange={(id, lng, lat) => {
+                  setGroundtruthPositions(prev => ({ ...prev, [id]: { lng, lat } }));
+                }}
+                overridePosition={groundtruthPx}
+              />
+            );
+          })}
         </div>
       )}
 

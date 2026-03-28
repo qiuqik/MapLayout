@@ -307,6 +307,37 @@ async def get_multimodal_session(session_id: str):
     return result
 
 
+@app.post('/api/multimodal/session/{session_id}/update')
+async def update_multimodal_session(session_id: str, request: dict):
+    """更新指定会话的 geojson 数据"""
+    base = os.path.join(os.path.dirname(__file__), 'output', session_id)
+    if not os.path.exists(base):
+        return JSONResponse(status_code=404, content={"error": "会话不存在"})
+
+    try:
+        geojson_data = request.get('geojson')
+        if geojson_data is None:
+            return JSONResponse(status_code=400, content={"error": "缺少 geojson 数据"})
+
+        node3_path = os.path.join(base, 'node3')
+        os.makedirs(node3_path, exist_ok=True)
+
+        filename = request.get('filename')
+        if filename:
+            filepath = os.path.join(node3_path, filename)
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filepath = os.path.join(node3_path, f"geojson_{timestamp}.json")
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(geojson_data, f, ensure_ascii=False, indent=2)
+
+        return {"success": True, "session_id": session_id, "filepath": filepath}
+    except Exception as e:
+        print(f"❌ 更新会话失败: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.post('/api/multimodal/retry')
 async def multimodal_retry(request: MapAgentRequest):
     """重试机制: 当 GeoJSON 生成失败时，重新进行意图理解和 GeoJSON 生成"""
