@@ -114,7 +114,7 @@ function AgentPageContent() {
                   <button
                     className={`w-full text-sm text-left px-3 py-1.5 rounded-md transition-colors truncate ${
                       currentSession?.session_id === s.session_id 
-                        ? 'bg-blue-50 text-blue-700 font-medium' 
+                        ? 'bg-blue-50 text-black font-medium' 
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                     onClick={() => loadSession(s.session_id)}

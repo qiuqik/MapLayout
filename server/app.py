@@ -302,7 +302,8 @@ async def get_multimodal_session(session_id: str):
         result["geojson"] = result["node3"]
     if "node4" in result:
         result["style_code"] = result["node4"]
-    
+
+    result["session_id"] = session_id
     return result
 
 
