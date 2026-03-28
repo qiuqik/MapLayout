@@ -36,6 +36,7 @@ function AgentPageContent() {
   const [currentSession, setCurrentSession] = useState<any>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [mapDraggable, setMapDraggable] = useState(false);
   const [forceParams, setForceParams] = useState<ForceParamsOverride>({ ...DEFAULT_FORCE_OVERRIDE });
   const [fieldParams, setFieldParams] = useState<FieldParamsOverride>({ ...DEFAULT_FIELD_OVERRIDE });
   
@@ -141,6 +142,16 @@ function AgentPageContent() {
             >
               {showDebugPanel ? '🔵 Debug ON' : '⚙ Debug'}
             </button>
+            <button
+              onClick={() => setMapDraggable(v => !v)}
+              className={`flex-1 px-2 py-1.5 rounded-md border-[1.5px] text-[11px] font-semibold transition-all ${
+                mapDraggable
+                  ? 'border-green-500 bg-green-50 text-green-700'
+                  : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              {mapDraggable ? '📌 Anchored' : '⛓ Draggable'}
+            </button>
           </div>
 
           {showDebugPanel && (
@@ -167,6 +178,7 @@ function AgentPageContent() {
           showHeatmap={showHeatmap}
           forceParams={forceParams}
           fieldParams={fieldParams}
+          draggable={mapDraggable}
         />
       </div>
     </div>

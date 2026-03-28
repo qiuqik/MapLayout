@@ -119,13 +119,12 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({ onDatasetChange }) => {
       <div className="space-y-1.5 flex flex-col">
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Dataset Type</label>
-          {/* 改成横向 flex + 间距 gap-2 + 平分宽度 */}
           <div className="flex gap-2">
             {(Object.entries(DATASET_CONFIG) as [DatasetType, typeof DATASET_CONFIG[DatasetType]][]).map(([key, config]) => (
               <button
                 key={key}
                 onClick={() => handleDatasetChange(key)}
-                className={`flex-1 text-[12px] px-2 py-1 rounded-md border transition-all text-center ${
+                className={`flex-1 text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
                   currentDataset === key
                     ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium'
                     : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'

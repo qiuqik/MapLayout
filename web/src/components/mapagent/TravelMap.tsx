@@ -52,9 +52,10 @@ interface TravelMapProps {
   showHeatmap?: boolean;
   forceParams?: Partial<ForceParamsOverride>;
   fieldParams?: Partial<FieldParamsOverride>;
+  draggable?: boolean;
 }
 
-export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams }: TravelMapProps) {
+export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false }: TravelMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [processedLines, setProcessedLines] = useState<any[]>([]);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
@@ -459,11 +460,11 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         style={{ width: '100%', height: '100%', zIndex: 1 }}
         onLoad={onMapLoad}
         onMoveEnd={onMoveEnd}
-        scrollZoom={false}
-        dragPan={false}
-        dragRotate={false}
-        keyboard={false}
-        doubleClickZoom={false}
+        scrollZoom={draggable}
+        dragPan={draggable}
+        dragRotate={draggable}
+        keyboard={draggable}
+        doubleClickZoom={draggable}
       >
         <AreaRenderer areaStyles={areaStyles} transformedLayers={transformedLayers} />
         <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} />
