@@ -20,3 +20,13 @@ export const updateSessionGeojson = async (sessionId: string, geojson: any, file
   const data = await res.json();
   return data;
 };
+
+export const saveLayoutSession = async (sessionId: string, geojson: any, filename?: string): Promise<{ success: boolean; filepath?: string; error?: string }> => {
+  const res = await fetch(`${API_BASE_URL}/api/multimodal/session/${sessionId}/layout`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ geojson, filename }),
+  });
+  const data = await res.json();
+  return data;
+};

@@ -266,45 +266,71 @@ async def get_multimodal_session(session_id: str):
     base = os.path.join(os.path.dirname(__file__), 'output', session_id)
     if not os.path.exists(base):
         return JSONResponse(status_code=404, content={"error": "会话不存在"})
-    
-    result = {}
-    
-    for subdir in ["node1", "node2", "node3", "node4"]:
-        subdir_path = os.path.join(base, subdir)
-        if os.path.exists(subdir_path):
-            files = [f for f in os.listdir(subdir_path) if f.endswith('.json')]
-            if files:
-                latest_file = sorted(files)[-1]
-                filepath = os.path.join(subdir_path, latest_file)
-                
-                if os.path.getsize(filepath) == 0:
-                    print(f"⚠️ 文件为空: {filepath}")
-                    continue
-                
-                try:
-                    with open(filepath, "r", encoding="utf-8") as f:
-                        content = f.read().strip()
-                        if not content:
-                            print(f"⚠️ 文件内容为空: {filepath}")
-                            continue
-                        
-                        try:
-                            result[subdir] = json.loads(content)
-                        except json.JSONDecodeError as e:
-                            print(f"⚠️ JSON 解析失败: {filepath}, 错误: {e}")
-                            continue
-                except Exception as e:
-                    print(f"⚠️ 读取文件失败: {filepath}, 错误: {e}")
-                    continue
-    
-    # 提取前端需要的字段
-    if "node3" in result:
-        result["geojson"] = result["node3"]
-    if "node4" in result:
-        result["style_code"] = result["node4"]
 
-    result["session_id"] = session_id
-    return result
+    node3_path = os.path.join(base, 'node3')
+    node4_path = os.path.join(base, 'node4')
+
+    layout_files, groundtruth_files, origin_files = [], [], []
+
+    if os.path.exists(node3_path):
+        for f in os.listdir(node3_path):
+            if not f.endswith('.json'):
+                continue
+            filepath = os.path.join(node3_path, f)
+            try:
+                with open(filepath, "r", encoding="utf-8") as file:
+                    data = json.load(file)
+                    entry = {"filename": f, "data": data}
+                    if 'groundtruth' in f.lower():
+                        groundtruth_files.append(entry)
+                    elif 'layout' in f.lower():
+                        layout_files.append(entry)
+                    else:
+                        origin_files.append(entry)
+            except Exception as e:
+                print(f"⚠️ 读取文件失败: {filepath}, 错误: {e}")
+
+    layout_files.sort(key=lambda x: x['filename'])
+    groundtruth_files.sort(key=lambda x: x['filename'])
+    origin_files.sort(key=lambda x: x['filename'])
+
+    style_code = None
+    if os.path.exists(node4_path):
+        files = sorted([f for f in os.listdir(node4_path) if f.endswith('.json')])
+        if files:
+            try:
+                with open(os.path.join(node4_path, files[-1]), "r", encoding="utf-8") as f:
+                    style_code = json.load(f)
+            except Exception as e:
+                print(f"⚠️ 读取 node4 失败: {e}")
+
+    return {
+        "session_id": session_id,
+        "style_code": style_code,
+        "origin_file": origin_files[-1] if origin_files else None,
+        "layout_file": layout_files[-1] if layout_files else (origin_files[-1] if origin_files else None),
+        "groundtruth_file": groundtruth_files[-1] if groundtruth_files else (layout_files[-1] if layout_files else (origin_files[-1] if origin_files else None))
+    }
+
+
+def get_unique_filepath(directory: str, base_filename: str) -> str:
+    """Generate a unique filepath by appending 01, 02, 03 etc. if file exists"""
+    name, ext = os.path.splitext(base_filename)
+    filepath = os.path.join(directory, base_filename)
+
+    if not os.path.exists(filepath):
+        return filepath
+
+    counter = 1
+    while True:
+        new_filename = f"{name}_{counter:02d}{ext}"
+        new_filepath = os.path.join(directory, new_filename)
+        if not os.path.exists(new_filepath):
+            return new_filepath
+        counter += 1
+        if counter > 999:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            return os.path.join(directory, f"{name}_{timestamp}{ext}")
 
 
 @app.post('/api/multimodal/session/{session_id}/update')
@@ -324,7 +350,7 @@ async def update_multimodal_session(session_id: str, request: dict):
 
         filename = request.get('filename')
         if filename:
-            filepath = os.path.join(node3_path, filename)
+            filepath = get_unique_filepath(node3_path, filename)
         else:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filepath = os.path.join(node3_path, f"geojson_{timestamp}.json")
@@ -335,6 +361,37 @@ async def update_multimodal_session(session_id: str, request: dict):
         return {"success": True, "session_id": session_id, "filepath": filepath}
     except Exception as e:
         print(f"❌ 更新会话失败: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post('/api/multimodal/session/{session_id}/layout')
+async def save_layout_session(session_id: str, request: dict):
+    """保存 layout 到 session，如果文件名存在则使用时间戳区分"""
+    base = os.path.join(os.path.dirname(__file__), 'output', session_id)
+    if not os.path.exists(base):
+        return JSONResponse(status_code=404, content={"error": "会话不存在"})
+
+    try:
+        geojson_data = request.get('geojson')
+        if geojson_data is None:
+            return JSONResponse(status_code=400, content={"error": "缺少 geojson 数据"})
+
+        node3_path = os.path.join(base, 'node3')
+        os.makedirs(node3_path, exist_ok=True)
+
+        filename = request.get('filename')
+        if filename:
+            filepath = get_unique_filepath(node3_path, filename)
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filepath = os.path.join(node3_path, f"geojson_layout_{timestamp}.json")
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(geojson_data, f, ensure_ascii=False, indent=2)
+
+        return {"success": True, "session_id": session_id, "filepath": filepath}
+    except Exception as e:
+        print(f"❌ 保存 Layout 失败: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 

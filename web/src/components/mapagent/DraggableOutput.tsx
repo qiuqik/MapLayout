@@ -31,7 +31,9 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
   const dragStartRef = useRef<{ mouseX: number; mouseY: number; elemX: number; elemY: number } | null>(null);
 
   useEffect(() => {
-    if (overridePosition && mapRef.current) {
+    if (!enabled) {
+      setPosition({ x: initialX, y: initialY });
+    } else if (overridePosition && mapRef.current) {
       const raw = mapRef.current as any;
       const map = raw?.getMap ? raw.getMap() : raw;
       if (map) {
@@ -42,16 +44,8 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
           setPosition({ x: overridePosition.x, y: overridePosition.y });
         }
       }
-    } else if (enabled) {
-      setPosition({ x: initialX, y: initialY });
     }
   }, [overridePosition, mapRef, enabled, initialX, initialY]);
-
-  useEffect(() => {
-    if (!enabled) {
-      setPosition({ x: initialX, y: initialY });
-    }
-  }, [enabled, initialX, initialY]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!enabled) return;

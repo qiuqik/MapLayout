@@ -156,7 +156,7 @@ export const populateTemplate = (template: string, properties: any, globalProper
   });
 
   html = html.replace(/\s*transform:[^;]+;?/gi, '');
-  console.log(html);
+  // console.log(html);
   return html;
 };
 

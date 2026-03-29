@@ -4,19 +4,20 @@ import React, { useState, useCallback } from 'react';
 import { useAgentMap } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { updateSessionGeojson } from '@/lib/api';
+import { updateSessionGeojson, saveLayoutSession } from '@/lib/api';
 import coordtransform from 'coordtransform';
-import type { LayoutItemOutput, LayoutItemInput } from '@/app/agent/layout/types';
+import type { LayoutItemInput, LayoutItemPosition } from '@/app/agent/layout/types';
 
 export type DatasetType = 'origin' | 'layout' | 'groundtruth';
 
 interface DatasetPanelProps {
   onDatasetChange?: (type: DatasetType) => void;
-  onGroundtruthModeChange?: (enabled: boolean) => void;
-  layoutOutputs?: LayoutItemOutput[];
+  onRerunLayout?: () => void;
+  layoutOutputs?: LayoutItemPosition[];
   layoutInputs?: LayoutItemInput[];
-  groundtruthPositions?: Record<string, { lng: number; lat: number }>;
+  groundtruthPositions?: LayoutItemPosition[] | null;
   sessionId?: string;
+  currentDataset?: DatasetType;
 }
 
 const DATASET_CONFIG: Record<DatasetType, { label: string; suffix: string; description: string }> = {
@@ -39,22 +40,29 @@ const DATASET_CONFIG: Record<DatasetType, { label: string; suffix: string; descr
 
 const DatasetPanel: React.FC<DatasetPanelProps> = ({
   onDatasetChange,
-  onGroundtruthModeChange,
+  onRerunLayout,
   layoutOutputs = [],
   layoutInputs = [],
-  groundtruthPositions = {},
+  groundtruthPositions = null,
   sessionId,
+  currentDataset: externalDataset,
 }) => {
   const { geojson } = useAgentMap();
   const [currentDataset, setCurrentDataset] = useState<DatasetType>('layout');
   const [filename, setFilename] = useState<string>('map_data');
   const [isCapturing, setIsCapturing] = useState(false);
 
+  const activeDataset = externalDataset ?? currentDataset;
+
   const handleDatasetChange = useCallback((type: DatasetType) => {
-    setCurrentDataset(type);
+    if (!externalDataset) {
+      setCurrentDataset(type);
+    }
     onDatasetChange?.(type);
-    onGroundtruthModeChange?.(type === 'groundtruth');
-  }, [onDatasetChange, onGroundtruthModeChange]);
+    if (type === 'layout') {
+      onRerunLayout?.();
+    }
+  }, [onDatasetChange, onRerunLayout, externalDataset]);
 
   const saveDataset = useCallback(async () => {
     if (!geojson) {
@@ -64,12 +72,12 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
 
     setIsCapturing(true);
     try {
-      const config = DATASET_CONFIG[currentDataset];
+      const config = DATASET_CONFIG[activeDataset];
       const fullFilename = `${filename}_${config.suffix}`;
 
       const transformed = JSON.parse(JSON.stringify(geojson));
 
-      if (currentDataset === 'origin') {
+      if (activeDataset === 'origin') {
         transformed.features = transformed.features.map((feature: any) => {
           if (feature.geometry?.type === 'Point') {
             const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
@@ -82,7 +90,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         });
       }
 
-      if (currentDataset === 'layout' && layoutOutputs.length > 0) {
+      if (activeDataset === 'layout' && layoutOutputs.length > 0) {
         const outputById = new Map(layoutOutputs.map(o => [o.id, o]));
         const inputByKind = new Map<string, LayoutItemInput>();
 
@@ -104,31 +112,12 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
             const labelOutput = outputById.get(labelId);
 
             if (cardOutput) {
-              const raw = { x: cardOutput.x, y: cardOutput.y };
-              const mapProxy = {
-                getMap: () => ({
-                  unproject: (px: [number, number]) => {
-                    const lngLat = cardOutput.anchorLngLat;
-                    const scale = 0.00001;
-                    return {
-                      lng: lngLat.lng + (px[0] - cardOutput.anchorPx.x) * scale,
-                      lat: lngLat.lat + (px[1] - cardOutput.anchorPx.y) * scale,
-                    };
-                  }
-                })
-              };
-              const lngLat = mapProxy.getMap().unproject([cardOutput.x, cardOutput.y]);
-              const gcj02Card = coordtransform.wgs84togcj02(lngLat.lng, lngLat.lat);
+              const gcj02Card = coordtransform.wgs84togcj02(cardOutput.centerLngLat.lng, cardOutput.centerLngLat.lat);
               feature.properties.card_coord = gcj02Card;
             }
 
             if (labelOutput) {
-              const lngLat = labelOutput.anchorLngLat;
-              const scale = 0.00001;
-              const gcj02Label = coordtransform.wgs84togcj02(
-                lngLat.lng + (labelOutput.x - labelOutput.anchorPx.x) * scale,
-                lngLat.lat + (labelOutput.y - labelOutput.anchorPx.y) * scale
-              );
+              const gcj02Label = coordtransform.wgs84togcj02(labelOutput.centerLngLat.lng, labelOutput.centerLngLat.lat);
               feature.properties.label_coord = gcj02Label;
             }
           }
@@ -136,7 +125,8 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         });
       }
 
-      if (currentDataset === 'groundtruth' && Object.keys(groundtruthPositions).length > 0) {
+      if (activeDataset === 'groundtruth' && groundtruthPositions && groundtruthPositions.length > 0) {
+        const gtPosMap = new Map(groundtruthPositions.map(p => [p.id, p]));
         transformed.features = transformed.features.map((feature: any) => {
           if (feature.geometry?.type === 'Point') {
             const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
@@ -147,15 +137,15 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
             const cardId = `card-point-${featureName}`;
             const labelId = `label-point-${featureName}`;
 
-            const cardPos = groundtruthPositions[cardId];
-            const labelPos = groundtruthPositions[labelId];
+            const cardPos = gtPosMap.get(cardId);
+            const labelPos = gtPosMap.get(labelId);
 
             if (cardPos) {
-              const gcj02Card = coordtransform.wgs84togcj02(cardPos.lng, cardPos.lat);
+              const gcj02Card = coordtransform.wgs84togcj02(cardPos.centerLngLat.lng, cardPos.centerLngLat.lat);
               feature.properties.card_coord = gcj02Card;
             }
             if (labelPos) {
-              const gcj02Label = coordtransform.wgs84togcj02(labelPos.lng, labelPos.lat);
+              const gcj02Label = coordtransform.wgs84togcj02(labelPos.centerLngLat.lng, labelPos.centerLngLat.lat);
               feature.properties.label_coord = gcj02Label;
             }
           }
@@ -180,7 +170,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
     } finally {
       setIsCapturing(false);
     }
-  }, [geojson, currentDataset, filename, layoutOutputs, layoutInputs, groundtruthPositions]);
+  }, [geojson, activeDataset, filename, layoutOutputs, layoutInputs, groundtruthPositions]);
 
   const saveToSession = useCallback(async () => {
     if (!geojson || !sessionId) {
@@ -192,7 +182,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
     try {
       const transformed = JSON.parse(JSON.stringify(geojson));
 
-      if (currentDataset === 'origin') {
+      if (activeDataset === 'origin') {
         transformed.features = transformed.features.map((feature: any) => {
           if (feature.geometry?.type === 'Point') {
             const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
@@ -205,7 +195,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         });
       }
 
-      if (currentDataset === 'layout' && layoutOutputs.length > 0) {
+      if (activeDataset === 'layout' && layoutOutputs.length > 0) {
         const outputById = new Map(layoutOutputs.map(o => [o.id, o]));
 
         transformed.features = transformed.features.map((feature: any) => {
@@ -222,22 +212,12 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
             const labelOutput = outputById.get(labelId);
 
             if (cardOutput) {
-              const lngLat = cardOutput.anchorLngLat;
-              const scale = 0.00001;
-              const gcj02Card = coordtransform.wgs84togcj02(
-                lngLat.lng + (cardOutput.x - cardOutput.anchorPx.x) * scale,
-                lngLat.lat + (cardOutput.y - cardOutput.anchorPx.y) * scale
-              );
+              const gcj02Card = coordtransform.wgs84togcj02(cardOutput.centerLngLat.lng, cardOutput.centerLngLat.lat);
               feature.properties.card_coord = gcj02Card;
             }
 
             if (labelOutput) {
-              const lngLat = labelOutput.anchorLngLat;
-              const scale = 0.00001;
-              const gcj02Label = coordtransform.wgs84togcj02(
-                lngLat.lng + (labelOutput.x - labelOutput.anchorPx.x) * scale,
-                lngLat.lat + (labelOutput.y - labelOutput.anchorPx.y) * scale
-              );
+              const gcj02Label = coordtransform.wgs84togcj02(labelOutput.centerLngLat.lng, labelOutput.centerLngLat.lat);
               feature.properties.label_coord = gcj02Label;
             }
           }
@@ -245,7 +225,8 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         });
       }
 
-      if (currentDataset === 'groundtruth' && Object.keys(groundtruthPositions).length > 0) {
+      if (activeDataset === 'groundtruth' && groundtruthPositions && groundtruthPositions.length > 0) {
+        const gtPosMap = new Map(groundtruthPositions.map(p => [p.id, p]));
         transformed.features = transformed.features.map((feature: any) => {
           if (feature.geometry?.type === 'Point') {
             const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
@@ -256,15 +237,15 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
             const cardId = `card-point-${featureName}`;
             const labelId = `label-point-${featureName}`;
 
-            const cardPos = groundtruthPositions[cardId];
-            const labelPos = groundtruthPositions[labelId];
+            const cardPos = gtPosMap.get(cardId);
+            const labelPos = gtPosMap.get(labelId);
 
             if (cardPos) {
-              const gcj02Card = coordtransform.wgs84togcj02(cardPos.lng, cardPos.lat);
+              const gcj02Card = coordtransform.wgs84togcj02(cardPos.centerLngLat.lng, cardPos.centerLngLat.lat);
               feature.properties.card_coord = gcj02Card;
             }
             if (labelPos) {
-              const gcj02Label = coordtransform.wgs84togcj02(labelPos.lng, labelPos.lat);
+              const gcj02Label = coordtransform.wgs84togcj02(labelPos.centerLngLat.lng, labelPos.centerLngLat.lat);
               feature.properties.label_coord = gcj02Label;
             }
           }
@@ -272,9 +253,14 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         });
       }
 
-      const result = await updateSessionGeojson(sessionId, transformed, `${filename}_${DATASET_CONFIG[currentDataset].suffix}`);
+      let result;
+      if (activeDataset === 'layout') {
+        result = await saveLayoutSession(sessionId, transformed, `${filename}_${DATASET_CONFIG[activeDataset].suffix}`);
+      } else {
+        result = await updateSessionGeojson(sessionId, transformed, `${filename}_${DATASET_CONFIG[activeDataset].suffix}`);
+      }
       if (result.success) {
-        alert(`Dataset saved to session: ${sessionId}`);
+        alert(`Dataset saved to session: ${result.filepath || sessionId}`);
       } else {
         alert(`Error saving to session: ${result.error}`);
       }
@@ -284,7 +270,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
     } finally {
       setIsCapturing(false);
     }
-  }, [geojson, currentDataset, sessionId, layoutOutputs, layoutInputs, groundtruthPositions]);
+  }, [geojson, activeDataset, sessionId, layoutOutputs, layoutInputs, groundtruthPositions]);
 
   return (
     <div className="flex flex-col h-full">
@@ -299,7 +285,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
                 key={key}
                 onClick={() => handleDatasetChange(key)}
                 className={`flex-1 text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
-                  currentDataset === key
+                  activeDataset === key
                     ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium'
                     : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
                 }`}
@@ -321,7 +307,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
 
         <div className="pl-3 py-2 bg-amber-50 rounded-md border border-amber-100">
           <p className="text-[10px] text-amber-600">
-            Output File: <span className="font-mono font-medium">{filename}_{DATASET_CONFIG[currentDataset].suffix}</span>
+            Output File: <span className="font-mono font-medium">{filename}_{DATASET_CONFIG[activeDataset].suffix}</span>
           </p>
         </div>
 

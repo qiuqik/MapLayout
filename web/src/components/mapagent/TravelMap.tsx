@@ -20,7 +20,7 @@ import CardRenderer from './renderers/CardRenderer';
 import LabelRenderer from './renderers/LabelRenderer';
 import DraggableOutput from './DraggableOutput';
 
-import type { LayoutItemInput, LayoutItemOutput, LeaderLine } from '@/app/agent/layout/types';
+import type { LayoutItemInput, LayoutItemOutput, LayoutItemPosition, LeaderLine } from '@/app/agent/layout/types';
 import { buildObstacleRects, buildObstacleSegments } from '@/app/agent/layout/obstacles';
 import { buildCostFieldFromRects, type CostField } from '@/app/agent/layout/costField';
 import { runForceLayout, type LayoutParams } from '@/app/agent/layout/forceLayout';
@@ -54,12 +54,16 @@ interface TravelMapProps {
   forceParams?: Partial<ForceParamsOverride>;
   fieldParams?: Partial<FieldParamsOverride>;
   draggable?: boolean;
+  currentDataset?: 'origin' | 'layout' | 'groundtruth';
+  originPositions?: LayoutItemPosition[] | null;
+  layoutPositions?: LayoutItemPosition[] | null;
+  groundtruthPositions?: LayoutItemPosition[] | null;
   onLayoutOutput?: (outputs: LayoutItemOutput[], inputs: LayoutItemInput[]) => void;
-  groundtruthMode?: boolean;
   onGroundtruthChange?: (positions: Record<string, { lng: number; lat: number }>) => void;
+  rerunLayoutTrigger?: number;
 }
 
-export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false, onLayoutOutput, groundtruthMode = false, onGroundtruthChange }: TravelMapProps) {
+export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, rerunLayoutTrigger = 0 }: TravelMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [processedLines, setProcessedLines] = useState<any[]>([]);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
@@ -69,7 +73,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     leaderLines: LeaderLine[];
     viewport: { width: number; height: number } | null;
   }>({ inputs: [], outputs: [], leaderLines: [], viewport: null });
-  const [groundtruthPositions, setGroundtruthPositions] = useState<Record<string, { lng: number; lat: number }>>({});
+  const [draggedPositions, setDraggedPositions] = useState<Record<string, { lng: number; lat: number }>>({});
   const measureRootRef = useRef<HTMLDivElement | null>(null);
   
   const transformedData = useMemo<TransformedMapData>(() => {
@@ -440,16 +444,103 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
   }, [layoutState.inputs, recomputeLayout]);
 
   useEffect(() => {
+    if (!currentDataset || layoutState.inputs.length === 0) return;
+    const raw = mapRef.current as any;
+    const map = raw?.getMap ? raw.getMap() : raw;
+    if (!map) return;
+
+    const project = (lng: number, lat: number) => map.project([lng, lat]);
+
+    if (currentDataset === 'origin' && originPositions && originPositions.length > 0) {
+      const posMap = new Map(originPositions.map(p => [p.id, p]));
+      const displayOutputs = layoutState.inputs.map(input => {
+        const pos = posMap.get(input.id);
+        if (!pos) return null;
+        const centerPx = project(pos.centerLngLat.lng, pos.centerLngLat.lat);
+        const anchorPx = project(input.anchorLngLat.lng, input.anchorLngLat.lat);
+        return {
+          ...input,
+          anchorPx,
+          x: centerPx.x - input.width / 2,
+          y: centerPx.y - input.height / 2,
+          cx: centerPx.x,
+          cy: centerPx.y,
+          centerLngLat: pos.centerLngLat,
+        };
+      }).filter(Boolean) as LayoutItemOutput[];
+
+      const displayLeaderLines = displayOutputs.map(o => ({
+        id: o.id,
+        x1: o.anchorPx.x,
+        y1: o.anchorPx.y,
+        x2: o.cx,
+        y2: o.cy,
+      }));
+      setLayoutState(s => ({ ...s, outputs: displayOutputs, leaderLines: displayLeaderLines }));
+    } else if (currentDataset === 'layout') {
+      if (layoutPositions && layoutPositions.length > 0) {
+        const posMap = new Map(layoutPositions.map(p => [p.id, p]));
+        const displayOutputs = layoutState.inputs.map(input => {
+          const pos = posMap.get(input.id);
+          if (!pos) return null;
+          const centerPx = project(pos.centerLngLat.lng, pos.centerLngLat.lat);
+          const anchorPx = project(input.anchorLngLat.lng, input.anchorLngLat.lat);
+          return {
+            ...input,
+            anchorPx,
+            x: centerPx.x - input.width / 2,
+            y: centerPx.y - input.height / 2,
+            cx: centerPx.x,
+            cy: centerPx.y,
+            centerLngLat: pos.centerLngLat,
+          };
+        }).filter(Boolean) as LayoutItemOutput[];
+
+        const displayLeaderLines = displayOutputs.map(o => ({
+          id: o.id,
+          x1: o.anchorPx.x,
+          y1: o.anchorPx.y,
+          x2: o.cx,
+          y2: o.cy,
+        }));
+        setLayoutState(s => ({ ...s, outputs: displayOutputs, leaderLines: displayLeaderLines }));
+      }
+      // If no layoutPositions, keep existing outputs (don't clear them)
+    } else if (currentDataset === 'groundtruth') {
+      // For groundtruth mode: use computed layout but apply groundtruth positions as overrides
+      // Do NOT recompute all positions from groundtruthPositions - that causes other items to disappear
+      // Instead, keep the computed layout and let DraggableOutput handle position overrides
+    }
+  }, [currentDataset, originPositions, layoutPositions, groundtruthPositions, layoutState.inputs]);
+
+  useEffect(() => {
+    if (currentDataset === 'groundtruth' && layoutState.inputs.length > 0 && layoutState.outputs.length === 0) {
+      recomputeLayout();
+    }
+  }, [currentDataset, layoutState.inputs.length, layoutState.outputs.length, recomputeLayout]);
+
+  useEffect(() => {
+    if (currentDataset === 'layout' && layoutState.inputs.length > 0 && (!layoutPositions || layoutPositions.length === 0)) {
+      recomputeLayout();
+    }
+  }, [currentDataset, layoutState.inputs.length, layoutPositions, recomputeLayout]);
+
+  useEffect(() => {
+    if (currentDataset !== 'groundtruth') {
+      setDraggedPositions({});
+    }
+  }, [currentDataset]);
+
+  useEffect(() => {
+    if (layoutState.inputs.length === 0) return;
+    recomputeLayout();
+  }, [rerunLayoutTrigger]);
+
+  useEffect(() => {
     if (layoutState.outputs.length > 0 && onLayoutOutput) {
       onLayoutOutput(layoutState.outputs, layoutState.inputs);
     }
   }, [layoutState.outputs, layoutState.inputs, onLayoutOutput]);
-
-  useEffect(() => {
-    if (onGroundtruthChange && Object.keys(groundtruthPositions).length > 0) {
-      onGroundtruthChange(groundtruthPositions);
-    }
-  }, [groundtruthPositions, onGroundtruthChange]);
 
   const onMapLoad = useCallback(() => {
     recomputeLayout();
@@ -471,25 +562,34 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     const map = raw?.getMap ? raw.getMap() : raw;
     if (!map) return [];
 
-    return layoutState.outputs
-      .filter(o => groundtruthPositions[o.id])
-      .map(o => {
-        const gtPos = groundtruthPositions[o.id];
-        const anchorPx = map.project([o.anchorLngLat.lng, o.anchorLngLat.lat]);
-        const gtPx = map.project([gtPos.lng, gtPos.lat]);
-        const cx = gtPx.x + o.width / 2;
-        const cy = gtPx.y + o.height / 2;
-        return {
-          id: o.id,
-          x1: anchorPx.x,
-          y1: anchorPx.y,
-          x2: cx,
-          y2: cy,
-        };
-      });
-  }, [layoutState.outputs, groundtruthPositions, mapRef]);
+    return layoutState.outputs.map(o => {
+      const gtItem = groundtruthPositions?.find(p => p.id === o.id);
+      const draggedPos = draggedPositions[o.id];
+      const effectivePos = draggedPos || (gtItem ? gtItem.centerLngLat : null);
 
-  const displayLeaderLines = groundtruthMode && groundtruthLeaderLines.length > 0
+      const anchorPx = map.project([o.anchorLngLat.lng, o.anchorLngLat.lat]);
+      let cx: number, cy: number;
+
+      if (effectivePos) {
+        const gtPx = map.project([effectivePos.lng, effectivePos.lat]);
+        cx = gtPx.x + o.width / 2;
+        cy = gtPx.y + o.height / 2;
+      } else {
+        cx = o.cx;
+        cy = o.cy;
+      }
+
+      return {
+        id: o.id,
+        x1: anchorPx.x,
+        y1: anchorPx.y,
+        x2: cx,
+        y2: cy,
+      };
+    });
+  }, [layoutState.outputs, groundtruthPositions, draggedPositions, mapRef]);
+
+  const displayLeaderLines = currentDataset === 'groundtruth' && groundtruthLeaderLines.length > 0
     ? groundtruthLeaderLines
     : layoutState.leaderLines;
 
@@ -563,7 +663,10 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
           </svg>
 
           {layoutState.outputs.map((o) => {
-            const groundtruthPx = groundtruthPositions[o.id];
+            const gtItem = groundtruthPositions?.find(p => p.id === o.id);
+            const draggedPos = draggedPositions[o.id];
+            const effectivePos = draggedPos || (gtItem ? gtItem.centerLngLat : null);
+            const groundtruthPx = effectivePos ? { lng: effectivePos.lng, lat: effectivePos.lat } : undefined;
 
             return (
               <DraggableOutput
@@ -573,10 +676,11 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
                 initialX={o.x}
                 initialY={o.y}
                 anchorLngLat={o.anchorLngLat}
-                enabled={groundtruthMode}
+                enabled={currentDataset === 'groundtruth'}
                 mapRef={mapRef}
                 onPositionChange={(id, lng, lat) => {
-                  setGroundtruthPositions(prev => ({ ...prev, [id]: { lng, lat } }));
+                  setDraggedPositions(prev => ({ ...prev, [id]: { lng, lat } }));
+                  onGroundtruthChange?.({ [id]: { lng, lat } });
                 }}
                 overridePosition={groundtruthPx}
               />

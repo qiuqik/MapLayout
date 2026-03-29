@@ -200,6 +200,7 @@ export function runForceLayout(
       y,
       cx: n.x,
       cy: n.y,
+      centerLngLat: it.anchorLngLat,
     };
   });
 

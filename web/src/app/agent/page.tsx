@@ -6,9 +6,10 @@ import { AgentMapProvider, useAgentMap } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
 import dynamic from 'next/dynamic';
 import ForceParamsPanel, { type ForceParamsOverride, type FieldParamsOverride } from '@/components/mapagent/ForceParamsPanel';
-import type { LayoutItemOutput, LayoutItemInput } from './layout/types';
+import type { LayoutItemInput, LayoutItemPosition, LayoutItemOutput } from './layout/types';
 
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, saveLayoutSession } from '@/lib/api';
+import type { DatasetType } from '@/components/mapagent/DatasetPanel';
 import DatasetPanel from '@/components/mapagent/DatasetPanel';
 
 const TravelMapWithNoSSR = dynamic(
@@ -40,33 +41,136 @@ function AgentPageContent() {
   const [mapDraggable, setMapDraggable] = useState(false);
   const [forceParams, setForceParams] = useState<ForceParamsOverride>({ ...DEFAULT_FORCE_OVERRIDE });
   const [fieldParams, setFieldParams] = useState<FieldParamsOverride>({ ...DEFAULT_FIELD_OVERRIDE });
-  const [layoutOutputs, setLayoutOutputs] = useState<LayoutItemOutput[]>([]);
   const [layoutInputs, setLayoutInputs] = useState<LayoutItemInput[]>([]);
-  const [groundtruthPositions, setGroundtruthPositions] = useState<Record<string, { lng: number; lat: number }>>({});
-  const [groundtruthMode, setGroundtruthMode] = useState(false);
+  const [computedLayoutOutputs, setComputedLayoutOutputs] = useState<LayoutItemPosition[]>([]);
+  const [originGeojson, setOriginGeojson] = useState<any>(null);
+  const [currentDataset, setCurrentDataset] = useState<DatasetType>('layout');
+  const [originPositions, setOriginPositions] = useState<LayoutItemPosition[] | null>(null);
+  const [layoutPositions, setLayoutPositions] = useState<LayoutItemPosition[] | null>(null);
+  const [groundtruthPositions, setGroundtruthPositions] = useState<LayoutItemPosition[] | null>(null);
+  const [rerunLayoutTrigger, setRerunLayoutTrigger] = useState(0);
 
-  const handleLayoutOutput = useCallback((outputs: LayoutItemOutput[], inputs: LayoutItemInput[]) => {
-    setLayoutOutputs(outputs);
-    setLayoutInputs(inputs);
+  const handleDatasetChange = useCallback((type: DatasetType) => {
+    setCurrentDataset(type);
   }, []);
 
-  const handleGroundtruthChange = useCallback((positions: Record<string, { lng: number; lat: number }>) => {
-    setGroundtruthPositions(positions);
+  const handleRerunLayout = useCallback(() => {
+    setRerunLayoutTrigger(prev => prev + 1);
   }, []);
-  
-  const { setManifest, setGeojson, manifest, geojson } = useAgentMap();
 
-  // 加载特定会话数据
+  const handleLayoutOutput = useCallback((outputs: LayoutItemOutput[]) => {
+    setComputedLayoutOutputs(outputs.map(o => ({
+      id: o.id,
+      anchorLngLat: o.anchorLngLat,
+      centerLngLat: o.centerLngLat,
+    })));
+  }, []);
+
+  const handleSaveToSession = useCallback(async (geojson: any, filename: string) => {
+    if (!currentSession?.session_id) {
+      alert('No session selected');
+      return;
+    }
+    const result = await saveLayoutSession(currentSession.session_id, geojson, filename);
+    if (result.success) {
+      alert(`Layout saved: ${result.filepath}`);
+    } else {
+      alert(`Error saving layout: ${result.error}`);
+    }
+  }, [currentSession]);
+
+  const { setManifest, manifest } = useAgentMap();
+
   const loadSession = async (sessionId: string) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/multimodal/session/${sessionId}`);
       const data = await res.json();
-      
+
       setCurrentSession(data);
-      
-      if (data.geojson) setGeojson(data.geojson);
-      if (data.style_code) setManifest(data.style_code);
-      
+      console.log(data);
+
+      if (data.origin_file?.data?.features) {
+        const positions: LayoutItemPosition[] = [];
+        data.origin_file.data.features.forEach((feature: any) => {
+          const name = feature.properties?.name;
+          const anchorLngLat = { lng: feature.geometry.coordinates[0], lat: feature.geometry.coordinates[1] };
+
+          if (feature.properties?.card_coord) {
+            positions.push({
+              id: `card-point-${name}`,
+              anchorLngLat,
+              centerLngLat: { lng: feature.properties.card_coord[0], lat: feature.properties.card_coord[1] },
+            });
+          }
+          if (feature.properties?.label_coord) {
+            positions.push({
+              id: `label-point-${name}`,
+              anchorLngLat,
+              centerLngLat: { lng: feature.properties.label_coord[0], lat: feature.properties.label_coord[1] },
+            });
+          }
+        });
+        setOriginPositions(positions.length > 0 ? positions : null);
+        setOriginGeojson(data.origin_file.data);
+      } else {
+        setOriginPositions(null);
+        setOriginGeojson(null);
+      }
+
+      if (data.layout_file?.data?.features) {
+        const positions: LayoutItemPosition[] = [];
+        data.layout_file.data.features.forEach((feature: any) => {
+          const name = feature.properties?.name;
+          const anchorLngLat = { lng: feature.geometry.coordinates[0], lat: feature.geometry.coordinates[1] };
+
+          if (feature.properties?.card_coord) {
+            positions.push({
+              id: `card-point-${name}`,
+              anchorLngLat,
+              centerLngLat: { lng: feature.properties.card_coord[0], lat: feature.properties.card_coord[1] },
+            });
+          }
+          if (feature.properties?.label_coord) {
+            positions.push({
+              id: `label-point-${name}`,
+              anchorLngLat,
+              centerLngLat: { lng: feature.properties.label_coord[0], lat: feature.properties.label_coord[1] },
+            });
+          }
+        });
+        setLayoutPositions(positions.length > 0 ? positions : null);
+      } else {
+        setLayoutPositions(null);
+      }
+
+      if (data.groundtruth_file?.data?.features) {
+        const positions: LayoutItemPosition[] = [];
+        data.groundtruth_file.data.features.forEach((feature: any) => {
+          const name = feature.properties?.name;
+          const anchorLngLat = { lng: feature.geometry.coordinates[0], lat: feature.geometry.coordinates[1] };
+
+          if (feature.properties?.card_coord) {
+            positions.push({
+              id: `card-point-${name}`,
+              anchorLngLat,
+              centerLngLat: { lng: feature.properties.card_coord[0], lat: feature.properties.card_coord[1] },
+            });
+          }
+          if (feature.properties?.label_coord) {
+            positions.push({
+              id: `label-point-${name}`,
+              anchorLngLat,
+              centerLngLat: { lng: feature.properties.label_coord[0], lat: feature.properties.label_coord[1] },
+            });
+          }
+        });
+        setGroundtruthPositions(positions.length > 0 ? positions : null);
+      } else {
+        setGroundtruthPositions(null);
+      }
+
+      setManifest(data.style_code);
+
     } catch (error) {
       console.error('Error loading session:', error);
     }
@@ -84,8 +188,9 @@ function AgentPageContent() {
           b.session_id.localeCompare(a.session_id)
         );
         setSessions(sessionList);
+        console.log("sessionList:",sessionList);
         if (sessionList.length > 0) {
-          loadSession(sessionList[0].session_id);
+          loadSession(sessionList[1].session_id);
         }
       })
       .catch(err => console.error('Error fetching historical sessions:', err));
@@ -181,11 +286,13 @@ function AgentPageContent() {
 
           <Separator className="my-3 bg-gray-400" />
           <DatasetPanel
-            layoutOutputs={layoutOutputs}
+            layoutOutputs={currentDataset === 'layout' ? computedLayoutOutputs : (layoutPositions || [])}
             layoutInputs={layoutInputs}
             groundtruthPositions={groundtruthPositions}
             sessionId={currentSession?.session_id}
-            onGroundtruthModeChange={setGroundtruthMode}
+            currentDataset={currentDataset}
+            onDatasetChange={handleDatasetChange}
+            onRerunLayout={handleRerunLayout}
           />
         </div>
       </div>
@@ -193,15 +300,42 @@ function AgentPageContent() {
       {/* 右侧地图主视图 */}
       <div className="relative flex-1 overflow-hidden">
         <TravelMapWithNoSSR
-          geojson={geojson}
+          geojson={originGeojson}
           styleCode={manifest}
           showHeatmap={showHeatmap}
           forceParams={forceParams}
           fieldParams={fieldParams}
           draggable={mapDraggable}
+          currentDataset={currentDataset}
+          originPositions={originPositions}
+          layoutPositions={layoutPositions}
+          groundtruthPositions={groundtruthPositions}
           onLayoutOutput={handleLayoutOutput}
-          groundtruthMode={groundtruthMode}
-          onGroundtruthChange={handleGroundtruthChange}
+          onGroundtruthChange={(posMap) => {
+            setGroundtruthPositions(prev => {
+              const currentPositions = prev || [];
+              const newPositions = [...currentPositions];
+              Object.entries(posMap).forEach(([id, pos]) => {
+                const existingIndex = newPositions.findIndex(p => p.id === id);
+                const existing = newPositions[existingIndex];
+                const anchorLngLat = existing?.anchorLngLat || { lng: pos.lng, lat: pos.lat };
+                if (existingIndex >= 0) {
+                  newPositions[existingIndex] = {
+                    ...newPositions[existingIndex],
+                    centerLngLat: { lng: pos.lng, lat: pos.lat },
+                  };
+                } else {
+                  newPositions.push({
+                    id,
+                    anchorLngLat,
+                    centerLngLat: { lng: pos.lng, lat: pos.lat },
+                  });
+                }
+              });
+              return newPositions;
+            });
+          }}
+          rerunLayoutTrigger={rerunLayoutTrigger}
         />
       </div>
     </div>

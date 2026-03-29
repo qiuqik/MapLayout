@@ -31,6 +31,14 @@ export type LayoutItemOutput = LayoutItemInput & {
   /** Box center in pixels */
   cx: number;
   cy: number;
+  /** Box center in lng/lat */
+  centerLngLat: LngLat;
+};
+
+export type LayoutItemPosition = {
+  id: string;
+  anchorLngLat: LngLat;
+  centerLngLat: LngLat;
 };
 
 export type LeaderLine = {
