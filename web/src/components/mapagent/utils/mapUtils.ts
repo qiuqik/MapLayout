@@ -8,7 +8,9 @@ export interface TransformedMapData {
   polygons: any[];
   globalProps: any;
 }
-
+export const transformSingleCoordinate = (coord: number[]) => {
+  return coordtransform.gcj02towgs84(...coord);
+}
 export const transformAllCoordinates = (geojson: any): TransformedMapData => {
   if (!geojson?.features) {
     return { points: [], lines: [], polygons: [], globalProps: geojson?.global_properties };

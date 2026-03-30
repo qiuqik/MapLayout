@@ -31,7 +31,7 @@ export type LayoutItemOutput = LayoutItemInput & {
   /** Box center in pixels */
   cx: number;
   cy: number;
-  /** Box center in lng/lat */
+  /** Box position in lng/lat */
   centerLngLat: LngLat;
 };
 

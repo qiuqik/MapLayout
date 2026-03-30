@@ -2,13 +2,10 @@
 
 import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { MapRef } from 'react-map-gl/mapbox';
+import type { LayoutItemOutput} from '@/app/agent/layout/types';
 
 interface DraggableOutputProps {
-  id: string;
-  html: string;
-  initialX: number;
-  initialY: number;
-  anchorLngLat: { lng: number; lat: number };
+  outputPosition: LayoutItemOutput;
   enabled: boolean;
   mapRef: React.RefObject<MapRef>;
   onPositionChange: (id: string, lng: number, lat: number) => void;
@@ -16,44 +13,41 @@ interface DraggableOutputProps {
 }
 
 const DraggableOutput: React.FC<DraggableOutputProps> = ({
-  id,
-  html,
-  initialX,
-  initialY,
-  anchorLngLat,
+  outputPosition,
   enabled,
   mapRef,
   onPositionChange,
   overridePosition,
 }) => {
-  const [position, setPosition] = useState<{ x: number; y: number }>({ x: initialX, y: initialY });
+  const [position, setPosition] = useState<{ x: number; y: number }>({ x: outputPosition.x, y: outputPosition.y });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ mouseX: number; mouseY: number; elemX: number; elemY: number } | null>(null);
-
+  
+  const applyOverride = () => {
+    const raw = mapRef.current as any;
+    const map = raw?.getMap ? raw.getMap() : raw;
+    if (map) {
+      if ('lng' in overridePosition && 'lat' in overridePosition) {
+        const px = map.project([overridePosition.lng, overridePosition.lat]);
+        const left = px.x - outputPosition.width / 2;
+        const top = px.y - outputPosition.height / 2;
+        setPosition({ x: left, y: top });
+      } else if ('x' in overridePosition && 'y' in overridePosition) {
+        setPosition({ x: overridePosition.x, y: overridePosition.y });
+      }
+    } else {
+      setTimeout(applyOverride, 50);
+    }
+  };
+  
   useEffect(() => {
     if (!enabled) {
-      setPosition({ x: initialX, y: initialY });
+      setPosition({ x: outputPosition.x, y: outputPosition.y });
       return;
     }
     if (!overridePosition) return;
-
-    const applyOverride = () => {
-      const raw = mapRef.current as any;
-      const map = raw?.getMap ? raw.getMap() : raw;
-      if (map) {
-        if ('lng' in overridePosition && 'lat' in overridePosition) {
-          const px = map.project([overridePosition.lng, overridePosition.lat]);
-          setPosition({ x: px.x, y: px.y });
-        } else if ('x' in overridePosition && 'y' in overridePosition) {
-          setPosition({ x: overridePosition.x, y: overridePosition.y });
-        }
-      } else {
-        setTimeout(applyOverride, 50);
-      }
-    };
-
     applyOverride();
-  }, [overridePosition, enabled, initialX, initialY]);
+  }, [overridePosition, enabled, outputPosition]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!enabled) return;
@@ -89,24 +83,21 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
     const map = raw?.getMap ? raw.getMap() : raw;
     if (!map) return;
 
-    const container = map.getContainer();
-    const containerRect = container.getBoundingClientRect();
-
     const dx = e.clientX - dragStartRef.current.mouseX;
     const dy = e.clientY - dragStartRef.current.mouseY;
 
     const finalX = dragStartRef.current.elemX + dx;
     const finalY = dragStartRef.current.elemY + dy;
 
-    const viewportX = finalX - containerRect.left;
-    const viewportY = finalY - containerRect.top;
+    const viewportX = finalX + outputPosition.width / 2;
+    const viewportY = finalY + outputPosition.height / 2;
 
     const lngLat = map.unproject([viewportX, viewportY]);
-    onPositionChange(id, lngLat.lng, lngLat.lat);
+    onPositionChange(outputPosition.id, lngLat.lng, lngLat.lat);
 
     setIsDragging(false);
     dragStartRef.current = null;
-  }, [isDragging, mapRef, id, onPositionChange]);
+  }, [isDragging, mapRef, outputPosition.id, onPositionChange]);
 
   useEffect(() => {
     if (enabled) {
@@ -132,7 +123,7 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
     <div
       style={positionStyle}
       onMouseDown={handleMouseDown}
-      dangerouslySetInnerHTML={{ __html: html }}
+      dangerouslySetInnerHTML={{ __html: outputPosition.html }}
     />
   );
 };

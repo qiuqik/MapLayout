@@ -4,7 +4,7 @@ import React, { useState, useCallback } from 'react';
 import { useAgentMap } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { updateSessionGeojson, saveLayoutSession } from '@/lib/api';
+import { saveSessionGeojson } from '@/lib/api';
 import coordtransform from 'coordtransform';
 import type { LayoutItemInput, LayoutItemPosition } from '@/app/agent/layout/types';
 
@@ -67,127 +67,26 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
     }
   }, [onDatasetChange, onRerunLayout, externalDataset]);
 
-  const saveDataset = useCallback(async () => {
-    if (!geojson) {
-      alert('No valid geojson data available');
-      return;
-    }
-
-    setIsCapturing(true);
-    try {
-      const config = DATASET_CONFIG[activeDataset];
-      const fullFilename = `${filename}_${config.suffix}`;
-
-      const transformed = JSON.parse(JSON.stringify(geojson));
-
-      if (activeDataset === 'origin') {
-        transformed.features = transformed.features.map((feature: any) => {
-          if (feature.geometry?.type === 'Point') {
-            const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
-            feature.properties = feature.properties || {};
-            feature.properties.coordinates = wgs84Coord;
-            if (!feature.properties.card_coord) {
-              feature.properties.card_coord = [...feature.geometry.coordinates];
-            }
-            if (!feature.properties.label_coord) {
-              feature.properties.label_coord = [...feature.geometry.coordinates];
-            }
-          }
-          return feature;
-        });
-      }
-
-      if (activeDataset === 'layout' && layoutOutputs.length > 0) {
-        const outputById = new Map(layoutOutputs.map(o => [o.id, o]));
-        const inputByKind = new Map<string, LayoutItemInput>();
-
-        layoutInputs.forEach(input => {
-          inputByKind.set(input.id, input);
-        });
-
-        transformed.features = transformed.features.map((feature: any) => {
-          if (feature.geometry?.type === 'Point') {
-            const featureName = feature.properties?.name;
-            const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
-            feature.properties = feature.properties || {};
-            feature.properties.coordinates = wgs84Coord;
-
-            const cardId = `card-point-${featureName}`;
-            const labelId = `label-point-${featureName}`;
-
-            const cardOutput = outputById.get(cardId);
-            const labelOutput = outputById.get(labelId);
-
-            if (cardOutput) {
-              const gcj02Card = coordtransform.wgs84togcj02(cardOutput.centerLngLat.lng, cardOutput.centerLngLat.lat);
-              feature.properties.card_coord = gcj02Card;
-            }
-
-            if (labelOutput) {
-              const gcj02Label = coordtransform.wgs84togcj02(labelOutput.centerLngLat.lng, labelOutput.centerLngLat.lat);
-              feature.properties.label_coord = gcj02Label;
-            }
-          }
-          return feature;
-        });
-      }
-
-      if (activeDataset === 'groundtruth' && groundtruthPositions && groundtruthPositions.length > 0) {
-        const gtPosMap = new Map(groundtruthPositions.map(p => [p.id, p]));
-        transformed.features = transformed.features.map((feature: any) => {
-          if (feature.geometry?.type === 'Point') {
-            const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
-            feature.properties = feature.properties || {};
-            feature.properties.coordinates = wgs84Coord;
-
-            const featureName = feature.properties?.name;
-            const cardId = `card-point-${featureName}`;
-            const labelId = `label-point-${featureName}`;
-
-            const cardPos = gtPosMap.get(cardId);
-            const labelPos = gtPosMap.get(labelId);
-
-            if (cardPos) {
-              const gcj02Card = coordtransform.wgs84togcj02(cardPos.centerLngLat.lng, cardPos.centerLngLat.lat);
-              feature.properties.card_coord = gcj02Card;
-            }
-            if (labelPos) {
-              const gcj02Label = coordtransform.wgs84togcj02(labelPos.centerLngLat.lng, labelPos.centerLngLat.lat);
-              feature.properties.label_coord = gcj02Label;
-            }
-          }
-          return feature;
-        });
-      }
-
-      const blob = new Blob([JSON.stringify(transformed, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fullFilename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      alert(`Dataset saved as GeoJSON file: ${fullFilename}`);
-    } catch (error) {
-      console.error('Error saving dataset:', error);
-      alert('Error saving dataset');
-    } finally {
-      setIsCapturing(false);
-    }
-  }, [geojson, activeDataset, filename, layoutOutputs, layoutInputs, groundtruthPositions]);
 
   const saveToSession = useCallback(async () => {
-    if (!geojson || !sessionId) {
-      alert('No valid geojson data or session ID available');
+    if (!sessionId) {
+      alert('No valid session ID available');
       return;
     }
 
     setIsCapturing(true);
     try {
-      const transformed = JSON.parse(JSON.stringify(geojson));
+      const originRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/multimodal/session/${sessionId}`);
+      const sessionData = await originRes.json();
+      
+      if (!sessionData.origin_file?.data) {
+        alert('No origin geojson found in session');
+        setIsCapturing(false);
+        return;
+      }
+
+      const baseGeojson = sessionData.origin_file.data;
+      const transformed = JSON.parse(JSON.stringify(baseGeojson));
 
       if (activeDataset === 'origin') {
         transformed.features = transformed.features.map((feature: any) => {
@@ -206,66 +105,91 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         const outputById = new Map(layoutOutputs.map(o => [o.id, o]));
 
         transformed.features = transformed.features.map((feature: any) => {
-          if (feature.geometry?.type === 'Point') {
-            const featureName = feature.properties?.name;
+          const featureType = feature.geometry?.type;
+          const featureName = feature.properties?.name;
+          const cardVisualId = feature.properties?.card_visual_id;
+          const labelVisualId = feature.properties?.label_visual_id;
+          
+          if (!featureName) return feature;
+
+          feature.properties = feature.properties || {};
+
+          if (featureType === 'Point') {
             const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
-            feature.properties = feature.properties || {};
             feature.properties.coordinates = wgs84Coord;
-
-            const cardId = `card-point-${featureName}`;
-            const labelId = `label-point-${featureName}`;
-
-            const cardOutput = outputById.get(cardId);
-            const labelOutput = outputById.get(labelId);
-
-            if (cardOutput) {
-              const gcj02Card = coordtransform.wgs84togcj02(cardOutput.centerLngLat.lng, cardOutput.centerLngLat.lat);
-              feature.properties.card_coord = gcj02Card;
-            }
-
-            if (labelOutput) {
-              const gcj02Label = coordtransform.wgs84togcj02(labelOutput.centerLngLat.lng, labelOutput.centerLngLat.lat);
-              feature.properties.label_coord = gcj02Label;
-            }
           }
+
+          const cardId = cardVisualId !== undefined 
+            ? `card-${featureType}-${featureName}-${cardVisualId}` 
+            : `card-${featureType}-${featureName}`;
+          const labelId = labelVisualId !== undefined 
+            ? `label-${featureType}-${featureName}-${labelVisualId}` 
+            : `label-${featureType}-${featureName}`;
+
+          const cardOutput = outputById.get(cardId);
+          const labelOutput = outputById.get(labelId);
+
+          if (cardOutput) {
+            const gcj02Card = coordtransform.wgs84togcj02(cardOutput.centerLngLat.lng, cardOutput.centerLngLat.lat);
+            feature.properties.card_coord = gcj02Card;
+          }
+
+          if (labelOutput) {
+            const gcj02Label = coordtransform.wgs84togcj02(labelOutput.centerLngLat.lng, labelOutput.centerLngLat.lat);
+            feature.properties.label_coord = gcj02Label;
+          }
+
           return feature;
         });
       }
 
       if (activeDataset === 'groundtruth' && groundtruthPositions && groundtruthPositions.length > 0) {
         const gtPosMap = new Map(groundtruthPositions.map(p => [p.id, p]));
+        
         transformed.features = transformed.features.map((feature: any) => {
-          if (feature.geometry?.type === 'Point') {
+          const featureType = feature.geometry?.type;
+          const featureName = feature.properties?.name;
+          const cardVisualId = feature.properties?.card_visual_id;
+          const labelVisualId = feature.properties?.label_visual_id;
+          
+          if (!featureName) return feature;
+
+          feature.properties = feature.properties || {};
+
+          if (featureType === 'Point') {
             const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
-            feature.properties = feature.properties || {};
             feature.properties.coordinates = wgs84Coord;
-
-            const featureName = feature.properties?.name;
-            const cardId = `card-point-${featureName}`;
-            const labelId = `label-point-${featureName}`;
-
-            const cardPos = gtPosMap.get(cardId);
-            const labelPos = gtPosMap.get(labelId);
-
-            if (cardPos) {
-              const gcj02Card = coordtransform.wgs84togcj02(cardPos.centerLngLat.lng, cardPos.centerLngLat.lat);
-              feature.properties.card_coord = gcj02Card;
-            }
-            if (labelPos) {
-              const gcj02Label = coordtransform.wgs84togcj02(labelPos.centerLngLat.lng, labelPos.centerLngLat.lat);
-              feature.properties.label_coord = gcj02Label;
-            }
           }
+
+          const cardId = cardVisualId !== undefined 
+            ? `card-${featureType}-${featureName}-${cardVisualId}` 
+            : `card-${featureType}-${featureName}`;
+          const labelId = labelVisualId !== undefined 
+            ? `label-${featureType}-${featureName}-${labelVisualId}` 
+            : `label-${featureType}-${featureName}`;
+
+          const cardPos = gtPosMap.get(cardId);
+          const labelPos = gtPosMap.get(labelId);
+
+          if (cardPos) {
+            const gcj02Card = coordtransform.wgs84togcj02(cardPos.centerLngLat.lng, cardPos.centerLngLat.lat);
+            feature.properties.card_coord = gcj02Card;
+          }
+          if (labelPos) {
+            const gcj02Label = coordtransform.wgs84togcj02(labelPos.centerLngLat.lng, labelPos.centerLngLat.lat);
+            feature.properties.label_coord = gcj02Label;
+          }
+          
           return feature;
         });
       }
 
-      let result;
-      if (activeDataset === 'layout') {
-        result = await saveLayoutSession(sessionId, transformed, `${filename}_${DATASET_CONFIG[activeDataset].suffix}`);
-      } else {
-        result = await updateSessionGeojson(sessionId, transformed, `${filename}_${DATASET_CONFIG[activeDataset].suffix}`);
-      }
+      const result = await saveSessionGeojson({
+        sessionId,
+        geojson: transformed,
+        filename: `${filename}_${DATASET_CONFIG[activeDataset].suffix}`,
+        category: activeDataset,
+      });
       if (result.success) {
         alert(`Dataset saved to session: ${result.filepath || sessionId}`);
       } else {
@@ -277,7 +201,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
     } finally {
       setIsCapturing(false);
     }
-  }, [geojson, activeDataset, sessionId, layoutOutputs, layoutInputs, groundtruthPositions]);
+  }, [activeDataset, sessionId, layoutOutputs, layoutInputs, groundtruthPositions]);
 
   return (
     <div className="flex flex-col h-full">
@@ -318,23 +242,14 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
           </p>
         </div>
 
-        <Button
-          className="w-full h-8 my-2 text-[12px]"
-          onClick={saveDataset}
-          disabled={isCapturing || !geojson}
-          variant="outline"
-        >
-          {isCapturing ? 'Saving...' : 'Export as GeoJSON'}
-        </Button>
-
         {sessionId && (
           <Button
-            className="w-full h-8 mb-2 text-[12px]"
+            className="w-full h-8 my-2 text-[12px]"
             onClick={saveToSession}
             disabled={isCapturing || !geojson}
-            variant="default"
+            variant="outline"
           >
-            {isCapturing ? 'Saving...' : 'Save to Session'}
+            {isCapturing ? 'Saving...' : 'Save GeoJson to Session'}
           </Button>
         )}
 

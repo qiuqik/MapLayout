@@ -308,8 +308,11 @@ async def get_multimodal_session(session_id: str):
         "session_id": session_id,
         "style_code": style_code,
         "origin_file": origin_files[-1] if origin_files else None,
+        "has_origin": len(origin_files) > 0,
         "layout_file": layout_files[-1] if layout_files else (origin_files[-1] if origin_files else None),
-        "groundtruth_file": groundtruth_files[-1] if groundtruth_files else (layout_files[-1] if layout_files else (origin_files[-1] if origin_files else None))
+        "has_layout": len(layout_files) > 0,
+        "groundtruth_file": groundtruth_files[-1] if groundtruth_files else (layout_files[-1] if layout_files else (origin_files[-1] if origin_files else None)),
+        "has_groundtruth": len(groundtruth_files) > 0,
     }
 
 
@@ -333,9 +336,9 @@ def get_unique_filepath(directory: str, base_filename: str) -> str:
             return os.path.join(directory, f"{name}_{timestamp}{ext}")
 
 
-@app.post('/api/multimodal/session/{session_id}/update')
-async def update_multimodal_session(session_id: str, request: dict):
-    """更新指定会话的 geojson 数据"""
+@app.post('/api/multimodal/session/{session_id}/save')
+async def save_session_geojson(session_id: str, request: dict):
+    """保存 geojson 数据到 session，支持 origin/layout/groundtruth 分类"""
     base = os.path.join(os.path.dirname(__file__), 'output', session_id)
     if not os.path.exists(base):
         return JSONResponse(status_code=404, content={"error": "会话不存在"})
@@ -345,6 +348,7 @@ async def update_multimodal_session(session_id: str, request: dict):
         if geojson_data is None:
             return JSONResponse(status_code=400, content={"error": "缺少 geojson 数据"})
 
+        category = request.get('category', 'origin')
         node3_path = os.path.join(base, 'node3')
         os.makedirs(node3_path, exist_ok=True)
 
@@ -353,45 +357,19 @@ async def update_multimodal_session(session_id: str, request: dict):
             filepath = get_unique_filepath(node3_path, filename)
         else:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filepath = os.path.join(node3_path, f"geojson_{timestamp}.json")
+            prefix_map = {
+                'layout': 'geojson_layout',
+                'groundtruth': 'geojson_groundtruth',
+            }
+            prefix = prefix_map.get(category, 'geojson')
+            filepath = os.path.join(node3_path, f"{prefix}_{timestamp}.json")
 
         with open(filepath, 'w', encoding='utf-8') as f:
             json.dump(geojson_data, f, ensure_ascii=False, indent=2)
 
         return {"success": True, "session_id": session_id, "filepath": filepath}
     except Exception as e:
-        print(f"❌ 更新会话失败: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-
-@app.post('/api/multimodal/session/{session_id}/layout')
-async def save_layout_session(session_id: str, request: dict):
-    """保存 layout 到 session，如果文件名存在则使用时间戳区分"""
-    base = os.path.join(os.path.dirname(__file__), 'output', session_id)
-    if not os.path.exists(base):
-        return JSONResponse(status_code=404, content={"error": "会话不存在"})
-
-    try:
-        geojson_data = request.get('geojson')
-        if geojson_data is None:
-            return JSONResponse(status_code=400, content={"error": "缺少 geojson 数据"})
-
-        node3_path = os.path.join(base, 'node3')
-        os.makedirs(node3_path, exist_ok=True)
-
-        filename = request.get('filename')
-        if filename:
-            filepath = get_unique_filepath(node3_path, filename)
-        else:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filepath = os.path.join(node3_path, f"geojson_layout_{timestamp}.json")
-
-        with open(filepath, 'w', encoding='utf-8') as f:
-            json.dump(geojson_data, f, ensure_ascii=False, indent=2)
-
-        return {"success": True, "session_id": session_id, "filepath": filepath}
-    except Exception as e:
-        print(f"❌ 保存 Layout 失败: {e}")
+        print(f"❌ 保存 Session Geojson 失败: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 

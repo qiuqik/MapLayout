@@ -4,11 +4,13 @@ import { useEffect, useState, useCallback } from 'react';
 import AgentDialog from '@/components/mapagent/AgentDialog';
 import { AgentMapProvider, useAgentMap } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
+import { polygonCentroid } from 'd3-polygon';
 import dynamic from 'next/dynamic';
+import { transformSingleCoordinate } from '@/components/mapagent/utils/mapUtils';
 import ForceParamsPanel, { type ForceParamsOverride, type FieldParamsOverride } from '@/components/mapagent/ForceParamsPanel';
 import type { LayoutItemInput, LayoutItemPosition, LayoutItemOutput } from './layout/types';
 
-import { API_BASE_URL, saveLayoutSession } from '@/lib/api';
+import { API_BASE_URL, saveSessionGeojson } from '@/lib/api';
 import type { DatasetType } from '@/components/mapagent/DatasetPanel';
 import DatasetPanel from '@/components/mapagent/DatasetPanel';
 
@@ -48,11 +50,19 @@ function AgentPageContent() {
   const [originPositions, setOriginPositions] = useState<LayoutItemPosition[] | null>(null);
   const [layoutPositions, setLayoutPositions] = useState<LayoutItemPosition[] | null>(null);
   const [groundtruthPositions, setGroundtruthPositions] = useState<LayoutItemPosition[] | null>(null);
+  const [hasOriginFile, setHasOriginFile] = useState(false);
+  const [hasLayoutFile, setHasLayoutFile] = useState(false);
+  const [hasGroundtruthFile, setHasGroundtruthFile] = useState(false);
   const [rerunLayoutTrigger, setRerunLayoutTrigger] = useState(0);
 
   const handleDatasetChange = useCallback((type: DatasetType) => {
+    if (type === 'groundtruth' && !hasGroundtruthFile) {
+      if (computedLayoutOutputs.length > 0) {
+        setGroundtruthPositions(computedLayoutOutputs);
+      }
+    }
     setCurrentDataset(type);
-  }, []);
+  }, [hasGroundtruthFile, computedLayoutOutputs]);
 
   const handleRerunLayout = useCallback(() => {
     setRerunLayoutTrigger(prev => prev + 1);
@@ -66,20 +76,60 @@ function AgentPageContent() {
     })));
   }, []);
 
-  const handleSaveToSession = useCallback(async (geojson: any, filename: string) => {
-    if (!currentSession?.session_id) {
-      alert('No session selected');
-      return;
-    }
-    const result = await saveLayoutSession(currentSession.session_id, geojson, filename);
-    if (result.success) {
-      alert(`Layout saved: ${result.filepath}`);
-    } else {
-      alert(`Error saving layout: ${result.error}`);
-    }
-  }, [currentSession]);
-
   const { setManifest, manifest } = useAgentMap();
+
+  const processFeature = (feature: any) => {
+    const name = feature.properties?.name;
+    const type = feature.geometry.type;
+    var transforLngLat = [];
+    var anchorLngLat = {};
+    if (type === 'Point') {
+      transforLngLat = transformSingleCoordinate(feature.geometry.coordinates);
+      anchorLngLat = { lng: transforLngLat[0], lat: transforLngLat[1] };
+      // console.log("transforLngLat Point",transforLngLat)
+    } else if (type === 'LineString') {
+      transforLngLat = transformSingleCoordinate(feature.geometry.coordinates[Math.floor(feature.geometry.coordinates.length/2)]);
+      anchorLngLat = {
+        lng: transforLngLat[0],
+        lat: transforLngLat[1],
+      }
+      // console.log("transforLngLat LineString",transforLngLat)
+    } else if (type === 'Polygon') {
+      transforLngLat = transformSingleCoordinate(polygonCentroid(feature.geometry.coordinates[0]));
+      anchorLngLat = {
+        lng: transforLngLat[0],
+        lat: transforLngLat[1],
+      }
+      // console.log("transforLngLat Polygon",transforLngLat)
+    }
+    const position = [];
+    if (feature.properties?.card_coord) {
+      const cardVisualId = feature.properties?.card_visual_id;
+      const transforCardCenterLngLat = transformSingleCoordinate(feature.properties.card_coord);
+      position.push({
+        id: `card-${type}-${name}-${cardVisualId}`,
+        anchorLngLat,
+        centerLngLat: {
+          lng: transforCardCenterLngLat[0],
+          lat: transforCardCenterLngLat[1]
+        },
+      });
+    }
+    if (feature.properties?.label_coord) {
+      const labelVisualId = feature.properties?.label_visual_id;
+      const transforLabelCenterLngLat = transformSingleCoordinate(feature.properties.label_coord);
+      position.push({
+        id: `label-${type}-${name}-${labelVisualId}`,
+        anchorLngLat,
+        centerLngLat: {
+          lng: transforLabelCenterLngLat[0],
+          lat: transforLabelCenterLngLat[1]
+        },
+      });
+    }
+    if(position.length > 0) return position;
+    return null;
+  }
 
   const loadSession = async (sessionId: string) => {
     try {
@@ -90,93 +140,49 @@ function AgentPageContent() {
       setCurrentDataset('layout');
       console.log(data);
 
+      setHasOriginFile(data.has_origin || false);
+      setHasLayoutFile(data.has_layout || false);
+      setHasGroundtruthFile(data.has_groundtruth || false);
+
       if (data.origin_file?.data?.features) {
+        setOriginGeojson(data.origin_file.data);
         const positions: LayoutItemPosition[] = [];
         data.origin_file.data.features.forEach((feature: any) => {
-          const name = feature.properties?.name;
-          const anchorLngLat = { lng: feature.geometry.coordinates[0], lat: feature.geometry.coordinates[1] };
-
-          if (feature.properties?.card_coord) {
-            positions.push({
-              id: `card-point-${name}`,
-              anchorLngLat,
-              centerLngLat: { lng: feature.properties.card_coord[0], lat: feature.properties.card_coord[1] },
-            });
-          }
-          if (feature.properties?.label_coord) {
-            positions.push({
-              id: `label-point-${name}`,
-              anchorLngLat,
-              centerLngLat: { lng: feature.properties.label_coord[0], lat: feature.properties.label_coord[1] },
-            });
+          const positionList = processFeature(feature);
+          if (positionList) {
+            positions.push(...positionList);
           }
         });
+
+        console.log('[Load] originPositions:', positions);
         setOriginPositions(positions.length > 0 ? positions : null);
-        setOriginGeojson(data.origin_file.data);
-      } else {
-        setOriginPositions(null);
-        setOriginGeojson(null);
       }
 
       if (data.layout_file?.data?.features) {
         const positions: LayoutItemPosition[] = [];
         data.layout_file.data.features.forEach((feature: any) => {
-          const name = feature.properties?.name;
-          const anchorLngLat = { lng: feature.geometry.coordinates[0], lat: feature.geometry.coordinates[1] };
-
-          if (feature.properties?.card_coord) {
-            positions.push({
-              id: `card-point-${name}`,
-              anchorLngLat,
-              centerLngLat: { lng: feature.properties.card_coord[0], lat: feature.properties.card_coord[1] },
-            });
-          }
-          if (feature.properties?.label_coord) {
-            positions.push({
-              id: `label-point-${name}`,
-              anchorLngLat,
-              centerLngLat: { lng: feature.properties.label_coord[0], lat: feature.properties.label_coord[1] },
-            });
+          const positionList = processFeature(feature);
+          if (positionList) {
+            positions.push(...positionList);
           }
         });
+        console.log('[Load] layoutPositions:', positions);
         setLayoutPositions(positions.length > 0 ? positions : null);
-      } else {
-        setLayoutPositions(null);
       }
 
-      console.log('[Load] groundtruth_file exists:', !!data.groundtruth_file, 'features:', data.groundtruth_file?.data?.features?.length);
       if (data.groundtruth_file?.data?.features) {
         const positions: LayoutItemPosition[] = []; 
         data.groundtruth_file.data.features.forEach((feature: any) => {
-          const featureName = feature.properties?.name;
-          const cardVisualId = feature.properties?.card_visual_id;
-          const labelVisualId = feature.properties?.label_visual_id;
-          const cardId = cardVisualId ? `card-point-${featureName}-${cardVisualId}` : `card-point-${featureName}`;
-          const labelId = labelVisualId ? `label-point-${featureName}-${labelVisualId}` : `label-point-${featureName}`;
-          const anchorLngLat = { lng: feature.geometry.coordinates[0], lat: feature.geometry.coordinates[1] };
-
-          if (feature.properties?.card_coord) {
-            positions.push({
-              id: cardId,
-              anchorLngLat,
-              centerLngLat: { lng: feature.properties.card_coord[0], lat: feature.properties.card_coord[1] },
-            });
-          }
-          if (feature.properties?.label_coord) {
-            positions.push({
-              id: labelId,
-              anchorLngLat,
-              centerLngLat: { lng: feature.properties.label_coord[0], lat: feature.properties.label_coord[1] },
-            });
+          const positionList = processFeature(feature);
+          if (positionList) {
+            positions.push(...positionList);
           }
         });
+        console.log('[Load] groundtruthPositions:', positions);
         setGroundtruthPositions(positions.length > 0 ? positions : null);
-      } else {
-        setGroundtruthPositions(null);
       }
 
       setManifest(data.style_code);
-
     } catch (error) {
       console.error('Error loading session:', error);
     }

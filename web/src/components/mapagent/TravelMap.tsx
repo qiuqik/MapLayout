@@ -73,7 +73,6 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     leaderLines: LeaderLine[];
     viewport: { width: number; height: number } | null;
   }>({ inputs: [], outputs: [], leaderLines: [], viewport: null });
-  const [draggedPositions, setDraggedPositions] = useState<Record<string, { lng: number; lat: number }>>({});
   const measureRootRef = useRef<HTMLDivElement | null>(null);
   
   const transformedData = useMemo<TransformedMapData>(() => {
@@ -150,6 +149,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
   }, [transformedData, displayLines]);
 
   useEffect(() => {
+    // Fit map view to data
     if (mapRef.current && (transformedData.points.length > 0 || displayLines.length > 0 || transformedData.polygons.length > 0)) {
       const coords: number[][] = [];
       
@@ -236,71 +236,64 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         ? 'mapbox://styles/mapbox/satellite-v9'
         : 'mapbox://styles/mapbox/streets-v12';
 
-  const buildLayoutInputs = useCallback((): LayoutItemInput[] => {
-    const inputs: LayoutItemInput[] = [];
-    const globalProps = transformedData.globalProps;
-
-    for (let i = 0; i < transformedData.points.length; i++) {
-      const feature: any = transformedData.points[i];
-      const name = feature.properties?.name ?? `p${i}`;
-
-      const labelStyle = labelStyles.find((l: any) => l.visual_id === feature.properties?.label_visual_id);
-      if (labelStyle) {
-        const coord = feature.geometry.coordinates;
-        const [lng, lat] = coord;
-        const html = populateTemplate(labelStyle.template, feature.properties, globalProps);
-        inputs.push({
-          id: `label-point-${name}-${labelStyle.visual_id ?? i}`,
-          kind: 'label',
-          anchorLngLat: { lng, lat },
+  const processLayoutInput = (id: string, feature: any, globalProps: any, cardVisualId: string, styles: any[]) => {
+    var positions = originPositions;
+    if(currentDataset === 'layout'){
+      positions = layoutPositions;
+    }else if(currentDataset === 'groundtruth'){
+      positions = groundtruthPositions;
+      if(!positions) positions = layoutPositions;
+    }
+    var input = [];
+    for(let i = 0; i < positions.length; i++){
+      const position = positions[i];
+      if(position.id !== id) continue;
+      const style = styles.find((l: any) => l.visual_id === cardVisualId);
+      if(style) {
+        const html = populateTemplate(style.template, feature.properties, globalProps);
+        input.push({
+          ...position,
           html,
           width: 0,
           height: 0,
           padding: 14,
-        });
-      }
-
-      const cardStyle = cardStyles.find((c: any) => c.visual_id === feature.properties?.card_visual_id);
-      if (cardStyle) {
-        const coord = feature.geometry.coordinates;
-        const [lng, lat] = coord;
-        const html = populateTemplate(cardStyle.template, feature.properties, globalProps);
-        inputs.push({
-          id: `card-point-${name}-${cardStyle.visual_id ?? i}`,
-          kind: 'card',
-          anchorLngLat: { lng, lat },
-          html,
-          width: 0,
-          height: 0,
-          padding: 28,
-        });
+        })
       }
     }
+    if(input.length === 0) return null;
+    return input;
+  }
 
-    for (let i = 0; i < transformedData.polygons.length; i++) {
-      const feature: any = transformedData.polygons[i];
-      const name = feature.properties?.name ?? `poly${i}`;
-      const cardStyle = cardStyles.find((c: any) => c.visual_id === feature.properties?.card_visual_id);
-      if (!cardStyle) continue;
-      const coord = feature.properties?.card_coord || feature.geometry.coordinates?.[0]?.[0];
-      if (!coord) continue;
-      const [lng, lat] = coord;
-      const html = populateTemplate(cardStyle.template, feature.properties, transformedData.globalProps);
-      inputs.push({
-        id: `card-polygon-${name}-${cardStyle.visual_id ?? i}`,
-        kind: 'card',
-        anchorLngLat: { lng, lat },
-        html,
-        width: 0,
-        height: 0,
-        padding: 28,
-      });
+  const buildLayoutInputs = useCallback((): LayoutItemInput[] => {
+    const inputs: LayoutItemInput[] = [];
+    const globalProps = transformedData.globalProps;
+    const allTransformedFeatures = [...transformedData.points,...transformedData.lines, ...transformedData.polygons];
+
+    for (let i = 0; i < allTransformedFeatures.length; i++) {
+      const feature: any = allTransformedFeatures[i];
+      const name = feature.properties?.name;
+      const type = feature.geometry.type;
+      if(feature.properties?.card_coord){
+        const cardVisualId = feature.properties?.card_visual_id;
+        const id = `card-${type}-${name}-${cardVisualId}`;
+        // console.log("card id:", id);
+        const input = processLayoutInput(id, feature, globalProps, cardVisualId, cardStyles);
+        if(input) inputs.push(...input);
+      }
+      if(feature.properties?.label_coord){
+        const labelVisualId = feature.properties?.label_visual_id;
+        const id = `label-${type}-${name}-${labelVisualId}`;
+        // console.log("label id:", id);
+        const input = processLayoutInput(id, feature, globalProps, labelVisualId, labelStyles);
+        if(input) inputs.push(...input);
+      }
     }
-
+    console.log("inputs:", inputs);
     return inputs;
   }, [transformedData.points, transformedData.polygons, transformedData.globalProps, labelStyles, cardStyles]);
 
   useEffect(() => {
+    // built layout inputs
     const next = buildLayoutInputs();
     setLayoutState((s) => {
       if (s.inputs.length !== next.length) {
@@ -413,7 +406,6 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     }, segments);
 
     setDebugCostField(field);
-
     const prevById = new Map(layoutState.outputs.map((o) => [o.id, { x: o.cx, y: o.cy }]));
     const ready = layoutState.inputs.map((it) => {
       // Use measured dimensions, fallback to conservative defaults if not yet measured
@@ -434,14 +426,25 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
       { viewport, costField: field },
       { ...DEFAULT_FORCE, ...forceParams }
     );
-
-    setLayoutState((s) => ({ ...s, viewport, outputs, leaderLines }));
+    
+    const outputsWithLngLat = outputs.map(o => {
+      const lngLat = map.unproject([o.cx, o.cy]);
+      return {
+        ...o,
+        centerLngLat: { lng: lngLat.lng, lat: lngLat.lat },
+      };
+    });
+    
+    console.log("after layout outputs:", outputsWithLngLat);
+    setLayoutState((s) => ({ ...s, viewport, outputs: outputsWithLngLat, leaderLines }));
   }, [displayLines, transformedData.points, transformedData.polygons, forceParams, fieldParams, layoutState.inputs]);
 
-  useEffect(() => {
-    if (layoutState.inputs.length === 0) return;
-    recomputeLayout();
-  }, [layoutState.inputs, recomputeLayout]);
+  // useEffect(() => {
+  //   if (layoutState.inputs.length === 0) return;
+  //   recomputeLayout();
+  // }, [layoutState.inputs, recomputeLayout]);
+
+
 
   useEffect(() => {
     if (!currentDataset || layoutState.inputs.length === 0) return;
@@ -451,18 +454,19 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
     const project = (lng: number, lat: number) => map.project([lng, lat]);
 
-    if (currentDataset === 'origin' && originPositions && originPositions.length > 0) {
+    if (currentDataset === 'origin') {
+      if (!originPositions || originPositions.length === 0) return;
       const posMap = new Map(originPositions.map(p => [p.id, p]));
-      const displayOutputs = layoutState.inputs.map(input => {
-        const pos = posMap.get(input.id);
+      const displayOutputs = layoutState.outputs.map(output => {
+        const pos = posMap.get(output.id);
         if (!pos) return null;
         const centerPx = project(pos.centerLngLat.lng, pos.centerLngLat.lat);
-        const anchorPx = project(input.anchorLngLat.lng, input.anchorLngLat.lat);
+        const anchorPx = project(output.anchorLngLat.lng, output.anchorLngLat.lat);
         return {
-          ...input,
+          ...output,
           anchorPx,
-          x: centerPx.x - input.width / 2,
-          y: centerPx.y - input.height / 2,
+          x: centerPx.x - output.width / 2,
+          y: centerPx.y - output.height / 2,
           cx: centerPx.x,
           cy: centerPx.y,
           centerLngLat: pos.centerLngLat,
@@ -477,59 +481,16 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         y2: o.cy,
       }));
       setLayoutState(s => ({ ...s, outputs: displayOutputs, leaderLines: displayLeaderLines }));
+      console.log("Origin display displayOutputs:", displayOutputs);
     } else if (currentDataset === 'layout') {
-      if (layoutPositions && layoutPositions.length > 0) {
-        const posMap = new Map(layoutPositions.map(p => [p.id, p]));
-        const displayOutputs = layoutState.inputs.map(input => {
-          const pos = posMap.get(input.id);
-          if (!pos) return null;
-          const centerPx = project(pos.centerLngLat.lng, pos.centerLngLat.lat);
-          const anchorPx = project(input.anchorLngLat.lng, input.anchorLngLat.lat);
-          return {
-            ...input,
-            anchorPx,
-            x: centerPx.x - input.width / 2,
-            y: centerPx.y - input.height / 2,
-            cx: centerPx.x,
-            cy: centerPx.y,
-            centerLngLat: pos.centerLngLat,
-          };
-        }).filter(Boolean) as LayoutItemOutput[];
-
-        const displayLeaderLines = displayOutputs.map(o => ({
-          id: o.id,
-          x1: o.anchorPx.x,
-          y1: o.anchorPx.y,
-          x2: o.cx,
-          y2: o.cy,
-        }));
-        setLayoutState(s => ({ ...s, outputs: displayOutputs, leaderLines: displayLeaderLines }));
-      }
-      // If no layoutPositions, keep existing outputs (don't clear them)
+      recomputeLayout();
+      console.log("Layout display displayOutputs:", layoutState.outputs);
     } else if (currentDataset === 'groundtruth') {
-      // For groundtruth mode: use computed layout but apply groundtruth positions as overrides
-      // Do NOT recompute all positions from groundtruthPositions - that causes other items to disappear
-      // Instead, keep the computed layout and let DraggableOutput handle position overrides
-    }
-  }, [currentDataset, originPositions, layoutPositions, groundtruthPositions, layoutState.inputs]);
-
-  useEffect(() => {
-    if (currentDataset === 'groundtruth' && layoutState.inputs.length > 0 && layoutState.outputs.length === 0) {
       recomputeLayout();
+      console.log("Groundtruth display displayOutputs:", layoutState.outputs);
     }
-  }, [currentDataset, layoutState.inputs.length, layoutState.outputs.length, recomputeLayout]);
+  }, [currentDataset, originPositions, layoutPositions, groundtruthPositions]);
 
-  useEffect(() => {
-    if (currentDataset === 'layout' && layoutState.inputs.length > 0 && (!layoutPositions || layoutPositions.length === 0)) {
-      recomputeLayout();
-    }
-  }, [currentDataset, layoutState.inputs.length, layoutPositions, recomputeLayout]);
-
-  useEffect(() => {
-    if (currentDataset !== 'groundtruth') {
-      setDraggedPositions({});
-    }
-  }, [currentDataset]);
 
   useEffect(() => {
     if (layoutState.inputs.length === 0) return;
@@ -548,7 +509,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
   const onMoveEnd = useCallback(() => {
     recomputeLayout();
-    console.log("onMoveEnd:",layoutState.inputs);
+    console.log("onMoveEnd:",layoutState.inputs, layoutState.outputs);
   }, [recomputeLayout]);
 
       
@@ -564,16 +525,15 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
     return layoutState.outputs.map(o => {
       const gtItem = groundtruthPositions?.find(p => p.id === o.id);
-      const draggedPos = draggedPositions[o.id];
-      const effectivePos = draggedPos || (gtItem ? gtItem.centerLngLat : null);
+      const effectivePos = gtItem ? gtItem.centerLngLat : null;
 
       const anchorPx = map.project([o.anchorLngLat.lng, o.anchorLngLat.lat]);
       let cx: number, cy: number;
 
       if (effectivePos) {
         const gtPx = map.project([effectivePos.lng, effectivePos.lat]);
-        cx = gtPx.x + o.width / 2;
-        cy = gtPx.y + o.height / 2;
+        cx = gtPx.x;
+        cy = gtPx.y;
       } else {
         cx = o.cx;
         cy = o.cy;
@@ -587,7 +547,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         y2: cy,
       };
     });
-  }, [layoutState.outputs, groundtruthPositions, draggedPositions, mapRef]);
+  }, [layoutState.outputs, groundtruthPositions, mapRef]);
 
   const displayLeaderLines = currentDataset === 'groundtruth' && groundtruthLeaderLines.length > 0
     ? groundtruthLeaderLines
@@ -664,22 +624,17 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
           {layoutState.outputs.map((o) => {
             const gtItem = groundtruthPositions?.find(p => p.id === o.id);
-            const draggedPos = draggedPositions[o.id];
-            const effectivePos = draggedPos || (gtItem ? gtItem.centerLngLat : null);
+            const effectivePos = gtItem ? gtItem.centerLngLat : null;
             const groundtruthPx = effectivePos ? { lng: effectivePos.lng, lat: effectivePos.lat } : undefined;
 
             return (
               <DraggableOutput
                 key={o.id}
-                id={o.id}
-                html={o.html}
-                initialX={o.x}
-                initialY={o.y}
-                anchorLngLat={o.anchorLngLat}
+                outputPosition={o}
                 enabled={currentDataset === 'groundtruth'}
                 mapRef={mapRef}
                 onPositionChange={(id, lng, lat) => {
-                  setDraggedPositions(prev => ({ ...prev, [id]: { lng, lat } }));
+                  console.log("position change:", id, lng, lat);
                   onGroundtruthChange?.({ [id]: { lng, lat } });
                 }}
                 overridePosition={groundtruthPx}
