@@ -262,7 +262,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
               <div
                 key={key}
                 className={`p-2 rounded-md border text-[10px] ${
-                  currentDataset === key
+                  activeDataset === key
                     ? 'bg-blue-50 border-blue-200 text-blue-700'
                     : 'bg-gray-50 border-gray-100 text-gray-600'
                 }`}
