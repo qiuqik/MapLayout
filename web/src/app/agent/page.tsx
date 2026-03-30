@@ -87,6 +87,7 @@ function AgentPageContent() {
       const data = await res.json();
 
       setCurrentSession(data);
+      setCurrentDataset('layout');
       console.log(data);
 
       if (data.origin_file?.data?.features) {
@@ -143,22 +144,27 @@ function AgentPageContent() {
         setLayoutPositions(null);
       }
 
+      console.log('[Load] groundtruth_file exists:', !!data.groundtruth_file, 'features:', data.groundtruth_file?.data?.features?.length);
       if (data.groundtruth_file?.data?.features) {
-        const positions: LayoutItemPosition[] = [];
+        const positions: LayoutItemPosition[] = []; 
         data.groundtruth_file.data.features.forEach((feature: any) => {
-          const name = feature.properties?.name;
+          const featureName = feature.properties?.name;
+          const cardVisualId = feature.properties?.card_visual_id;
+          const labelVisualId = feature.properties?.label_visual_id;
+          const cardId = cardVisualId ? `card-point-${featureName}-${cardVisualId}` : `card-point-${featureName}`;
+          const labelId = labelVisualId ? `label-point-${featureName}-${labelVisualId}` : `label-point-${featureName}`;
           const anchorLngLat = { lng: feature.geometry.coordinates[0], lat: feature.geometry.coordinates[1] };
 
           if (feature.properties?.card_coord) {
             positions.push({
-              id: `card-point-${name}`,
+              id: cardId,
               anchorLngLat,
               centerLngLat: { lng: feature.properties.card_coord[0], lat: feature.properties.card_coord[1] },
             });
           }
           if (feature.properties?.label_coord) {
             positions.push({
-              id: `label-point-${name}`,
+              id: labelId,
               anchorLngLat,
               centerLngLat: { lng: feature.properties.label_coord[0], lat: feature.properties.label_coord[1] },
             });
@@ -293,6 +299,7 @@ function AgentPageContent() {
             currentDataset={currentDataset}
             onDatasetChange={handleDatasetChange}
             onRerunLayout={handleRerunLayout}
+            geojson={originGeojson}
           />
         </div>
       </div>

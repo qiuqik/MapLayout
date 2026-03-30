@@ -18,6 +18,7 @@ interface DatasetPanelProps {
   groundtruthPositions?: LayoutItemPosition[] | null;
   sessionId?: string;
   currentDataset?: DatasetType;
+  geojson?: any;
 }
 
 const DATASET_CONFIG: Record<DatasetType, { label: string; suffix: string; description: string }> = {
@@ -46,8 +47,10 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
   groundtruthPositions = null,
   sessionId,
   currentDataset: externalDataset,
+  geojson: externalGeojson,
 }) => {
-  const { geojson } = useAgentMap();
+  const { geojson: contextGeojson } = useAgentMap();
+  const geojson = externalGeojson ?? contextGeojson;
   const [currentDataset, setCurrentDataset] = useState<DatasetType>('layout');
   const [filename, setFilename] = useState<string>('map_data');
   const [isCapturing, setIsCapturing] = useState(false);
@@ -83,8 +86,12 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
             const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
             feature.properties = feature.properties || {};
             feature.properties.coordinates = wgs84Coord;
-            feature.properties.card_coord = [...feature.geometry.coordinates];
-            feature.properties.label_coord = [...feature.geometry.coordinates];
+            if (!feature.properties.card_coord) {
+              feature.properties.card_coord = [...feature.geometry.coordinates];
+            }
+            if (!feature.properties.label_coord) {
+              feature.properties.label_coord = [...feature.geometry.coordinates];
+            }
           }
           return feature;
         });

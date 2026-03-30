@@ -33,7 +33,11 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
   useEffect(() => {
     if (!enabled) {
       setPosition({ x: initialX, y: initialY });
-    } else if (overridePosition && mapRef.current) {
+      return;
+    }
+    if (!overridePosition) return;
+
+    const applyOverride = () => {
       const raw = mapRef.current as any;
       const map = raw?.getMap ? raw.getMap() : raw;
       if (map) {
@@ -43,9 +47,13 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
         } else if ('x' in overridePosition && 'y' in overridePosition) {
           setPosition({ x: overridePosition.x, y: overridePosition.y });
         }
+      } else {
+        setTimeout(applyOverride, 50);
       }
-    }
-  }, [overridePosition, mapRef, enabled, initialX, initialY]);
+    };
+
+    applyOverride();
+  }, [overridePosition, enabled, initialX, initialY]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!enabled) return;
