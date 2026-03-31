@@ -60,10 +60,11 @@ interface TravelMapProps {
   groundtruthPositions?: LayoutItemPosition[] | null;
   onLayoutOutput?: (outputs: LayoutItemOutput[], inputs: LayoutItemInput[]) => void;
   onGroundtruthChange?: (positions: Record<string, { lng: number; lat: number }>) => void;
+  onMapInfoChange?: (mapInfo: { center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } }) => void;
   rerunLayoutTrigger?: number;
 }
 
-export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, rerunLayoutTrigger = 0 }: TravelMapProps) {
+export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, rerunLayoutTrigger = 0 }: TravelMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [processedLines, setProcessedLines] = useState<any[]>([]);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
@@ -437,7 +438,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     
     console.log("after layout outputs:", outputsWithLngLat);
     setLayoutState((s) => ({ ...s, viewport, outputs: outputsWithLngLat, leaderLines }));
-  }, [displayLines, transformedData.points, transformedData.polygons, forceParams, fieldParams, layoutState.inputs]);
+  }, [displayLines, transformedData.points, transformedData.polygons, forceParams, fieldParams, layoutState.inputs, rerunLayoutTrigger]);
 
   // useEffect(() => {
   //   if (layoutState.inputs.length === 0) return;
@@ -495,7 +496,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
   useEffect(() => {
     if (layoutState.inputs.length === 0) return;
     recomputeLayout();
-  }, [rerunLayoutTrigger]);
+  }, [forceParams, fieldParams, rerunLayoutTrigger]);
 
   useEffect(() => {
     if (layoutState.outputs.length > 0 && onLayoutOutput) {
@@ -504,13 +505,33 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
   }, [layoutState.outputs, layoutState.inputs, onLayoutOutput]);
 
   const onMapLoad = useCallback(() => {
+    const raw = mapRef.current as any;
+    const map = raw?.getMap ? raw.getMap() : raw;
+    if (map && onMapInfoChange) {
+      const center = map.getCenter();
+      const bounds = map.getBounds();
+      onMapInfoChange({
+        center: { lng: center.lng, lat: center.lat },
+        bounds: { north: bounds.getNorth(), south: bounds.getSouth(), east: bounds.getEast(), west: bounds.getWest() },
+      });
+    }
     recomputeLayout();
-  }, [recomputeLayout]);
+  }, [recomputeLayout, onMapInfoChange]);
 
   const onMoveEnd = useCallback(() => {
+    const raw = mapRef.current as any;
+    const map = raw?.getMap ? raw.getMap() : raw;
+    if (map && onMapInfoChange) {
+      const center = map.getCenter();
+      const bounds = map.getBounds();
+      onMapInfoChange({
+        center: { lng: center.lng, lat: center.lat },
+        bounds: { north: bounds.getNorth(), south: bounds.getSouth(), east: bounds.getEast(), west: bounds.getWest() },
+      });
+    }
     recomputeLayout();
     console.log("onMoveEnd:",layoutState.inputs, layoutState.outputs);
-  }, [recomputeLayout]);
+  }, [recomputeLayout, onMapInfoChange]);
 
       
   // showHeatmap: standard map + line/point/polygon only, no label/card/global/background

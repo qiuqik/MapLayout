@@ -32,3 +32,24 @@ export const saveSessionGeojson = async ({
   const data = await res.json();
   return data;
 };
+
+export type MapInfo = {
+  center: { lng: number; lat: number };
+  bounds: { north: number; south: number; east: number; west: number };
+};
+
+export const saveSessionMapInfo = async ({
+  sessionId,
+  mapInfo,
+}: {
+  sessionId: string;
+  mapInfo: MapInfo;
+}): Promise<{ success: boolean; filepath?: string; error?: string }> => {
+  const res = await fetch(`${API_BASE_URL}/api/multimodal/session/${sessionId}/mapinfo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mapInfo }),
+  });
+  const data = await res.json();
+  return data;
+};

@@ -4,7 +4,7 @@ import React, { useState, useCallback } from 'react';
 import { useAgentMap } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { saveSessionGeojson } from '@/lib/api';
+import { saveSessionGeojson, saveSessionMapInfo } from '@/lib/api';
 import coordtransform from 'coordtransform';
 import type { LayoutItemInput, LayoutItemPosition } from '@/app/agent/layout/types';
 
@@ -19,6 +19,7 @@ interface DatasetPanelProps {
   sessionId?: string;
   currentDataset?: DatasetType;
   geojson?: any;
+  mapInfo?: { center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } } | null;
 }
 
 const DATASET_CONFIG: Record<DatasetType, { label: string; suffix: string; description: string }> = {
@@ -48,6 +49,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
   sessionId,
   currentDataset: externalDataset,
   geojson: externalGeojson,
+  mapInfo,
 }) => {
   const { geojson: contextGeojson } = useAgentMap();
   const geojson = externalGeojson ?? contextGeojson;
@@ -67,6 +69,20 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
     }
   }, [onDatasetChange, onRerunLayout, externalDataset]);
 
+  const toGcj02 = (lng: number, lat: number) => coordtransform.wgs84togcj02(lng, lat);
+  const convertMapInfo = (info: typeof mapInfo) => info ? {
+    center: { 
+      lng: toGcj02(info.center.lng, info.center.lat)[0], 
+      lat: toGcj02(info.center.lng, info.center.lat)[1] 
+    },
+    bounds: { 
+      north: toGcj02(info.bounds.east, info.bounds.north)[1], 
+      south: toGcj02(info.bounds.west, info.bounds.south)[1], 
+      east: toGcj02(info.bounds.east, info.bounds.north)[0], 
+      west: toGcj02(info.bounds.west, info.bounds.south)[0] 
+    },
+  } : null;
+
 
   const saveToSession = useCallback(async () => {
     if (!sessionId) {
@@ -78,7 +94,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
     try {
       const originRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/multimodal/session/${sessionId}`);
       const sessionData = await originRes.json();
-      
+
       if (!sessionData.origin_file?.data) {
         alert('No origin geojson found in session');
         setIsCapturing(false);
@@ -103,13 +119,14 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
 
       if (activeDataset === 'layout' && layoutOutputs.length > 0) {
         const outputById = new Map(layoutOutputs.map(o => [o.id, o]));
+        const inputById = new Map(layoutInputs.map(i => [i.id, i]));
 
         transformed.features = transformed.features.map((feature: any) => {
           const featureType = feature.geometry?.type;
           const featureName = feature.properties?.name;
           const cardVisualId = feature.properties?.card_visual_id;
           const labelVisualId = feature.properties?.label_visual_id;
-          
+
           if (!featureName) return feature;
 
           feature.properties = feature.properties || {};
@@ -119,24 +136,32 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
             feature.properties.coordinates = wgs84Coord;
           }
 
-          const cardId = cardVisualId !== undefined 
-            ? `card-${featureType}-${featureName}-${cardVisualId}` 
+          const cardId = cardVisualId !== undefined
+            ? `card-${featureType}-${featureName}-${cardVisualId}`
             : `card-${featureType}-${featureName}`;
-          const labelId = labelVisualId !== undefined 
-            ? `label-${featureType}-${featureName}-${labelVisualId}` 
+          const labelId = labelVisualId !== undefined
+            ? `label-${featureType}-${featureName}-${labelVisualId}`
             : `label-${featureType}-${featureName}`;
 
           const cardOutput = outputById.get(cardId);
           const labelOutput = outputById.get(labelId);
+          const cardInput = inputById.get(cardId);
+          const labelInput = inputById.get(labelId);
 
           if (cardOutput) {
             const gcj02Card = coordtransform.wgs84togcj02(cardOutput.centerLngLat.lng, cardOutput.centerLngLat.lat);
             feature.properties.card_coord = gcj02Card;
           }
+          if (cardInput) {
+            feature.properties.card_size = [cardInput.width, cardInput.height];
+          }
 
           if (labelOutput) {
             const gcj02Label = coordtransform.wgs84togcj02(labelOutput.centerLngLat.lng, labelOutput.centerLngLat.lat);
             feature.properties.label_coord = gcj02Label;
+          }
+          if (labelInput) {
+            feature.properties.label_size = [labelInput.width, labelInput.height];
           }
 
           return feature;
@@ -145,13 +170,14 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
 
       if (activeDataset === 'groundtruth' && groundtruthPositions && groundtruthPositions.length > 0) {
         const gtPosMap = new Map(groundtruthPositions.map(p => [p.id, p]));
-        
+        const inputById = new Map(layoutInputs.map(i => [i.id, i]));
+
         transformed.features = transformed.features.map((feature: any) => {
           const featureType = feature.geometry?.type;
           const featureName = feature.properties?.name;
           const cardVisualId = feature.properties?.card_visual_id;
           const labelVisualId = feature.properties?.label_visual_id;
-          
+
           if (!featureName) return feature;
 
           feature.properties = feature.properties || {};
@@ -161,39 +187,54 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
             feature.properties.coordinates = wgs84Coord;
           }
 
-          const cardId = cardVisualId !== undefined 
-            ? `card-${featureType}-${featureName}-${cardVisualId}` 
+          const cardId = cardVisualId !== undefined
+            ? `card-${featureType}-${featureName}-${cardVisualId}`
             : `card-${featureType}-${featureName}`;
-          const labelId = labelVisualId !== undefined 
-            ? `label-${featureType}-${featureName}-${labelVisualId}` 
+          const labelId = labelVisualId !== undefined
+            ? `label-${featureType}-${featureName}-${labelVisualId}`
             : `label-${featureType}-${featureName}`;
 
           const cardPos = gtPosMap.get(cardId);
           const labelPos = gtPosMap.get(labelId);
+          const cardInput = inputById.get(cardId);
+          const labelInput = inputById.get(labelId);
 
           if (cardPos) {
             const gcj02Card = coordtransform.wgs84togcj02(cardPos.centerLngLat.lng, cardPos.centerLngLat.lat);
             feature.properties.card_coord = gcj02Card;
           }
+          if (cardInput) {
+            feature.properties.card_size = [cardInput.width, cardInput.height];
+          }
           if (labelPos) {
             const gcj02Label = coordtransform.wgs84togcj02(labelPos.centerLngLat.lng, labelPos.centerLngLat.lat);
             feature.properties.label_coord = gcj02Label;
           }
-          
+          if (labelInput) {
+            feature.properties.label_size = [labelInput.width, labelInput.height];
+          }
+
           return feature;
         });
       }
 
-      const result = await saveSessionGeojson({
-        sessionId,
-        geojson: transformed,
-        filename: `${filename}_${DATASET_CONFIG[activeDataset].suffix}`,
-        category: activeDataset,
-      });
-      if (result.success) {
-        alert(`Dataset saved to session: ${result.filepath || sessionId}`);
+      const [geojsonResult, mapInfoResult] = await Promise.all([
+        saveSessionGeojson({
+          sessionId,
+          geojson: transformed,
+          filename: `${filename}_${DATASET_CONFIG[activeDataset].suffix}`,
+          category: activeDataset,
+        }),
+        mapInfo ? saveSessionMapInfo({ sessionId, mapInfo: convertMapInfo(mapInfo) }) : Promise.resolve({ success: false }),
+        // mapInfo ? saveSessionMapInfo({ sessionId, mapInfo }) : Promise.resolve({ success: false }),
+      ]);
+
+      if (geojsonResult.success) {
+        const messages = ['Dataset saved'];
+        if (mapInfoResult.success) messages.push('MapInfo saved');
+        alert(messages.join('\n'));
       } else {
-        alert(`Error saving to session: ${result.error}`);
+        alert(`Error saving: ${geojsonResult.error}`);
       }
     } catch (error) {
       console.error('Error saving dataset to session:', error);
@@ -201,7 +242,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
     } finally {
       setIsCapturing(false);
     }
-  }, [activeDataset, sessionId, layoutOutputs, layoutInputs, groundtruthPositions]);
+  }, [activeDataset, sessionId, layoutOutputs, layoutInputs, groundtruthPositions, mapInfo, filename]);
 
   return (
     <div className="flex flex-col h-full">
@@ -249,7 +290,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
             disabled={isCapturing || !geojson}
             variant="outline"
           >
-            {isCapturing ? 'Saving...' : 'Save GeoJson to Session'}
+            {isCapturing ? 'Saving...' : 'Save to Session'}
           </Button>
         )}
 

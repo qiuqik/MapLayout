@@ -54,6 +54,7 @@ function AgentPageContent() {
   const [hasLayoutFile, setHasLayoutFile] = useState(false);
   const [hasGroundtruthFile, setHasGroundtruthFile] = useState(false);
   const [rerunLayoutTrigger, setRerunLayoutTrigger] = useState(0);
+  const [mapInfo, setMapInfo] = useState<{ center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } } | null>(null);
 
   const handleDatasetChange = useCallback((type: DatasetType) => {
     if (type === 'groundtruth' && !hasGroundtruthFile) {
@@ -68,12 +69,13 @@ function AgentPageContent() {
     setRerunLayoutTrigger(prev => prev + 1);
   }, []);
 
-  const handleLayoutOutput = useCallback((outputs: LayoutItemOutput[]) => {
+  const handleLayoutOutput = useCallback((outputs: LayoutItemOutput[], inputs: LayoutItemInput[]) => {
     setComputedLayoutOutputs(outputs.map(o => ({
       id: o.id,
       anchorLngLat: o.anchorLngLat,
       centerLngLat: o.centerLngLat,
     })));
+    setLayoutInputs(inputs);
   }, []);
 
   const { setManifest, manifest } = useAgentMap();
@@ -306,6 +308,7 @@ function AgentPageContent() {
             onDatasetChange={handleDatasetChange}
             onRerunLayout={handleRerunLayout}
             geojson={originGeojson}
+            mapInfo={mapInfo}
           />
         </div>
       </div>
@@ -348,6 +351,7 @@ function AgentPageContent() {
               return newPositions;
             });
           }}
+          onMapInfoChange={setMapInfo}
           rerunLayoutTrigger={rerunLayoutTrigger}
         />
       </div>

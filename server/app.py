@@ -373,6 +373,28 @@ async def save_session_geojson(session_id: str, request: dict):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+@app.post('/api/multimodal/session/{session_id}/mapinfo')
+async def save_session_mapinfo(session_id: str, request: dict):
+    """保存地图视图信息到 session/mapInfo.json"""
+    base = os.path.join(os.path.dirname(__file__), 'output', session_id)
+    if not os.path.exists(base):
+        return JSONResponse(status_code=404, content={"error": "会话不存在"})
+
+    try:
+        mapinfo_data = request.get('mapInfo')
+        if mapinfo_data is None:
+            return JSONResponse(status_code=400, content={"error": "缺少 mapInfo 数据"})
+
+        filepath = os.path.join(base, 'mapInfo.json')
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(mapinfo_data, f, ensure_ascii=False, indent=2)
+
+        return {"success": True, "session_id": session_id, "filepath": filepath}
+    except Exception as e:
+        print(f"❌ 保存 MapInfo 失败: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
 @app.post('/api/multimodal/retry')
 async def multimodal_retry(request: MapAgentRequest):
     """重试机制: 当 GeoJSON 生成失败时，重新进行意图理解和 GeoJSON 生成"""
