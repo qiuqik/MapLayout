@@ -15,6 +15,7 @@ interface DatasetPanelProps {
   onRerunLayout?: () => void;
   layoutOutputs?: LayoutItemPosition[];
   layoutInputs?: LayoutItemInput[];
+  originPositions?: LayoutItemPosition[];
   groundtruthPositions?: LayoutItemPosition[] | null;
   sessionId?: string;
   currentDataset?: DatasetType;
@@ -45,6 +46,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
   onRerunLayout,
   layoutOutputs = [],
   layoutInputs = [],
+  originPositions = [],
   groundtruthPositions = null,
   sessionId,
   currentDataset: externalDataset,
@@ -84,6 +86,69 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
   } : null;
 
 
+  const transformFeatures = (
+    features: any[],
+    positionMap: Map<string, LayoutItemPosition> | null,
+    useOriginCoords: boolean = false
+  ) => {
+    const inputById = new Map(layoutInputs.map(i => [i.id, i]));
+
+    return features.map((feature: any) => {
+      const featureType = feature.geometry?.type;
+      const featureName = feature.properties?.name;
+      const cardVisualId = feature.properties?.card_visual_id;
+      const labelVisualId = feature.properties?.label_visual_id;
+
+      if (!featureName) return feature;
+
+      feature.properties = { ...feature.properties };
+
+      const cardId = cardVisualId !== undefined
+        ? `card-${featureType}-${featureName}-${cardVisualId}`
+        : `card-${featureType}-${featureName}`;
+      const labelId = labelVisualId !== undefined
+        ? `label-${featureType}-${featureName}-${labelVisualId}`
+        : `label-${featureType}-${featureName}`;
+
+      // if (useOriginCoords) {
+      //   feature.properties.card_coord = [...feature.geometry.coordinates];
+      //   feature.properties.label_coord = [...feature.geometry.coordinates];
+      // } else {
+      const cardPos = positionMap?.get(cardId);
+      const labelPos = positionMap?.get(labelId);
+
+      const cardInput = inputById.get(cardId);
+      const labelInput = inputById.get(labelId);
+        
+        
+      if (cardPos) {
+        feature.properties.card_coord = [cardPos.centerLngLat.lng, cardPos.centerLngLat.lat];
+        feature.properties.card_coord = toGcj02(feature.properties.card_coord[0], feature.properties.card_coord[1]);
+        if (cardInput) {
+          feature.properties.card_size = [cardInput.width, cardInput.height];
+          console.log("card_size", feature.properties.card_size);
+        }
+        console.log("cardPos", cardPos);
+        console.log("card_coord", feature.properties.card_coord);
+      }
+      if (labelPos) {
+        feature.properties.label_coord = [labelPos.centerLngLat.lng, labelPos.centerLngLat.lat];
+        feature.properties.label_coord = toGcj02(feature.properties.label_coord[0], feature.properties.label_coord[1]);
+        if (labelInput) {
+          feature.properties.label_size = [labelInput.width, labelInput.height];
+          console.log("label_size", feature.properties.label_size);
+        }
+        console.log("labelPos", labelPos);
+        console.log("label_coord", feature.properties.label_coord);
+      }
+      // }
+
+     
+
+      return feature;
+    });
+  };
+
   const saveToSession = useCallback(async () => {
     if (!sessionId) {
       alert('No valid session ID available');
@@ -104,118 +169,20 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
       const baseGeojson = sessionData.origin_file.data;
       const transformed = JSON.parse(JSON.stringify(baseGeojson));
 
+      let positionMap: Map<string, LayoutItemPosition> | null = null;
+      let useOriginCoords = false;
+
       if (activeDataset === 'origin') {
-        transformed.features = transformed.features.map((feature: any) => {
-          if (feature.geometry?.type === 'Point') {
-            const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
-            feature.properties = feature.properties || {};
-            feature.properties.coordinates = wgs84Coord;
-            feature.properties.card_coord = [...feature.geometry.coordinates];
-            feature.properties.label_coord = [...feature.geometry.coordinates];
-          }
-          return feature;
-        });
+        // useOriginCoords = true;
+        positionMap = new Map(originPositions.map(p => [p.id, p]));
+      } else if (activeDataset === 'layout' && layoutOutputs.length > 0) {
+        positionMap = new Map(layoutOutputs.map(o => [o.id, o]));
+      } else if (activeDataset === 'groundtruth' && groundtruthPositions && groundtruthPositions.length > 0) {
+        positionMap = new Map(groundtruthPositions.map(p => [p.id, p]));
       }
 
-      if (activeDataset === 'layout' && layoutOutputs.length > 0) {
-        const outputById = new Map(layoutOutputs.map(o => [o.id, o]));
-        const inputById = new Map(layoutInputs.map(i => [i.id, i]));
-
-        transformed.features = transformed.features.map((feature: any) => {
-          const featureType = feature.geometry?.type;
-          const featureName = feature.properties?.name;
-          const cardVisualId = feature.properties?.card_visual_id;
-          const labelVisualId = feature.properties?.label_visual_id;
-
-          if (!featureName) return feature;
-
-          feature.properties = feature.properties || {};
-
-          if (featureType === 'Point') {
-            const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
-            feature.properties.coordinates = wgs84Coord;
-          }
-
-          const cardId = cardVisualId !== undefined
-            ? `card-${featureType}-${featureName}-${cardVisualId}`
-            : `card-${featureType}-${featureName}`;
-          const labelId = labelVisualId !== undefined
-            ? `label-${featureType}-${featureName}-${labelVisualId}`
-            : `label-${featureType}-${featureName}`;
-
-          const cardOutput = outputById.get(cardId);
-          const labelOutput = outputById.get(labelId);
-          const cardInput = inputById.get(cardId);
-          const labelInput = inputById.get(labelId);
-
-          if (cardOutput) {
-            const gcj02Card = coordtransform.wgs84togcj02(cardOutput.centerLngLat.lng, cardOutput.centerLngLat.lat);
-            feature.properties.card_coord = gcj02Card;
-          }
-          if (cardInput) {
-            feature.properties.card_size = [cardInput.width, cardInput.height];
-          }
-
-          if (labelOutput) {
-            const gcj02Label = coordtransform.wgs84togcj02(labelOutput.centerLngLat.lng, labelOutput.centerLngLat.lat);
-            feature.properties.label_coord = gcj02Label;
-          }
-          if (labelInput) {
-            feature.properties.label_size = [labelInput.width, labelInput.height];
-          }
-
-          return feature;
-        });
-      }
-
-      if (activeDataset === 'groundtruth' && groundtruthPositions && groundtruthPositions.length > 0) {
-        const gtPosMap = new Map(groundtruthPositions.map(p => [p.id, p]));
-        const inputById = new Map(layoutInputs.map(i => [i.id, i]));
-
-        transformed.features = transformed.features.map((feature: any) => {
-          const featureType = feature.geometry?.type;
-          const featureName = feature.properties?.name;
-          const cardVisualId = feature.properties?.card_visual_id;
-          const labelVisualId = feature.properties?.label_visual_id;
-
-          if (!featureName) return feature;
-
-          feature.properties = feature.properties || {};
-
-          if (featureType === 'Point') {
-            const wgs84Coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
-            feature.properties.coordinates = wgs84Coord;
-          }
-
-          const cardId = cardVisualId !== undefined
-            ? `card-${featureType}-${featureName}-${cardVisualId}`
-            : `card-${featureType}-${featureName}`;
-          const labelId = labelVisualId !== undefined
-            ? `label-${featureType}-${featureName}-${labelVisualId}`
-            : `label-${featureType}-${featureName}`;
-
-          const cardPos = gtPosMap.get(cardId);
-          const labelPos = gtPosMap.get(labelId);
-          const cardInput = inputById.get(cardId);
-          const labelInput = inputById.get(labelId);
-
-          if (cardPos) {
-            const gcj02Card = coordtransform.wgs84togcj02(cardPos.centerLngLat.lng, cardPos.centerLngLat.lat);
-            feature.properties.card_coord = gcj02Card;
-          }
-          if (cardInput) {
-            feature.properties.card_size = [cardInput.width, cardInput.height];
-          }
-          if (labelPos) {
-            const gcj02Label = coordtransform.wgs84togcj02(labelPos.centerLngLat.lng, labelPos.centerLngLat.lat);
-            feature.properties.label_coord = gcj02Label;
-          }
-          if (labelInput) {
-            feature.properties.label_size = [labelInput.width, labelInput.height];
-          }
-
-          return feature;
-        });
+      if (useOriginCoords || positionMap) {
+        transformed.features = transformFeatures(transformed.features, positionMap, useOriginCoords);
       }
 
       const [geojsonResult, mapInfoResult] = await Promise.all([

@@ -461,8 +461,8 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
       const displayOutputs = layoutState.outputs.map(output => {
         const pos = posMap.get(output.id);
         if (!pos) return null;
-        const centerPx = project(pos.centerLngLat.lng, pos.centerLngLat.lat);
-        const anchorPx = project(output.anchorLngLat.lng, output.anchorLngLat.lat);
+        const anchorPx = project(pos.anchorLngLat.lng, pos.anchorLngLat.lat);
+        const centerPx = anchorPx;
         return {
           ...output,
           anchorPx,

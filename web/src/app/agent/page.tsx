@@ -302,6 +302,7 @@ function AgentPageContent() {
           <DatasetPanel
             layoutOutputs={currentDataset === 'layout' ? computedLayoutOutputs : (layoutPositions || [])}
             layoutInputs={layoutInputs}
+            originPositions={originPositions}
             groundtruthPositions={groundtruthPositions}
             sessionId={currentSession?.session_id}
             currentDataset={currentDataset}
