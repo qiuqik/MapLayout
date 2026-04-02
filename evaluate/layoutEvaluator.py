@@ -11,6 +11,8 @@ import torch.nn.functional as F
 from torchvision import transforms
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
+from dotenv import load_dotenv
+
 
 class LayoutEvaluator:
     def __init__(self, map_info_path, img_width=1500, img_height=900):
@@ -164,11 +166,6 @@ class LayoutEvaluator:
             
             # --- (占位：假设 d1 是输出的预测结果) ---
             preds = d1[:, 0, :, :] 
-            
-            # --- 假设以下代码是你的网络输出 ---
-            # 为了演示代码能跑通，此处用模拟的假 Tensor 替代
-            # preds = torch.rand((1, 256, 256)).to(device) 
-            
             # 4. 激活并规范化到 [0, 1]
             # BASNet 官方处理: 取 min-max 归一化 (或者直接用 sigmoid)
             preds = torch.sigmoid(preds)
@@ -188,7 +185,7 @@ class LayoutEvaluator:
         mask_np = preds_resized.squeeze().cpu().numpy()
         mask_255 = (mask_np * 255).astype(np.uint8)
         
-        # (可选) 你可以保存显著性 Mask 看看效果
+        # 保存显著性 Mask 看看效果
         cv2.imwrite("saliency_mask_output.jpg", mask_255)
         
         return mask_255
@@ -249,22 +246,41 @@ class LayoutEvaluator:
     # ==========================================
     # 3. MLLM 裁判胜率 (需调用 API)
     # ==========================================
-    def calc_judge_win_rate(self, layout_img_path, gt_img_path):
-        """
-        指标 5: Judge Win Rate (对接 GPT-4o 或 Claude 3.5 API)
-        """
-        vlm_key = os.getenv("QwenVLM_API_KEY")
-        if not vlm_key:
-            print("⚠️ 未配置 QwenVLM_API_KEY，使用模拟值")
-            return self._mock_judge_result()
 
-        try:
-            vlm = ChatOpenAI(
-                api_key=vlm_key,
+    def _init_vlm_model(self) -> ChatOpenAI:
+        """初始化 VLM 模型（支持 QwenVLM 或 Gemini）"""
+        load_dotenv()
+        vlm_model_type = os.getenv("VLM_MODEL", "qwen").lower()
+        http_proxy = os.getenv("HTTP_PROXY")
+        if vlm_model_type == "qwen":
+            qwen_key = os.getenv("QwenVLM_API_KEY")
+            if not qwen_key:
+                raise RuntimeError("⚠️ .env 文件中未配置 QwenVLM_API_KEY")
+            
+            return ChatOpenAI(
+                api_key=qwen_key,
                 model="qwen-vl-max",
                 base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
                 temperature=0.7
             )
+        
+        elif vlm_model_type == "gemini":
+            gemini_key = os.getenv("GEMINI_API_KEY")
+            if not gemini_key:
+                raise RuntimeError("⚠️ .env 文件中未配置 GEMINI_API_KEY")
+            
+            return ChatOpenAI(
+                api_key=gemini_key,
+                model="gemini-3-pro-preview",
+                base_url=http_proxy,
+                temperature=0.7
+            )
+    def calc_judge_win_rate(self, layout_img_path, gt_img_path):
+        """
+        指标 5: Judge Win Rate (对接 GPT-4o 或 Claude 3.5 API)
+        """
+        try:
+            vlm = self._init_vlm_model()
 
             img_a_base64 = self._image_to_base64(layout_img_path)
             img_b_base64 = self._image_to_base64(gt_img_path)
@@ -281,7 +297,6 @@ class LayoutEvaluator:
             messages = [
                 SystemMessage(content=system_prompt),
                 HumanMessage(content=[
-                    {"type": "text", "text": "图A是待评估的布局，图B是标准布局（Ground Truth）。请比较两图并输出评判结果。"},
                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_a_base64}"}},
                     {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{img_b_base64}"}},
                 ]),
