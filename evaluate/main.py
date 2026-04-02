@@ -25,7 +25,7 @@ EVALUATE_DIR = Path(__file__).parent
 RESULT_DIR = EVALUATE_DIR / "result"
 
 
-def calc_geojson_metrics(evaluator: LayoutEvaluator, geojson_path: Path, output_dir: Path, skip_basnet: bool = False) -> dict:
+def calc_geojson_metrics(evaluator: LayoutEvaluator, geojson_path: Path, output_dir: Path) -> dict:
     """计算单个 geojson 文件的所有指标"""
     results = {}
     
@@ -37,26 +37,25 @@ def calc_geojson_metrics(evaluator: LayoutEvaluator, geojson_path: Path, output_
         "description": METRIC_CONFIGS["Overlap"]["description"]
     }
     
-    if not skip_basnet:
-        try:
-            synthetic_img_path = output_dir / f"synthetic_{geojson_path.stem}.jpg"
-            synthetic_img_path = evaluator.render_synthetic_image(
-                geojson_path=str(geojson_path),
-                output_jpg_path=str(synthetic_img_path)
-            )
-            saliency_mask = evaluator.get_basnet_saliency(synthetic_img_path, "./model/basnet.pth", output_dir=str(output_dir))
-            utility, balance = evaluator.calc_utility_and_balance(elements, saliency_mask)
-            results["Utility"] = {
-                "value": float(round(utility, 4)),
-                "description": METRIC_CONFIGS["Utility"]["description"]
-            }
-            results["Balance"] = {
-                "value": float(round(balance, 4)),
-                "description": METRIC_CONFIGS["Balance"]["description"]
-            }
-        except Exception as e:
-            results["Utility"] = {"error": str(e)}
-            results["Balance"] = {"error": str(e)}
+    try:
+        synthetic_img_path = output_dir / f"synthetic_{geojson_path.stem}.jpg"
+        synthetic_img_path = evaluator.render_synthetic_image(
+            geojson_path=str(geojson_path),
+            output_jpg_path=str(synthetic_img_path)
+        )
+        saliency_mask = evaluator.get_basnet_saliency(synthetic_img_path, "./model/basnet.pth", output_dir=str(output_dir))
+        utility, balance = evaluator.calc_utility_and_balance(elements, saliency_mask)
+        results["Utility"] = {
+            "value": float(round(utility, 4)),
+            "description": METRIC_CONFIGS["Utility"]["description"]
+        }
+        results["Balance"] = {
+            "value": float(round(balance, 4)),
+            "description": METRIC_CONFIGS["Balance"]["description"]
+        }
+    except Exception as e:
+        results["Utility"] = {"error": str(e)}
+        results["Balance"] = {"error": str(e)}
     
     return results
 
@@ -99,7 +98,7 @@ def calc_stability(evaluator: LayoutEvaluator, session_dir: Path) -> dict:
     return None
 
 
-def evaluate_single_session(session_name: str, skip_basnet: bool = False) -> dict:
+def evaluate_single_session(session_name: str) -> dict:
     """评估单个 session，同时评估 origin、layout 和 gt"""
     session_dir = EVALUATE_DIR / session_name
     if not session_dir.exists():
@@ -135,7 +134,7 @@ def evaluate_single_session(session_name: str, skip_basnet: bool = False) -> dic
     if gt_geojson:
         gt_path = session_dir / "node3" / gt_geojson
         print(f"   GT: {gt_geojson}")
-        gt_results = calc_geojson_metrics(evaluator, gt_path, output_dir, skip_basnet)
+        gt_results = calc_geojson_metrics(evaluator, gt_path, output_dir)
         results["gt"] = gt_results
         print_metrics(gt_results, "GT - ")
         
@@ -144,7 +143,7 @@ def evaluate_single_session(session_name: str, skip_basnet: bool = False) -> dic
     if origin_geojson:
         origin_path = session_dir / "node3" / origin_geojson
         print(f"   Origin (Baseline): {origin_geojson}")
-        origin_results = calc_geojson_metrics(evaluator, origin_path, output_dir, skip_basnet)
+        origin_results = calc_geojson_metrics(evaluator, origin_path, output_dir)
         
         if gt_geojson and gt_elements:
             origin_results["Mean IoU"] = calc_mean_iou_with_gt(evaluator, origin_path, gt_elements)
@@ -157,7 +156,7 @@ def evaluate_single_session(session_name: str, skip_basnet: bool = False) -> dic
     if layout_geojson:
         layout_path = session_dir / "node3" / layout_geojson
         print(f"   Layout: {layout_geojson}")
-        layout_results = calc_geojson_metrics(evaluator, layout_path, output_dir, skip_basnet)
+        layout_results = calc_geojson_metrics(evaluator, layout_path, output_dir)
         
         if gt_geojson and gt_elements:
             layout_results["Mean IoU"] = calc_mean_iou_with_gt(evaluator, layout_path, gt_elements)
@@ -228,17 +227,12 @@ def main():
         action="store_true", 
         help="评估所有 session 文件夹"
     )
-    parser.add_argument(
-        "--skip-basnet",
-        action="store_true",
-        help="跳过 BASNet 相关计算（用于快速测试）"
-    )
     args = parser.parse_args()
     
     results = []
     
     if args.session:
-        result = evaluate_single_session(args.session, args.skip_basnet)
+        result = evaluate_single_session(args.session)
         if result:
             results.append(result)
     elif args.all:
@@ -246,7 +240,7 @@ def main():
         print(f"📁 找到 {len(sessions)} 个 session: {sessions}")
         
         for session_name in sessions:
-            result = evaluate_single_session(session_name, args.skip_basnet)
+            result = evaluate_single_session(session_name)
             if result:
                 results.append(result)
     else:

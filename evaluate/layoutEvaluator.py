@@ -13,6 +13,9 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from dotenv import load_dotenv
 import itertools
+import math
+
+
 
 class LayoutEvaluator:
     def __init__(self, map_info_path, img_width=1500, img_height=900):
@@ -33,6 +36,43 @@ class LayoutEvaluator:
         # 图像Y轴向下，纬度向上，需翻转
         y = (self.bounds['north'] - lat) / h * self.img_height
         return x, y
+    # def lonlat_to_pixel(self, lon, lat):
+    #     """
+    #     将经纬度转换为图像的像素坐标，
+    #     严格复刻前端 mapRef.current.fitBounds 的 padding 逻辑
+    #     """
+    #     # 1. 计算前端代码中定义的 padding 像素值
+    #     # width = self.img_width (1500), height = self.img_height (900)
+    #     hPad = round(self.img_width * 0.20)          # 水平边距 300
+    #     vPadBase = round(self.img_height * 0.20)     # 基础垂直边距 180
+    #     globalOffset = round(self.img_height * 0.08) # 顶部偏移 72
+
+    #     pad_top = vPadBase + globalOffset            # 252
+    #     pad_bottom = max(20, vPadBase - globalOffset)# 108
+    #     pad_left = hPad                              # 300
+    #     pad_right = hPad                             # 300
+
+    #     # 2. 计算 map bounds 实际映射的内部视口大小
+    #     inner_width = self.img_width - pad_left - pad_right   # 1500 - 600 = 900
+    #     inner_height = self.img_height - pad_top - pad_bottom # 900 - 360 = 540
+
+    #     # 3. 经度线性映射（加上 pad_left 偏移）
+    #     w_lon = self.bounds['east'] - self.bounds['west']
+    #     x = pad_left + ((lon - self.bounds['west']) / w_lon) * inner_width
+
+    #     # 4. 纬度使用 Web 墨卡托投影映射（加上 pad_top 偏移）
+    #     def lat_to_mercator_y(lat_deg):
+    #         lat_rad = math.radians(lat_deg)
+    #         return math.log(math.tan(math.pi / 4 + lat_rad / 2))
+        
+    #     y_north = lat_to_mercator_y(self.bounds['north'])
+    #     y_south = lat_to_mercator_y(self.bounds['south'])
+    #     y_current = lat_to_mercator_y(lat)
+        
+    #     # 图像Y轴向下，即 north 映射到 pad_top
+    #     y = pad_top + ((y_north - y_current) / (y_north - y_south)) * inner_height
+        
+    #     return x, y
 
     def _generate_unique_id(self, feature, item_type, visual_id):
         """生成全局唯一标识符"""
@@ -406,8 +446,7 @@ class LayoutEvaluator:
                 cx, cy = self.lonlat_to_pixel(*props['label_coord'])
                 w, h = props['label_size']
                 draw.rectangle([cx - w/2, cy - h/2, cx + w/2, cy + h/2], 
-                            outline=RED, width=BBOX_WIDTH)
-                            
+                            outline=RED, width=BBOX_WIDTH)                            
         # 保存为 JPG 图像
         img.save(output_jpg_path, format="JPEG", quality=95)
         print(f"✅ 合成图已渲染并保存至: {output_jpg_path}")
