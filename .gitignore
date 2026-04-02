@@ -2,3 +2,5 @@
 experience/
 evaluate/**/*.pth
 evaluate/**/*.env
+
+__pycache__/
