@@ -1,0 +1,57 @@
+{
+  "evaluation_time": "20260402_152340",
+  "total_sessions": 1,
+  "sessions": [
+    {
+      "session": "20260327_220636_session_1774620396",
+      "origin": {
+        "Overlap": {
+          "value": 0.2888,
+          "description": "布局重叠度，越小越好"
+        },
+        "Utility": {
+          "value": 0.8707000017166138,
+          "description": "空间利用率，越大越好"
+        },
+        "Balance": {
+          "value": 0.9886999726295471,
+          "description": "空间平衡性，越大越好"
+        },
+        "Mean IoU": {
+          "value": 0.0,
+          "description": "与 GT 相似性，越大越好"
+        },
+        "Judge Win Rate": {
+          "value": 0.0,
+          "description": "裁判胜率，1.0=origin胜, 0.5=平局, 0.0=GT胜"
+        }
+      },
+      "layout": {
+        "Overlap": {
+          "value": 0.0118,
+          "description": "布局重叠度，越小越好"
+        },
+        "Utility": {
+          "value": 0.7365999817848206,
+          "description": "空间利用率，越大越好"
+        },
+        "Balance": {
+          "value": 0.9739000201225281,
+          "description": "空间平衡性，越大越好"
+        },
+        "Mean IoU": {
+          "value": 0.0293,
+          "description": "与 GT 相似性，越大越好"
+        },
+        "Stability": {
+          "value": 0.318,
+          "description": "算法稳定性，多次运行结果的平均两两 IoU，越大越好"
+        },
+        "Judge Win Rate": {
+          "value": 0.0,
+          "description": "裁判胜率，1.0=layout胜, 0.5=平局, 0.0=GT胜"
+        }
+      }
+    }
+  ]
+}

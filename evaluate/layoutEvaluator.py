@@ -12,7 +12,7 @@ from torchvision import transforms
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from dotenv import load_dotenv
-
+import itertools
 
 class LayoutEvaluator:
     def __init__(self, map_info_path, img_width=1500, img_height=900):
@@ -131,7 +131,7 @@ class LayoutEvaluator:
     # ==========================================
     # 2. 视觉感知指标 - Image/Saliency Based
     # ==========================================
-    def get_basnet_saliency(image_path, model_weights_path="basnet.pth"):
+    def get_basnet_saliency(self, image_path, model_weights_path="./model/basnet.pth", output_dir=None):
         """
         读取合成的 JPG 图片，通过 BASNet 输出 0-255 的 numpy 显著性 mask
         """
@@ -186,7 +186,12 @@ class LayoutEvaluator:
         mask_255 = (mask_np * 255).astype(np.uint8)
         
         # 保存显著性 Mask 看看效果
-        cv2.imwrite("saliency_mask_output.jpg", mask_255)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+            mask_output_path = os.path.join(output_dir, "saliency_mask_output.jpg")
+        else:
+            mask_output_path = "saliency_mask_output.jpg"
+        cv2.imwrite(mask_output_path, mask_255)
         
         return mask_255
     def calc_utility_and_balance(self, layout_elements, basnet_saliency_map):
