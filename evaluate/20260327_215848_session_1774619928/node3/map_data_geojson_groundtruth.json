@@ -1,0 +1,723 @@
+{
+  "_mapping_thought": "visual.json 将样式分为红/橙/绿三套，对应三天行程，并包含 Route(圈选线)、Edge(顺序箭头)、Label(文字)与 Card(DAY 标记)，还有一个全局 Global 标题。我将用户的重庆3天行程按天拆分为3个分组：DAY1(渝中—南岸)、DAY2(沙坪坝—渝中西段)、DAY3(南岸—江北)。每个分组中：1) 以 Edge 的 LineString 串起当天所有景点，明确顺序；2) 以 Route 的 LineString 复用同一轨迹并首尾相接形成“圈选线”，承载 DAY 卡片；3) 每个景点以 Point 呈现，绑定对应颜色的 Label。为避免点位过密与语义重复，D2 将“白公馆/渣滓洞”合并为白公馆代表点，“鹅岭公园&鹅岭二厂”以鹅岭公园代表；D3 将“大剧院&江北嘴滨江”合并为一个代表点；但保留朝天门广场(D1)与朝天门码头(D3)作为不同功能点。Route、Edge、Label、Card 的 visual_id 均按色系复用，确保容器不空置；全局摘要则绑定 Global 标题。",
+  "_city": "重庆",
+  "type": "FeatureCollection",
+  "global_properties": [
+    {
+      "title": "3天2夜重庆主城经典游（含长江索道）",
+      "description": "D1：解放碑→洪崖洞→朝天门广场→长江索道（新华路→上新街）→南山一棵树；D2：磁器口古镇→白公馆（红岩联线）→李子坝观景平台→鹅岭公园；D3：龙门浩老街→重庆大剧院&江北嘴滨江→观音桥步行街→两江夜游（朝天门码头）。",
+      "visual_id": "global_title"
+    },
+    {
+      "title": "预算与出行提示",
+      "description": "预算约1200–1500元/人（含2晚经济型住宿+市内交通门票，不含往返大交通）。建议住宿解放碑/江北嘴，便于地铁换乘；长江索道高峰需线上预约；夜游与南山夜景二选一避免重复；餐食以火锅、串串、小面为主，全程地铁为主、打车补充。",
+      "visual_id": "global_title"
+    }
+  ],
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.575329,
+          29.557253
+        ]
+      },
+      "properties": {
+        "visual_id": "label_red_text",
+        "name": "解放碑步行街",
+        "description": "渝中区核心商圈，地铁1/6号线小什字站可达，适合开场打卡与晚间逛街。",
+        "label_coord": [
+          106.56574324698498,
+          29.552982431204935
+        ],
+        "label_visual_id": "label_red_text",
+        "coordinates": [
+          106.57164018361601,
+          29.56013946560105
+        ],
+        "card_coord": [
+          106.575329,
+          29.557253
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.579027,
+          29.562204
+        ]
+      },
+      "properties": {
+        "visual_id": "label_red_text",
+        "name": "洪崖洞民俗风貌区",
+        "description": "渝中区，夜景著名机位，步行可达解放碑；节假日拥挤建议错峰。",
+        "label_coord": [
+          106.58746442958737,
+          29.574402706023452
+        ],
+        "label_visual_id": "label_red_text",
+        "coordinates": [
+          106.57533979967542,
+          29.565092098985232
+        ],
+        "card_coord": [
+          106.579027,
+          29.562204
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.587866,
+          29.56688
+        ]
+      },
+      "properties": {
+        "visual_id": "label_red_text",
+        "name": "朝天门广场",
+        "description": "两江交汇点，视野开阔；D3 夜游登船点在附近的朝天门码头。",
+        "label_coord": [
+          106.62447472002515,
+          29.564712372691936
+        ],
+        "label_visual_id": "label_red_text",
+        "coordinates": [
+          106.58418017912642,
+          29.56977208293663
+        ],
+        "card_coord": [
+          106.587866,
+          29.56688
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.582734,
+          29.558265
+        ]
+      },
+      "properties": {
+        "visual_id": "label_red_text",
+        "name": "长江索道·新华路站",
+        "description": "渝中→南岸；高峰需线上预约，建议错峰；与上新街站成对。",
+        "label_coord": [
+          106.58299410111142,
+          29.54522981077166
+        ],
+        "label_visual_id": "label_red_text",
+        "coordinates": [
+          106.57904822366362,
+          29.561157280143107
+        ],
+        "card_coord": [
+          106.582734,
+          29.558265
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.594183,
+          29.55244
+        ]
+      },
+      "properties": {
+        "visual_id": "label_red_text",
+        "name": "长江索道·上新街站",
+        "description": "南岸区端点，可换乘南山观光巴士前往一棵树观景台。",
+        "label_coord": [
+          106.62635938249468,
+          29.556907518040816
+        ],
+        "label_visual_id": "label_red_text",
+        "coordinates": [
+          106.59049669431151,
+          29.55533907178711
+        ],
+        "card_coord": [
+          106.594183,
+          29.55244
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.602311,
+          29.545208
+        ]
+      },
+      "properties": {
+        "visual_id": "label_red_text",
+        "name": "南山一棵树观景台",
+        "description": "南岸区制高点，观渝中半岛夜景；与两江夜游建议二选一避免重复。",
+        "label_coord": [
+          106.6159033670842,
+          29.541288205133394
+        ],
+        "label_visual_id": "label_red_text",
+        "coordinates": [
+          106.59862037205563,
+          29.548109526361557
+        ],
+        "card_coord": [
+          106.602311,
+          29.545208
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.449705,
+          29.581184
+        ]
+      },
+      "properties": {
+        "visual_id": "label_orange_text",
+        "name": "磁器口古镇",
+        "description": "沙坪坝区，地铁1号线磁器口站；老街小吃丰富，建议上午到访。",
+        "label_coord": [
+          106.44757154584582,
+          29.593595878757554
+        ],
+        "label_visual_id": "label_orange_text",
+        "coordinates": [
+          106.44572227450878,
+          29.5837551539159
+        ],
+        "card_coord": [
+          106.449705,
+          29.581184
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.53766,
+          29.552892
+        ]
+      },
+      "properties": {
+        "visual_id": "label_orange_text",
+        "name": "白公馆（红岩联线）",
+        "description": "沙坪坝区，磁器口游客中心乘红岩联线观光巴士直达；近旁为渣滓洞。",
+        "label_coord": [
+          106.54429353390317,
+          29.53056724118168
+        ],
+        "label_visual_id": "label_orange_text",
+        "coordinates": [
+          106.53391454926243,
+          29.55571340444264
+        ],
+        "card_coord": [
+          106.53766,
+          29.552892
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.537916,
+          29.553629
+        ]
+      },
+      "properties": {
+        "visual_id": "label_orange_text",
+        "name": "李子坝站观景平台",
+        "description": "轻轨穿楼打卡点，地铁2号线李子坝站；人流较大注意安全。",
+        "label_coord": [
+          106.52121701443727,
+          29.556851155977327
+        ],
+        "label_visual_id": "label_orange_text",
+        "coordinates": [
+          106.534171092708,
+          29.556450760658674
+        ],
+        "card_coord": [
+          106.537916,
+          29.553629
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.536235,
+          29.549688
+        ]
+      },
+      "properties": {
+        "visual_id": "label_orange_text",
+        "name": "鹅岭公园",
+        "description": "渝中区高地公园，俯瞰两江；“鹅岭二厂·文创园”步行可达。",
+        "label_coord": [
+          106.5304575714302,
+          29.540607459960803
+        ],
+        "label_visual_id": "label_orange_text",
+        "coordinates": [
+          106.5324864306771,
+          29.55250706877454
+        ],
+        "card_coord": [
+          106.536235,
+          29.549688
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.594746,
+          29.555993
+        ]
+      },
+      "properties": {
+        "visual_id": "label_green_text",
+        "name": "龙门浩老街",
+        "description": "南岸区弹子石片区，地铁6号线弹子石站；滨江漫步+老街风貌。",
+        "label_coord": [
+          106.61610411554935,
+          29.578114619906053
+        ],
+        "label_visual_id": "label_green_text",
+        "coordinates": [
+          106.59105926665461,
+          29.55889086472819
+        ],
+        "card_coord": [
+          106.594746,
+          29.555993
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.569226,
+          29.571637
+        ]
+      },
+      "properties": {
+        "visual_id": "label_green_text",
+        "name": "重庆大剧院（江北嘴滨江）",
+        "description": "江北区地标，地铁6号线大剧院站；江北嘴滨江步道观景佳。",
+        "label_coord": [
+          106.57086839517704,
+          29.585328413129325
+        ],
+        "label_visual_id": "label_green_text",
+        "coordinates": [
+          106.56553165061909,
+          29.574511518945872
+        ],
+        "card_coord": [
+          106.569226,
+          29.571637
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.52938,
+          29.573305
+        ]
+      },
+      "properties": {
+        "visual_id": "label_green_text",
+        "name": "观音桥步行街",
+        "description": "江北区商圈核心，地铁3号线观音桥站；餐饮购物集中。",
+        "label_coord": [
+          106.51844686079158,
+          29.581026172764588
+        ],
+        "label_visual_id": "label_green_text",
+        "coordinates": [
+          106.52561321731967,
+          29.57609810213222
+        ],
+        "card_coord": [
+          106.52938,
+          29.573305
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.586816,
+          29.563552
+        ]
+      },
+      "properties": {
+        "visual_id": "label_green_text",
+        "name": "两江夜游·朝天门码头",
+        "description": "渝中区登船点，地铁1/6号线小什字站步行可达；夜游与南山夜景二选一即可。",
+        "label_coord": [
+          106.6007627708993,
+          29.585006095799656
+        ],
+        "label_visual_id": "label_green_text",
+        "coordinates": [
+          106.58313039265684,
+          29.566444759667064
+        ],
+        "card_coord": [
+          106.586816,
+          29.563552
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.575329,
+            29.557253
+          ],
+          [
+            106.579027,
+            29.562204
+          ],
+          [
+            106.587866,
+            29.56688
+          ],
+          [
+            106.582734,
+            29.558265
+          ],
+          [
+            106.594183,
+            29.55244
+          ],
+          [
+            106.602311,
+            29.545208
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "edge_red_arrow",
+        "name": "DAY1 顺序箭头",
+        "description": "解放碑→洪崖洞→朝天门广场→长江索道（新华路→上新街）→南山一棵树"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.575329,
+            29.557253
+          ],
+          [
+            106.579027,
+            29.562204
+          ],
+          [
+            106.587866,
+            29.56688
+          ],
+          [
+            106.582734,
+            29.558265
+          ],
+          [
+            106.594183,
+            29.55244
+          ],
+          [
+            106.602311,
+            29.545208
+          ],
+          [
+            106.575329,
+            29.557253
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_red_loop",
+        "name": "DAY1 渝中—南岸圈选线",
+        "description": "围合渝中核心与南岸南山夜景范围",
+        "card_coord": [
+          106.59802544998341,
+          29.534085123753542
+        ],
+        "card_visual_id": "card_day1",
+        "label_coord": [
+          106.566211558697,
+          29.539794284417418
+        ],
+        "label_visual_id": "label_red_text",
+        "card_size": [
+          64,
+          36
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.449705,
+            29.581184
+          ],
+          [
+            106.53766,
+            29.552892
+          ],
+          [
+            106.537916,
+            29.553629
+          ],
+          [
+            106.536235,
+            29.549688
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "edge_orange_arrow",
+        "name": "DAY2 顺序箭头",
+        "description": "磁器口古镇→白公馆（红岩联线）→李子坝观景平台→鹅岭公园"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.449705,
+            29.581184
+          ],
+          [
+            106.53766,
+            29.552892
+          ],
+          [
+            106.537916,
+            29.553629
+          ],
+          [
+            106.536235,
+            29.549688
+          ],
+          [
+            106.449705,
+            29.581184
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_orange_loop",
+        "name": "DAY2 沙坪坝—渝中西段圈选线",
+        "description": "围合沙坪坝红岩联线与渝中西段视角",
+        "card_coord": [
+          106.50630861824739,
+          29.535234463516268
+        ],
+        "card_visual_id": "card_day2",
+        "label_coord": [
+          106.54698848927943,
+          29.558396989825802
+        ],
+        "label_visual_id": "label_orange_text",
+        "card_size": [
+          67,
+          36
+        ],
+        "label_size": [
+          180,
+          43
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.594746,
+            29.555993
+          ],
+          [
+            106.569226,
+            29.571637
+          ],
+          [
+            106.52938,
+            29.573305
+          ],
+          [
+            106.586816,
+            29.563552
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "edge_green_arrow",
+        "name": "DAY3 顺序箭头",
+        "description": "龙门浩老街→重庆大剧院&江北嘴滨江→观音桥步行街→两江夜游·朝天门码头"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.594746,
+            29.555993
+          ],
+          [
+            106.569226,
+            29.571637
+          ],
+          [
+            106.52938,
+            29.573305
+          ],
+          [
+            106.586816,
+            29.563552
+          ],
+          [
+            106.594746,
+            29.555993
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_green_loop",
+        "name": "DAY3 南岸—江北圈选线",
+        "description": "围合南岸文创滨江与江北嘴、观音桥商圈",
+        "card_coord": [
+          106.53973422585985,
+          29.588997675292408
+        ],
+        "card_visual_id": "card_day3",
+        "label_coord": [
+          106.5074397118407,
+          29.57469520139377
+        ],
+        "label_visual_id": "label_green_text",
+        "card_size": [
+          67,
+          36
+        ],
+        "label_size": [
+          180,
+          24
+        ]
+      }
+    }
+  ]
+}

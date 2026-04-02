@@ -1,0 +1,632 @@
+{
+  "_mapping_thought": "视觉容器未提供 Area，因此不绘制 Polygon；改用 Route（主红实线/可选红虚线）、Point（红点景点/起点五角星/两色公交图标/绿色锚点）与 Card（橙名卡+浅蓝描述+深蓝行动）进行内容-视觉适配。将3天主城行程按时间顺序串联为一条主线（route_main_solid），并在朝天门增加“两江夜景游船”可选虚线（route_sub_dashed）。所有核心POI用 point_spot_marker 标注并挂载名称卡片与描述/行动信息；在磁器口站与弹子石站放置不同色公交图标表示换乘节点；在朝天门放置锚点表示码头。为满足结构约束，主线 LineString 依次包含每一个 Point 的坐标（去重首段坐标），并在主线上添加一条路线信息标签。针对上次问题，已将“长江索道·南岸站”坐标修正至南岸一侧（与“渝中站”分处两岸），并去除了主线首段重复坐标。",
+  "_city": "重庆",
+  "type": "FeatureCollection",
+  "global_properties": [
+    {
+      "title": "3天2夜重庆主城精华游（含长江索道体验）",
+      "description": "D1：解放碑→洪崖洞→长江索道（渝中↔南岸）→南滨路/弹子石；D2：磁器口→白公馆→渣滓洞→人民大礼堂+三峡博物馆→朝天门/来福士；D3：李子坝→鹅岭公园+二厂→观音桥→江北嘴大剧院→返程。小贴士：索道尽量错峰，傍晚至夜间观两江夜景更佳；全程以地铁为主、步行接驳，山城路陡多台阶请穿舒适鞋。",
+      "visual_id": "global_title"
+    },
+    {
+      "title": "图例与通行方式",
+      "description": "红实线=主行程；红虚线=可选线路；红圆点=景点；五角星=起点；蓝/粉公交图标=换乘点；绿色锚=码头。建议交通：地铁为主+步行接驳，索道跨江为特色体验。",
+      "visual_id": "global_legend"
+    }
+  ],
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.575329,
+          29.557253
+        ]
+      },
+      "properties": {
+        "visual_id": "point_start_star",
+        "name": "行程起点·解放碑片区",
+        "description": "集合/入住后出发，靠近较场口/小什字站"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.575329,
+          29.557253
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "解放碑步行街",
+        "description": "渝中核心商圈，地标合影与逛街",
+        "card_coord": [
+          106.5753,
+          29.5573
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "解放碑步行街",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "地铁1/2号线：较场口/小什字",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "白天逛街，晚间再赏夜景"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.579027,
+          29.562204
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "洪崖洞",
+        "description": "吊脚楼群，夜景出片",
+        "card_coord": [
+          106.579,
+          29.5622
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "洪崖洞",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "从解放碑步行下行可达",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "错峰参观，夜景更佳"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.594183,
+          29.55244
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "长江索道·渝中站",
+        "description": "穿楼跨江，连接渝中与南岸",
+        "card_coord": [
+          106.5942,
+          29.5524
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "长江索道·渝中站",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "建议错峰乘坐，排队较多",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "从此出发前往南岸站"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.594183,
+          29.55244
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "长江索道·南岸站",
+        "description": "南滨路/长嘉汇一侧落点",
+        "card_coord": [
+          106.6009,
+          29.5497
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "长江索道·南岸站",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "出站可沿南滨路散步",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "前往弹子石老街/南滨路"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.584729,
+          29.582199
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "南滨路·弹子石老街",
+        "description": "南岸江景步道+市集老街",
+        "card_coord": [
+          106.6075,
+          29.5536
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "南滨路/弹子石老街",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "环线“弹子石站”或公交可达",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "傍晚拍两江夜景更佳"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.591257,
+          29.580798
+        ]
+      },
+      "properties": {
+        "visual_id": "point_bus_pink",
+        "name": "弹子石站（环线换乘/接驳）",
+        "description": "环线换乘/公交接驳点"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.44642,
+          29.576719
+        ]
+      },
+      "properties": {
+        "visual_id": "point_bus_blue",
+        "name": "磁器口站（换乘节点）",
+        "description": "地铁1号线，换乘前往古镇"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.449705,
+          29.581184
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "磁器口古镇",
+        "description": "老街小吃与古风巷弄",
+        "card_coord": [
+          106.4547,
+          29.5797
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "磁器口古镇",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "地铁1号线·磁器口站",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "早点到，避开人流高峰"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.432065,
+          29.576464
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "白公馆",
+        "description": "歌乐山爱国主义教育基地",
+        "card_coord": [
+          106.4387,
+          29.6051
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "白公馆",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "从磁器口换公交/出租上山",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "与渣滓洞可联游"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.433435,
+          29.585496
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "渣滓洞",
+        "description": "红岩革命遗址",
+        "card_coord": [
+          106.436,
+          29.6079
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "渣滓洞",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "白公馆步行或短途车可达",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "注意开放时间，文明参观"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.553277,
+          29.561674
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "人民大礼堂",
+        "description": "仿古建筑群，地标广场",
+        "card_coord": [
+          106.5473,
+          29.5603
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "人民大礼堂",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "地铁1号线·两路口/曾家岩",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "与三峡博物馆联游"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.550513,
+          29.562014
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "重庆中国三峡博物馆",
+        "description": "免费预约，重庆与三峡文化",
+        "card_coord": [
+          106.5489,
+          29.5653
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "三峡博物馆",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "建议提前线上预约",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "人多时可分时段参观"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.587866,
+          29.56688
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "朝天门广场",
+        "description": "两江交汇观景点",
+        "card_coord": [
+          106.5839,
+          29.5663
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "朝天门广场",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "小什字站步行可达",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "与来福士、游船联动游览"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.587247,
+          29.564813
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "来福士购物中心",
+        "description": "地标综合体，连接朝天门",
+        "card_coord": [
+          106.5867,
+          29.5659
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "重庆来福士",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "步行串联朝天门广场",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "可上观景平台俯瞰两江"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.589323,
+          29.562967
+        ]
+      },
+      "properties": {
+        "visual_id": "point_dock_anchor",
+        "name": "朝天门码头",
+        "description": "两江夜景游船登船点"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.537916,
+          29.553629
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "李子坝站观景平台",
+        "description": "“轻轨穿楼”打卡点",
+        "card_coord": [
+          106.5305,
+          29.556
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "李子坝观景平台",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "地铁2号线·李子坝站",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "注意站台秩序，文明拍摄"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.536235,
+          29.549688
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "鹅岭公园",
+        "description": "山城地势与园林景观",
+        "card_coord": [
+          106.5339,
+          29.5492
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "鹅岭公园",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "地铁1号线·鹅岭站",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "与二厂文创园步行联游"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.540183,
+          29.551101
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "鹅岭二厂文创园",
+        "description": "网红文创园区与咖啡馆",
+        "card_coord": [
+          106.5372,
+          29.5487
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "鹅岭二厂文创园",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "从鹅岭公园步行前往",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "适合打卡拍照与休憩"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.52938,
+          29.573305
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "观音桥步行街",
+        "description": "江北繁华商圈，餐饮集中",
+        "card_coord": [
+          106.5325,
+          29.5752
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "观音桥步行街",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "地铁3号线·观音桥站",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "晚间逛吃，选择多样"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.58135,
+          29.569932
+        ]
+      },
+      "properties": {
+        "visual_id": "point_spot_marker",
+        "name": "江北嘴CBD·重庆大剧院",
+        "description": "江北嘴天际线与地标剧院",
+        "card_coord": [
+          106.5932,
+          29.5711
+        ],
+        "card_visual_id": "card_spot_name",
+        "card_title": "重庆大剧院",
+        "desc_card_visual_id": "card_spot_desc",
+        "desc_text": "地铁6号线·江北城站",
+        "action_card_visual_id": "card_spot_action",
+        "action_text": "江景视野佳，夜景尤美"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.575329,
+            29.557253
+          ],
+          [
+            106.575329,
+            29.557253
+          ],
+          [
+            106.579027,
+            29.562204
+          ],
+          [
+            106.594183,
+            29.55244
+          ],
+          [
+            106.594183,
+            29.55244
+          ],
+          [
+            106.584729,
+            29.582199
+          ],
+          [
+            106.591257,
+            29.580798
+          ],
+          [
+            106.44642,
+            29.576719
+          ],
+          [
+            106.449705,
+            29.581184
+          ],
+          [
+            106.432065,
+            29.576464
+          ],
+          [
+            106.433435,
+            29.585496
+          ],
+          [
+            106.553277,
+            29.561674
+          ],
+          [
+            106.550513,
+            29.562014
+          ],
+          [
+            106.587866,
+            29.56688
+          ],
+          [
+            106.587247,
+            29.564813
+          ],
+          [
+            106.589323,
+            29.562967
+          ],
+          [
+            106.537916,
+            29.553629
+          ],
+          [
+            106.536235,
+            29.549688
+          ],
+          [
+            106.540183,
+            29.551101
+          ],
+          [
+            106.52938,
+            29.573305
+          ],
+          [
+            106.58135,
+            29.569932
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_main_solid",
+        "name": "重庆主城3日主线",
+        "description": "D1 解放碑→洪崖洞→索道跨江→南滨路/弹子石；D2 磁器口→白公馆→渣滓洞→大礼堂+三峡博物馆→朝天门/来福士；D3 李子坝→鹅岭公园/二厂→观音桥→江北嘴大剧院。",
+        "label_coord": [
+          106.58,
+          29.56
+        ],
+        "label_visual_id": "label_route_info",
+        "label_text": "主线：地铁为主+步行接驳，索道跨江；夜景推荐D1/D2晚，错峰游览。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.589323,
+            29.562967
+          ],
+          [
+            106.6005,
+            29.5535
+          ],
+          [
+            106.579027,
+            29.562204
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_sub_dashed",
+        "name": "可选｜两江夜景游船",
+        "description": "朝天门码头出发，沿两江观洪崖洞与南滨路夜景，约45–60分钟。"
+      }
+    }
+  ]
+}
