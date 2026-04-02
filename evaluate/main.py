@@ -10,70 +10,23 @@ import argparse
 import numpy as np
 from pathlib import Path
 from layoutEvaluator import LayoutEvaluator
+from utils import (
+    find_session_folders, 
+    get_latest_geojson, 
+    get_all_geojson, 
+    calculate_stability, 
+    convert_numpy_types,
+    METRIC_CONFIGS,
+    print_metrics,
+)
 
 
 EVALUATE_DIR = Path(__file__).parent
 RESULT_DIR = EVALUATE_DIR / "result"
 
 
-def find_session_folders():
-    """自动扫描当前目录下的所有 session 文件夹"""
-    sessions = []
-    for item in EVALUATE_DIR.iterdir():
-        if item.is_dir() and "session" in item.name:
-            sessions.append(item.name)
-    return sorted(sessions)
-
-
-def get_latest_geojson(session_dir: Path, filename: str):
-    """获取指定前缀的最新 geojson 文件"""
-    node3_dir = session_dir / "node3"
-    if not node3_dir.exists():
-        return None
-    
-    candidates = list(node3_dir.glob(f"*{filename}*.json"))
-    if not candidates:
-        return None
-    
-    candidates.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-    return candidates[0].name
-
-
-def get_all_geojson(session_dir: Path, filename: str):
-    """获取指定前缀的所有 geojson 文件（最多 limit 个）"""
-    node3_dir = session_dir / "node3"
-    if not node3_dir.exists():
-        return []
-    
-    candidates = list(node3_dir.glob(f"*{filename}*.json"))
-    if not candidates:
-        return []
-    
-    candidates.sort(key=lambda x: x.stat().st_mtime, reverse=True)
-    return candidates
-
-
-def calculate_stability(evaluator: LayoutEvaluator, geojson_paths: list) -> float:
-    """计算算法稳定性（多次运行结果之间的平均两两 IoU）"""
-    if len(geojson_paths) < 2:
-        return None
-    
-    elements_list = []
-    for path in geojson_paths:
-        elements, _ = evaluator.parse_geojson(str(path))
-        elements_list.append(elements)
-    
-    ious = []
-    for i in range(len(elements_list)):
-        for j in range(i + 1, len(elements_list)):
-            mean_iou = evaluator.calc_mean_iou(elements_list[i], elements_list[j])
-            ious.append(mean_iou)
-    
-    return np.mean(ious) if ious else None
-
-
-def evaluate_geojson(evaluator: LayoutEvaluator, geojson_path: Path, session_dir: Path, skip_basnet: bool = False) -> dict:
-    """评估单个 geojson 文件"""
+def calc_geojson_metrics(evaluator: LayoutEvaluator, geojson_path: Path, output_dir: Path, skip_basnet: bool = False) -> dict:
+    """计算单个 geojson 文件的所有指标"""
     results = {}
     
     elements, background_geometries = evaluator.parse_geojson(str(geojson_path))
@@ -81,13 +34,11 @@ def evaluate_geojson(evaluator: LayoutEvaluator, geojson_path: Path, session_dir
     overlap = evaluator.calc_overlap(elements, background_geometries)
     results["Overlap"] = {
         "value": float(round(overlap, 4)),
-        "description": "布局重叠度，越小越好"
+        "description": METRIC_CONFIGS["Overlap"]["description"]
     }
     
     if not skip_basnet:
         try:
-            output_dir = session_dir / "output"
-            output_dir.mkdir(exist_ok=True)
             synthetic_img_path = output_dir / f"synthetic_{geojson_path.stem}.jpg"
             synthetic_img_path = evaluator.render_synthetic_image(
                 geojson_path=str(geojson_path),
@@ -97,11 +48,11 @@ def evaluate_geojson(evaluator: LayoutEvaluator, geojson_path: Path, session_dir
             utility, balance = evaluator.calc_utility_and_balance(elements, saliency_mask)
             results["Utility"] = {
                 "value": float(round(utility, 4)),
-                "description": "空间利用率，越大越好"
+                "description": METRIC_CONFIGS["Utility"]["description"]
             }
             results["Balance"] = {
                 "value": float(round(balance, 4)),
-                "description": "空间平衡性，越大越好"
+                "description": METRIC_CONFIGS["Balance"]["description"]
             }
         except Exception as e:
             results["Utility"] = {"error": str(e)}
@@ -110,8 +61,46 @@ def evaluate_geojson(evaluator: LayoutEvaluator, geojson_path: Path, session_dir
     return results
 
 
+def calc_mean_iou_with_gt(evaluator: LayoutEvaluator, pred_path: Path, gt_elements: dict) -> dict:
+    """计算与 GT 的 Mean IoU"""
+    pred_elements, _ = evaluator.parse_geojson(str(pred_path))
+    mean_iou = evaluator.calc_mean_iou(pred_elements, gt_elements)
+    return {
+        "value": float(round(mean_iou, 4)),
+        "description": METRIC_CONFIGS["Mean IoU"]["description"]
+    }
+
+
+def calc_aesthetics(evaluator: LayoutEvaluator, img_path: Path, gt_img_path: Path, result_key: str) -> dict:
+    """计算美观性（Judge Win Rate）"""
+    if not img_path.exists() or not gt_img_path.exists():
+        return None
+    
+    try:
+        win_rate = evaluator.calc_judge_win_rate(str(img_path), str(gt_img_path))
+        return {
+            "value": float(round(win_rate, 4)),
+            "description": f"美观性（{result_key} vs GT），{METRIC_CONFIGS['Aesthetics']['description']}"
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def calc_stability(evaluator: LayoutEvaluator, session_dir: Path) -> dict:
+    """计算算法稳定性"""
+    layout_all_geojsons = get_all_geojson(session_dir, "layout")
+    if len(layout_all_geojsons) >= 2:
+        stability = calculate_stability(evaluator, layout_all_geojsons)
+        if stability is not None:
+            return {
+                "value": float(round(stability, 4)),
+                "description": METRIC_CONFIGS["Stability"]["description"]
+            }
+    return None
+
+
 def evaluate_single_session(session_name: str, skip_basnet: bool = False) -> dict:
-    """评估单个 session，同时评估 origin 和 layout"""
+    """评估单个 session，同时评估 origin、layout 和 gt"""
     session_dir = EVALUATE_DIR / session_name
     if not session_dir.exists():
         print(f"❌ Session 不存在: {session_name}")
@@ -126,10 +115,14 @@ def evaluate_single_session(session_name: str, skip_basnet: bool = False) -> dic
         print(f"❌ mapInfo.json 不存在")
         return None
     
+    output_dir = session_dir / "output"
+    output_dir.mkdir(exist_ok=True)
+    
     evaluator = LayoutEvaluator(str(map_info_path))
     
     results = {
         "session": session_name,
+        "gt": {},
         "origin": {},
         "layout": {}
     }
@@ -138,68 +131,44 @@ def evaluate_single_session(session_name: str, skip_basnet: bool = False) -> dic
     gt_geojson = get_latest_geojson(session_dir, "roundtruth")
     origin_geojson = get_latest_geojson(session_dir, "origin")
     
+    gt_elements = None
     if gt_geojson:
         gt_path = session_dir / "node3" / gt_geojson
         print(f"   GT: {gt_geojson}")
-        gt_elements, _ = evaluator.parse_geojson(str(gt_path))
+        gt_results = calc_geojson_metrics(evaluator, gt_path, output_dir, skip_basnet)
+        results["gt"] = gt_results
+        print_metrics(gt_results, "GT - ")
+        
+        _, gt_elements = evaluator.parse_geojson(str(gt_path))
     
     if origin_geojson:
         origin_path = session_dir / "node3" / origin_geojson
         print(f"   Origin (Baseline): {origin_geojson}")
-        origin_results = evaluate_geojson(evaluator, origin_path, session_dir, skip_basnet)
+        origin_results = calc_geojson_metrics(evaluator, origin_path, output_dir, skip_basnet)
         
-        if gt_geojson:
-            origin_elements, _ = evaluator.parse_geojson(str(origin_path))
-            mean_iou = evaluator.calc_mean_iou(origin_elements, gt_elements)
-            origin_results["Mean IoU"] = {
-                "value": float(round(mean_iou, 4)),
-                "description": "与 GT 相似性，越大越好"
-            }
+        if gt_geojson and gt_elements:
+            origin_results["Mean IoU"] = calc_mean_iou_with_gt(evaluator, origin_path, gt_elements)
         
         results["origin"] = origin_results
-        print(f"all result: {results}")
-        print(f"      Overlap: {origin_results.get('Overlap', {}).get('value', 'N/A')}")
-        if "Mean IoU" in origin_results:
-            print(f"      Mean IoU: {origin_results['Mean IoU']['value']}")
-        if "Utility" in origin_results:
-            print(f"      Utility: {origin_results['Utility']['value']}")
-        if "Balance" in origin_results:
-            print(f"      Balance: {origin_results['Balance']['value']}")
+        print_metrics(origin_results, "Origin - ")
     else:
         print(f"   ⚠️ 未找到 origin geojson")
     
     if layout_geojson:
         layout_path = session_dir / "node3" / layout_geojson
         print(f"   Layout: {layout_geojson}")
-        layout_results = evaluate_geojson(evaluator, layout_path, session_dir, skip_basnet)
+        layout_results = calc_geojson_metrics(evaluator, layout_path, output_dir, skip_basnet)
         
-        if gt_geojson:
-            layout_elements, _ = evaluator.parse_geojson(str(layout_path))
-            mean_iou = evaluator.calc_mean_iou(layout_elements, gt_elements)
-            layout_results["Mean IoU"] = {
-                "value": float(round(mean_iou, 4)),
-                "description": "与 GT 相似性，越大越好"
-            }
+        if gt_geojson and gt_elements:
+            layout_results["Mean IoU"] = calc_mean_iou_with_gt(evaluator, layout_path, gt_elements)
         
-        layout_all_geojsons = get_all_geojson(session_dir, "layout")
-        if len(layout_all_geojsons) >= 2:
-            stability = calculate_stability(evaluator, layout_all_geojsons)
-            if stability is not None:
-                layout_results["Stability"] = {
-                    "value": float(round(stability, 4)),
-                    "description": "算法稳定性，多次运行结果的平均两两 IoU，越大越好"
-                }
-                print(f"      Stability: {stability:.4f}")
+        stability_result = calc_stability(evaluator, session_dir)
+        if stability_result:
+            layout_results["Stability"] = stability_result
+            print(f"      Layout - Stability: {stability_result['value']:.4f}")
         
         results["layout"] = layout_results
-        print(f"all result: {results}")
-        print(f"      Overlap: {layout_results.get('Overlap', {}).get('value', 'N/A')}")
-        if "Mean IoU" in layout_results:
-            print(f"      Mean IoU: {layout_results['Mean IoU']['value']}")
-        if "Utility" in layout_results:
-            print(f"      Utility: {layout_results['Utility']['value']}")
-        if "Balance" in layout_results:
-            print(f"      Balance: {layout_results['Balance']['value']}")
+        print_metrics(layout_results, "Layout - ")
     else:
         print(f"   ⚠️ 未找到 layout geojson")
     
@@ -207,48 +176,20 @@ def evaluate_single_session(session_name: str, skip_basnet: bool = False) -> dic
     origin_img_path = session_dir / "image" / "origin.jpg"
     gt_img_path = session_dir / "image" / "gt.jpg"
     
-    if layout_img_path.exists() and gt_img_path.exists():
-        try:
-            judge_win_rate = evaluator.calc_judge_win_rate(
-                str(layout_img_path),
-                str(gt_img_path)
-            )
-            results["layout"]["Judge Win Rate"] = {
-                "value": float(round(judge_win_rate, 4)),
-                "description": "裁判胜率，1.0=layout胜, 0.5=平局, 0.0=GT胜"
-            }
-            print(f"      Judge Win Rate: {judge_win_rate:.4f}")
-        except Exception as e:
-            print(f"      ⚠️ 裁判胜率计算失败: {e}")
-            results["layout"]["Judge Win Rate"] = {"error": str(e)}
-    
-    if origin_img_path.exists() and gt_img_path.exists():
-        try:
-            judge_win_rate_origin = evaluator.calc_judge_win_rate(
-                str(origin_img_path),
-                str(gt_img_path)
-            )
-            results["origin"]["Judge Win Rate"] = {
-                "value": float(round(judge_win_rate_origin, 4)),
-                "description": "裁判胜率，1.0=origin胜, 0.5=平局, 0.0=GT胜"
-            }
-            print(f"      Judge Win Rate: {judge_win_rate_origin:.4f}")
-        except Exception as e:
-            results["origin"]["Judge Win Rate"] = {"error": str(e)}
+    if gt_img_path.exists():
+        if layout_geojson and layout_img_path.exists():
+            aesthetics = calc_aesthetics(evaluator, layout_img_path, gt_img_path, "Layout")
+            if aesthetics:
+                results["layout"]["Aesthetics"] = aesthetics
+                print(f"      Layout - Aesthetics: {aesthetics['value']:.4f}")
+        
+        if origin_geojson and origin_img_path.exists():
+            aesthetics = calc_aesthetics(evaluator, origin_img_path, gt_img_path, "Origin")
+            if aesthetics:
+                results["origin"]["Aesthetics"] = aesthetics
+                print(f"      Origin - Aesthetics: {aesthetics['value']:.4f}")
     
     return results
-
-
-def convert_numpy_types(obj):
-    """将 numpy 类型转换为 Python 原生类型"""
-    if isinstance(obj, dict):
-        return {k: convert_numpy_types(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [convert_numpy_types(item) for item in obj]
-    elif hasattr(obj, 'item'):  # numpy scalar types
-        return obj.item()
-    else:
-        return obj
 
 
 def save_results(results: list):
@@ -280,20 +221,18 @@ def main():
     parser.add_argument(
         "--session", 
         type=str, 
-        default=None,
-        help="指定 session 文件夹名称进行评估"
+        help="指定要评估的 session 文件夹名称"
     )
     parser.add_argument(
         "--all", 
-        action="store_true",
-        help="评估当前目录下所有 session"
+        action="store_true", 
+        help="评估所有 session 文件夹"
     )
     parser.add_argument(
         "--skip-basnet",
         action="store_true",
-        help="跳过 BASNet 相关计算（需要 GPU）"
+        help="跳过 BASNet 相关计算（用于快速测试）"
     )
-    
     args = parser.parse_args()
     
     results = []
@@ -303,7 +242,7 @@ def main():
         if result:
             results.append(result)
     elif args.all:
-        sessions = find_session_folders()
+        sessions = find_session_folders(EVALUATE_DIR)
         print(f"📁 找到 {len(sessions)} 个 session: {sessions}")
         
         for session_name in sessions:
@@ -315,7 +254,6 @@ def main():
         print("示例:")
         print("  python main.py --session 20260327_220636_session_1774620396")
         print("  python main.py --all")
-        print("  python main.py --all --skip-basnet")
         return
     
     if results:

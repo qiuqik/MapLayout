@@ -1,0 +1,71 @@
+{
+  "evaluation_time": "20260402_155138",
+  "total_sessions": 1,
+  "sessions": [
+    {
+      "session": "20260327_220636_session_1774620396",
+      "gt": {
+        "Overlap": {
+          "value": 0.0128,
+          "description": "布局重叠度，越小越好"
+        },
+        "Utility": {
+          "value": 0.6151999831199646,
+          "description": "空间利用率，越大越好"
+        },
+        "Balance": {
+          "value": 0.9731000065803528,
+          "description": "空间平衡性，越大越好"
+        }
+      },
+      "origin": {
+        "Overlap": {
+          "value": 0.2888,
+          "description": "布局重叠度，越小越好"
+        },
+        "Utility": {
+          "value": 0.8707000017166138,
+          "description": "空间利用率，越大越好"
+        },
+        "Balance": {
+          "value": 0.9886999726295471,
+          "description": "空间平衡性，越大越好"
+        },
+        "Mean IoU": {
+          "value": 0.0,
+          "description": "与 GT 相似性，越大越好"
+        },
+        "Aesthetics": {
+          "value": 0.0,
+          "description": "美观性（Origin vs GT），美观性，1.0=胜, 0.5=平局, 0.0=负"
+        }
+      },
+      "layout": {
+        "Overlap": {
+          "value": 0.0118,
+          "description": "布局重叠度，越小越好"
+        },
+        "Utility": {
+          "value": 0.7365999817848206,
+          "description": "空间利用率，越大越好"
+        },
+        "Balance": {
+          "value": 0.9739000201225281,
+          "description": "空间平衡性，越大越好"
+        },
+        "Mean IoU": {
+          "value": 0.0,
+          "description": "与 GT 相似性，越大越好"
+        },
+        "Stability": {
+          "value": 0.318,
+          "description": "算法稳定性，多次运行结果的平均两两 IoU，越大越好"
+        },
+        "Aesthetics": {
+          "value": 0.0,
+          "description": "美观性（Layout vs GT），美观性，1.0=胜, 0.5=平局, 0.0=负"
+        }
+      }
+    }
+  ]
+}
