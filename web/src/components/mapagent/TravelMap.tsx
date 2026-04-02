@@ -522,12 +522,24 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     const raw = mapRef.current as any;
     const map = raw?.getMap ? raw.getMap() : raw;
     if (map && onMapInfoChange) {
-      const center = map.getCenter();
-      const bounds = map.getBounds();
-      onMapInfoChange({
-        center: { lng: center.lng, lat: center.lat },
-        bounds: { north: bounds.getNorth(), south: bounds.getSouth(), east: bounds.getEast(), west: bounds.getWest() },
-      });
+      const container = map.getContainer();
+      const { width, height } = container.getBoundingClientRect();
+      const topLeftLngLat = map.unproject([0, 0]);
+      const bottomRightLngLat = map.unproject([width, height]);
+      const correctMapInfo = {
+        center: {
+          lng: map.getCenter().lng,
+          lat: map.getCenter().lat
+        },
+        bounds: {
+          north: topLeftLngLat.lat,       // 左上角
+          south: bottomRightLngLat.lat,   // 右下角
+          east: bottomRightLngLat.lng,    // 右下角
+          west: topLeftLngLat.lng        // 左上角
+        }
+      };
+      console.log("全屏边界 mapInfo:", correctMapInfo);
+      onMapInfoChange(correctMapInfo);
     }
     recomputeLayout();
     console.log("onMoveEnd:",layoutState.inputs, layoutState.outputs);
