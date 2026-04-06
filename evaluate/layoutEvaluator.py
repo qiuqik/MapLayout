@@ -36,43 +36,6 @@ class LayoutEvaluator:
         # 图像Y轴向下，纬度向上，需翻转
         y = (self.bounds['north'] - lat) / h * self.img_height
         return x, y
-    # def lonlat_to_pixel(self, lon, lat):
-    #     """
-    #     将经纬度转换为图像的像素坐标，
-    #     严格复刻前端 mapRef.current.fitBounds 的 padding 逻辑
-    #     """
-    #     # 1. 计算前端代码中定义的 padding 像素值
-    #     # width = self.img_width (1500), height = self.img_height (900)
-    #     hPad = round(self.img_width * 0.20)          # 水平边距 300
-    #     vPadBase = round(self.img_height * 0.20)     # 基础垂直边距 180
-    #     globalOffset = round(self.img_height * 0.08) # 顶部偏移 72
-
-    #     pad_top = vPadBase + globalOffset            # 252
-    #     pad_bottom = max(20, vPadBase - globalOffset)# 108
-    #     pad_left = hPad                              # 300
-    #     pad_right = hPad                             # 300
-
-    #     # 2. 计算 map bounds 实际映射的内部视口大小
-    #     inner_width = self.img_width - pad_left - pad_right   # 1500 - 600 = 900
-    #     inner_height = self.img_height - pad_top - pad_bottom # 900 - 360 = 540
-
-    #     # 3. 经度线性映射（加上 pad_left 偏移）
-    #     w_lon = self.bounds['east'] - self.bounds['west']
-    #     x = pad_left + ((lon - self.bounds['west']) / w_lon) * inner_width
-
-    #     # 4. 纬度使用 Web 墨卡托投影映射（加上 pad_top 偏移）
-    #     def lat_to_mercator_y(lat_deg):
-    #         lat_rad = math.radians(lat_deg)
-    #         return math.log(math.tan(math.pi / 4 + lat_rad / 2))
-        
-    #     y_north = lat_to_mercator_y(self.bounds['north'])
-    #     y_south = lat_to_mercator_y(self.bounds['south'])
-    #     y_current = lat_to_mercator_y(lat)
-        
-    #     # 图像Y轴向下，即 north 映射到 pad_top
-    #     y = pad_top + ((y_north - y_current) / (y_north - y_south)) * inner_height
-        
-    #     return x, y
 
     def _generate_unique_id(self, feature, item_type, visual_id):
         """生成全局唯一标识符"""
@@ -113,6 +76,7 @@ class LayoutEvaluator:
                 cx, cy = self.lonlat_to_pixel(*props['card_coord'])
                 w, h = props['card_size']
                 # coord 是中心点
+                print(cid)
                 layout_elements[cid] = box(cx - w/2, cy - h/2, cx + w/2, cy + h/2)
                 
             # 处理 Label
@@ -120,6 +84,7 @@ class LayoutEvaluator:
                 lid = self._generate_unique_id(feature, 'label', props['label_visual_id'])
                 cx, cy = self.lonlat_to_pixel(*props['label_coord'])
                 w, h = props['label_size']
+                print(lid)
                 layout_elements[lid] = box(cx - w/2, cy - h/2, cx + w/2, cy + h/2)
                 
         return layout_elements, background_geometries
@@ -392,18 +357,24 @@ class LayoutEvaluator:
 
     def render_synthetic_image(self, geojson_path, output_jpg_path="synthetic_map.jpg"):
         """
-        根据 GeoJSON 渲染一张纯白底色、红色元素的合成图
-        供 BASNet 提取显著性 Mask
+        根据 GeoJSON 绘制：
+        1. 红白合成图（保存为 JPG，用于调试）
+        2. 黑白 mask（直接在内存生成，用于计算指标）
+        
+        返回 tuple: (合成图路径, 黑白mask numpy数组)
         """
         with open(geojson_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             
-        # 创建 1500x900 白色背景图
-        img = Image.new('RGB', (self.img_width, self.img_height), 'white')
-        draw = ImageDraw.Draw(img)
+        # 创建两个图：RGB 用于保存，以及黑白 mask 用于计算
+        img_rgb = Image.new('RGB', (self.img_width, self.img_height), 'white')
+        mask_bw = np.zeros((self.img_height, self.img_width), dtype=np.uint8)
         
-        # 绘制参数 (纯红)
+        draw = ImageDraw.Draw(img_rgb)
+        
+        # 绘制参数
         RED = (255, 0, 0)
+        BLACK = 255  # 黑白 mask 中，红色元素对应 255
         POINT_RADIUS = 6
         LINE_WIDTH = 4
         BBOX_WIDTH = 2
@@ -416,38 +387,63 @@ class LayoutEvaluator:
             # 1. 绘制地理元素 (Point, LineString, Polygon)
             if geom_type == 'Point':
                 px, py = self.lonlat_to_pixel(coords[0], coords[1])
-                # 绘制实心红点
+                # RGB 合成图：绘制实心红点
                 draw.ellipse([px - POINT_RADIUS, py - POINT_RADIUS, 
                             px + POINT_RADIUS, py + POINT_RADIUS], fill=RED)
+                # 黑白 mask：绘制黑点
+                cv2.circle(mask_bw, (int(px), int(py)), POINT_RADIUS, BLACK, -1)
                             
             elif geom_type == 'LineString':
                 px_coords = [self.lonlat_to_pixel(lon, lat) for lon, lat in coords]
                 if len(px_coords) >= 2:
-                    # 绘制红线
+                    # RGB 合成图：绘制红线
                     draw.line(px_coords, fill=RED, width=LINE_WIDTH)
+                    # 黑白 mask：绘制黑线
+                    px_coords_int = [(int(x), int(y)) for x, y in px_coords]
+                    cv2.polylines(mask_bw, [np.array(px_coords_int)], False, BLACK, LINE_WIDTH)
                     
             elif geom_type == 'Polygon':
                 px_coords = [self.lonlat_to_pixel(lon, lat) for lon, lat in coords[0]] # 取外环
                 if len(px_coords) >= 3:
-                    # 绘制多边形边框 (可以视需求改为 fill=RED 填充)
+                    # RGB 合成图：绘制多边形边框
                     draw.polygon(px_coords, outline=RED, width=LINE_WIDTH)
+                    # 黑白 mask：绘制多边形边框
+                    px_coords_int = np.array([(int(x), int(y)) for x, y in px_coords])
+                    cv2.polylines(mask_bw, [px_coords_int], True, BLACK, LINE_WIDTH)
 
             # 2. 绘制卡片和标签的 BBox
             # 处理 Card
             if 'card_visual_id' in props and 'card_coord' in props and 'card_size' in props:
                 cx, cy = self.lonlat_to_pixel(*props['card_coord'])
                 w, h = props['card_size']
-                # 绘制红色空心矩形框
-                draw.rectangle([cx - w/2, cy - h/2, cx + w/2, cy + h/2], 
-                            outline=RED, width=BBOX_WIDTH)
+                x1, y1 = int(cx - w/2), int(cy - h/2)
+                x2, y2 = int(cx + w/2), int(cy + h/2)
+                
+                # RGB 合成图：绘制红色矩形框
+                draw.rectangle([x1, y1, x2, y2], outline=RED, width=BBOX_WIDTH)
+                # 黑白 mask：绘制黑色矩形框
+                cv2.rectangle(mask_bw, (x1, y1), (x2, y2), BLACK, BBOX_WIDTH)
                 
             # 处理 Label
             if 'label_visual_id' in props and 'label_coord' in props and 'label_size' in props:
                 cx, cy = self.lonlat_to_pixel(*props['label_coord'])
                 w, h = props['label_size']
-                draw.rectangle([cx - w/2, cy - h/2, cx + w/2, cy + h/2], 
-                            outline=RED, width=BBOX_WIDTH)                            
-        # 保存为 JPG 图像
-        img.save(output_jpg_path, format="JPEG", quality=95)
+                x1, y1 = int(cx - w/2), int(cy - h/2)
+                x2, y2 = int(cx + w/2), int(cy + h/2)
+                
+                # RGB 合成图：绘制红色矩形框
+                draw.rectangle([x1, y1, x2, y2], outline=RED, width=BBOX_WIDTH)
+                # 黑白 mask：绘制黑色矩形框
+                cv2.rectangle(mask_bw, (x1, y1), (x2, y2), BLACK, BBOX_WIDTH)
+                            
+        # 保存 RGB 合成图为 JPG
+        img_rgb.save(output_jpg_path, format="JPEG", quality=95)
         print(f"✅ 合成图已渲染并保存至: {output_jpg_path}")
-        return output_jpg_path
+        
+        # 保存黑白 mask 用于调试
+        source_name = os.path.splitext(os.path.basename(output_jpg_path))[0]
+        mask_output_dir = os.path.dirname(output_jpg_path)
+        mask_output_path = os.path.join(mask_output_dir, f"{source_name}_mask.jpg")
+        cv2.imwrite(mask_output_path, mask_bw)
+        
+        return output_jpg_path, mask_bw

@@ -39,11 +39,11 @@ def calc_geojson_metrics(evaluator: LayoutEvaluator, geojson_path: Path, output_
     
     try:
         synthetic_img_path = output_dir / f"synthetic_{geojson_path.stem}.jpg"
-        synthetic_img_path = evaluator.render_synthetic_image(
+        # 一步绘制：获得合成图路径 和 黑白 mask
+        _, saliency_mask = evaluator.render_synthetic_image(
             geojson_path=str(geojson_path),
             output_jpg_path=str(synthetic_img_path)
         )
-        saliency_mask = evaluator.get_basnet_saliency(synthetic_img_path, "./model/basnet.pth", output_dir=str(output_dir))
         utility, balance = evaluator.calc_utility_and_balance(elements, saliency_mask)
         results["Utility"] = {
             "value": float(round(utility, 4)),

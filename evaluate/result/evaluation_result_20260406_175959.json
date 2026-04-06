@@ -1,0 +1,71 @@
+{
+    "evaluation_time": "20260406_175959",
+    "total_sessions": 1,
+    "sessions": [
+        {
+            "session": "20260327_215848_session_1774619928",
+            "gt": {
+                "Overlap": {
+                    "value": 0.0341,
+                    "description": "布局重叠度，越小越好"
+                },
+                "Utility": {
+                    "value": 0.4167,
+                    "description": "空间利用率，越大越好"
+                },
+                "Balance": {
+                    "value": 0.8202,
+                    "description": "空间平衡性，越大越好"
+                }
+            },
+            "origin": {
+                "Overlap": {
+                    "value": 0.5635,
+                    "description": "布局重叠度，越小越好"
+                },
+                "Utility": {
+                    "value": 0.2667,
+                    "description": "空间利用率，越大越好"
+                },
+                "Balance": {
+                    "value": 0.8282,
+                    "description": "空间平衡性，越大越好"
+                },
+                "MeanIoU": {
+                    "value": 0.4016,
+                    "description": "与 GT 的平均相似性(含距离容忍)，越大越好"
+                },
+                "Aesthetics": {
+                    "value": 0.0,
+                    "description": "美观性，1.0=胜, 0.5=平局, 0.0=负"
+                }
+            },
+            "layout": {
+                "Overlap": {
+                    "value": 0.0017,
+                    "description": "布局重叠度，越小越好"
+                },
+                "Utility": {
+                    "value": 0.45,
+                    "description": "空间利用率，越大越好"
+                },
+                "Balance": {
+                    "value": 0.8162,
+                    "description": "空间平衡性，越大越好"
+                },
+                "MeanIoU": {
+                    "value": 0.4696,
+                    "description": "与 GT 的平均相似性(含距离容忍)，越大越好"
+                },
+                "Aesthetics": {
+                    "value": 1.0,
+                    "description": "美观性，1.0=胜, 0.5=平局, 0.0=负"
+                },
+                "Stability": {
+                    "value": 0.6248,
+                    "description": "算法稳定性，多次运行结果的平均两两 IoU，越大越好"
+                }
+            }
+        }
+    ]
+}

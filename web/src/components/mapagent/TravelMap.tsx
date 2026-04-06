@@ -1,8 +1,8 @@
 'use client';
-
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import MapGL, { MapRef } from 'react-map-gl/mapbox';
 import { StyleSpecification } from 'mapbox-gl';
+// @ts-ignore
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { 
   transformAllCoordinates, 
