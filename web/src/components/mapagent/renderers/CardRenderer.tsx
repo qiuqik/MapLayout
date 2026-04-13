@@ -22,6 +22,7 @@ const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyle
         const coord = feature.properties?.card_coord || feature.geometry.coordinates;
         const [lng, lat] = coord;
         const htmlStr = populateTemplate(cardStyle.template, feature.properties, globalProps);
+        const AhtmlStr = htmlStr.replace(/\s*transform:[^;]+;?/gi, '');
 
         return (
           <Marker
@@ -30,7 +31,7 @@ const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyle
             latitude={lat}
             anchor="bottom"
           >
-            <div dangerouslySetInnerHTML={{ __html: htmlStr }} />
+            <div dangerouslySetInnerHTML={{ __html: AhtmlStr }} />
           </Marker>
         );
       })}
@@ -43,6 +44,7 @@ const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyle
         const coord = feature.properties?.card_coord || feature.geometry.coordinates[0][0];
         const [lng, lat] = coord;
         const htmlStr = populateTemplate(cardStyle.template, feature.properties, globalProps);
+        const AhtmlStr = htmlStr.replace(/\s*transform:[^;]+;?/gi, '');
 
         return (
           <Marker
@@ -51,7 +53,7 @@ const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyle
             latitude={lat}
             anchor="bottom"
           >
-            <div dangerouslySetInnerHTML={{ __html: htmlStr }} />
+            <div dangerouslySetInnerHTML={{ __html: AhtmlStr }} />
           </Marker>
         );
       })}

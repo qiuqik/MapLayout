@@ -21,7 +21,7 @@ const LabelRenderer: React.FC<LabelRendererProps> = ({ points, labelStyles, glob
         const coord = feature.properties?.label_coord || feature.geometry.coordinates;
         const [lng, lat] = coord;
         const htmlStr = populateTemplate(labelStyle.template, feature.properties, globalProps);
-
+        const AhtmlStr = htmlStr.replace(/\s*transform:[^;]+;?/gi, '');
         return (
           <Marker
             key={`label-${feature.properties?.name}`}
@@ -29,7 +29,7 @@ const LabelRenderer: React.FC<LabelRendererProps> = ({ points, labelStyles, glob
             latitude={lat}
             anchor="bottom"
           >
-            <div dangerouslySetInnerHTML={{ __html: htmlStr }} />
+            <div dangerouslySetInnerHTML={{ __html: AhtmlStr }} />
           </Marker>
         );
       })}

@@ -157,7 +157,7 @@ export const populateTemplate = (template: string, properties: any, globalProper
     return properties?.[key] || '';
   });
 
-  html = html.replace(/\s*transform:[^;]+;?/gi, '');
+  // html = html.replace(/\s*transform:[^;]+;?/gi, '');
   // console.log(html);
   return html;
 };

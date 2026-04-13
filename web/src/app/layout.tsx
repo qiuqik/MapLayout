@@ -1,6 +1,8 @@
 import React from 'react'; 
 import { ChakraProvider } from '@chakra-ui/react';
+// @ts-ignore
 import '@/styles/globals.css'
+// @ts-ignore
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 export default function RootLayout({
