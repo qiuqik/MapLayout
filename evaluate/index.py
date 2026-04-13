@@ -512,7 +512,7 @@ def save_results(results: list):
     return result_path
 
 def main():
-    test_session = "20260327_220636_session_1774620396"
+    test_session = "20260413_130909_session_1776056949"
     session = Session(test_session)
     results = session.calc_session_metrics()
     save_results(results)
