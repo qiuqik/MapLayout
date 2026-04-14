@@ -4,9 +4,8 @@ import MapGL, { MapRef } from 'react-map-gl/mapbox';
 import { StyleSpecification } from 'mapbox-gl';
 // @ts-ignore
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { 
-  transformAllCoordinates, 
-  fetchWalkingRoute, 
+import {
+  transformAllCoordinates,
   calculateMapViewState,
   TransformedMapData,
   populateTemplate
@@ -66,7 +65,6 @@ interface TravelMapProps {
 
 export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, rerunLayoutTrigger = 0 }: TravelMapProps) {
   const mapRef = useRef<MapRef>(null);
-  const [processedLines, setProcessedLines] = useState<any[]>([]);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
   const [layoutState, setLayoutState] = useState<{
     inputs: LayoutItemInput[];
@@ -88,58 +86,8 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
   const cardStyles = styleCode?.Card || [];
   const labelStyles = styleCode?.Label || [];
 
-  const hasNavigationCurve = routeStyles.some((rs: any) => rs.style === 'navigationCurve');
-
-  useEffect(() => {
-    const processRoutes = async () => {
-      if (hasNavigationCurve && process.env.NEXT_PUBLIC_MAPBOX_TOKEN) {
-        try {
-          const processed: any[] = [];
-          
-          for (const feature of transformedData.lines) {
-            const routeStyle = routeStyles.find((rs: any) => rs.visual_id === feature.properties?.visual_id);
-            
-            if (routeStyle?.style === 'navigationCurve') {
-              const coords = feature.geometry.coordinates;
-              const pathCoords = await fetchWalkingRoute(coords, process.env.NEXT_PUBLIC_MAPBOX_TOKEN!);
-              
-              processed.push({
-                ...feature,
-                geometry: {
-                  type: 'LineString',
-                  coordinates: pathCoords
-                }
-              });
-            } else {
-              processed.push(feature);
-            }
-          }
-          
-          // setProcessedLines(processed);
-          setProcessedLines(prev => {
-            if(
-              prev.length === processed.length &&
-              prev.every((p, index) => p.properties.visual_id === processed[index].properties.visual_id)
-            ) {
-              return prev;
-            }
-            return processed;
-          })
-        } catch (error) {
-          console.warn('Failed to process navigation routes, using straight lines:', error);
-          setProcessedLines(prev => (prev === transformedData.lines ? prev : transformedData.lines));
-        }
-      } else {
-        setProcessedLines(prev => (prev === transformedData.lines ? prev : transformedData.lines));
-      }
-    };
-    
-    processRoutes();
-  }, [transformedData.lines,routeStyles, hasNavigationCurve]);
-
-  const displayLines = hasNavigationCurve && process.env.NEXT_PUBLIC_MAPBOX_TOKEN && processedLines.length > 0 
-    ? processedLines 
-    : transformedData.lines;
+  // 后端已返回处理好的步行路线，直接使用
+  const displayLines = transformedData.lines;
 
   const getMapViewState = useMemo(() => {
     const dataForCalc: TransformedMapData = {

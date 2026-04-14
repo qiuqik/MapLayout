@@ -5,7 +5,6 @@ import { useAgentMap } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { saveSessionGeojson, saveSessionMapInfo } from '@/lib/api';
-import coordtransform from 'coordtransform';
 import type { LayoutItemInput, LayoutItemPosition } from '@/app/agent/layout/types';
 
 export type DatasetType = 'origin' | 'layout' | 'groundtruth';
@@ -71,17 +70,16 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
     }
   }, [onDatasetChange, onRerunLayout, externalDataset]);
 
-  const toGcj02 = (lng: number, lat: number) => coordtransform.wgs84togcj02(lng, lat);
   const convertMapInfo = (info: typeof mapInfo) => info ? {
-    center: { 
-      lng: toGcj02(info.center.lng, info.center.lat)[0], 
-      lat: toGcj02(info.center.lng, info.center.lat)[1] 
+    center: {
+      lng: info.center.lng,
+      lat: info.center.lat
     },
-    bounds: { 
-      north: toGcj02(info.bounds.east, info.bounds.north)[1], 
-      south: toGcj02(info.bounds.west, info.bounds.south)[1], 
-      east: toGcj02(info.bounds.east, info.bounds.north)[0], 
-      west: toGcj02(info.bounds.west, info.bounds.south)[0] 
+    bounds: {
+      north: info.bounds.north,
+      south: info.bounds.south,
+      east: info.bounds.east,
+      west: info.bounds.west
     },
   } : null;
 
@@ -123,7 +121,6 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         
       if (cardPos) {
         feature.properties.card_coord = [cardPos.centerLngLat.lng, cardPos.centerLngLat.lat];
-        feature.properties.card_coord = toGcj02(feature.properties.card_coord[0], feature.properties.card_coord[1]);
         if (cardInput) {
           feature.properties.card_size = [cardInput.width, cardInput.height];
           console.log("card_size", feature.properties.card_size);
@@ -133,7 +130,6 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
       }
       if (labelPos) {
         feature.properties.label_coord = [labelPos.centerLngLat.lng, labelPos.centerLngLat.lat];
-        feature.properties.label_coord = toGcj02(feature.properties.label_coord[0], feature.properties.label_coord[1]);
         if (labelInput) {
           feature.properties.label_size = [labelInput.width, labelInput.height];
           console.log("label_size", feature.properties.label_size);
@@ -154,20 +150,15 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
       alert('No valid session ID available');
       return;
     }
+    if (!geojson) {
+      alert('No geojson data available');
+      return;
+    }
 
     setIsCapturing(true);
     try {
-      const originRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'}/api/multimodal/session/${sessionId}`);
-      const sessionData = await originRes.json();
-
-      if (!sessionData.origin_file?.data) {
-        alert('No origin geojson found in session');
-        setIsCapturing(false);
-        return;
-      }
-
-      const baseGeojson = sessionData.origin_file.data;
-      const transformed = JSON.parse(JSON.stringify(baseGeojson));
+      // 直接使用前端当前的 geojson（包含完整的 LineString 和 Polygon）
+      const baseGeojson = JSON.parse(JSON.stringify(geojson));
 
       let positionMap: Map<string, LayoutItemPosition> | null = null;
       let useOriginCoords = false;
@@ -181,19 +172,19 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         positionMap = new Map(groundtruthPositions.map(p => [p.id, p]));
       }
 
+      // 只更新 card_coord 和 label_coord，LineString 和 Polygon 保持不变
       if (useOriginCoords || positionMap) {
-        transformed.features = transformFeatures(transformed.features, positionMap, useOriginCoords);
+        baseGeojson.features = transformFeatures(baseGeojson.features, positionMap, useOriginCoords);
       }
 
       const [geojsonResult, mapInfoResult] = await Promise.all([
         saveSessionGeojson({
           sessionId,
-          geojson: transformed,
+          geojson: baseGeojson,
           filename: `${filename}_${DATASET_CONFIG[activeDataset].suffix}`,
           category: activeDataset,
         }),
         mapInfo ? saveSessionMapInfo({ sessionId, mapInfo: convertMapInfo(mapInfo) }) : Promise.resolve({ success: false }),
-        // mapInfo ? saveSessionMapInfo({ sessionId, mapInfo }) : Promise.resolve({ success: false }),
       ]);
 
       if (geojsonResult.success) {
@@ -209,7 +200,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
     } finally {
       setIsCapturing(false);
     }
-  }, [activeDataset, sessionId, layoutOutputs, layoutInputs, groundtruthPositions, mapInfo, filename]);
+  }, [activeDataset, sessionId, geojson, layoutOutputs, layoutInputs, groundtruthPositions, mapInfo, filename]);
 
   return (
     <div className="flex flex-col h-full">

@@ -5,10 +5,13 @@ from fastapi.responses import JSONResponse, FileResponse
 import os
 import json
 import asyncio
+import re
+import requests
 
 from fastapi import UploadFile, File, Body
 from datetime import datetime
 from src.multi_modal_agent import MultiModalMapAgent
+from src.utils.coord_transform import gcj02_to_wgs84
 
 app = FastAPI()
 
@@ -29,6 +32,105 @@ class MapAgentRequest(BaseModel):
     message: str
     imageFilename: str
     geojsonFilename: str | None = None
+
+
+def _convert_coordinates(coords):
+    """递归转换 GeoJSON 中所有坐标从 GCJ-02 到 WGS84"""
+    if isinstance(coords[0], (int, float)):
+        # 单个坐标点 [lng, lat]
+        return list(gcj02_to_wgs84(coords[0], coords[1]))
+    elif isinstance(coords[0], list):
+        # 嵌套坐标（LineString 或多边形环）
+        return [_convert_coordinates(c) for c in coords]
+    return coords
+
+
+def _fetch_walking_route(coordinates, token):
+    """调用 Mapbox Directions API 获取步行路线"""
+    MAX_WAYPOINTS = 5
+
+    if len(coordinates) <= 2:
+        return coordinates
+
+    # 处理超过最大航点数的情况
+    if len(coordinates) > MAX_WAYPOINTS:
+        all_coords = []
+        for i in range(len(coordinates) - 1):
+            segment = coordinates[i:i+2]
+            segment_route = _fetch_single_route(segment, token)
+            if all_coords:
+                all_coords.extend(segment_route[1:])  # 避免重复连接点
+            else:
+                all_coords.extend(segment_route)
+        return all_coords
+
+    return _fetch_single_route(coordinates, token)
+
+
+def _fetch_single_route(coordinates, token):
+    """获取单段步行路线"""
+    try:
+        coords = ';'.join([f"{c[0]},{c[1]}" for c in coordinates])
+        url = f"https://api.mapbox.com/directions/v5/mapbox/walking/{coords}?geometries=geojson&access_token={token}"
+        
+        if len(url) > 2000:
+            return coordinates
+        
+        res = requests.get(url, timeout=15)
+        if not res.ok:
+            return coordinates
+        
+        data = res.json()
+        route_coords = data.get('routes', [{}])[0].get('geometry', {}).get('coordinates')
+        return route_coords if route_coords else coordinates
+    except Exception:
+        return coordinates
+
+
+def process_geojson_for_frontend(geojson_data, style_code=None):
+    """处理 GeoJSON 数据：转换坐标并根据 style_code 判断是否获取步行路线"""
+    if not geojson_data or 'features' not in geojson_data:
+        return geojson_data
+
+    mapbox_token = os.getenv("MAPBOX_TOKEN")
+    processed = json.loads(json.dumps(geojson_data))  # 深拷贝
+
+    # 从 style_code 中提取 Route 配置，构建 visual_id -> style 映射
+    route_style_map = {}
+    if style_code and 'Route' in style_code:
+        for route_style in style_code['Route']:
+            visual_id = route_style.get('visual_id')
+            style_type = route_style.get('style')
+            if visual_id and style_type:
+                route_style_map[visual_id] = style_type
+
+    for feature in processed.get('features', []):
+        geom_type = feature.get('geometry', {}).get('type')
+        coords = feature.get('geometry', {}).get('coordinates')
+        if not coords:
+            continue
+
+        # 转换所有坐标
+        feature['geometry']['coordinates'] = _convert_coordinates(coords)
+
+        # 处理 LineString 的步行路线
+        if geom_type == 'LineString' and mapbox_token:
+            visual_id = feature.get('properties', {}).get('visual_id')
+            # 只有当 style 为 navigationCurve 时才调用 Mapbox API
+            if route_style_map.get(visual_id) == 'navigationCurve':
+                original_coords = feature['geometry']['coordinates']
+                if len(original_coords) > 2:
+                    walking_route = _fetch_walking_route(original_coords, mapbox_token)
+                    feature['geometry']['coordinates'] = walking_route
+
+        # 转换 card_coord 和 label_coord
+        props = feature.get('properties', {})
+        if 'card_coord' in props and isinstance(props['card_coord'], list):
+            props['card_coord'] = list(gcj02_to_wgs84(props['card_coord'][0], props['card_coord'][1]))
+        if 'label_coord' in props and isinstance(props['label_coord'], list):
+            props['label_coord'] = list(gcj02_to_wgs84(props['label_coord'][0], props['label_coord'][1]))
+
+    return processed
 
 
 # 返回所有 geojson 文件
@@ -304,14 +406,27 @@ async def get_multimodal_session(session_id: str):
             except Exception as e:
                 print(f"⚠️ 读取 node4 失败: {e}")
 
+    # 处理 GeoJSON 数据：转换坐标并根据 style_code 判断是否获取步行路线
+    origin_processed = None
+    if origin_files:
+        origin_processed = process_geojson_for_frontend(origin_files[-1]['data'], style_code)
+
+    layout_processed = None
+    if layout_files:
+        layout_processed = process_geojson_for_frontend(layout_files[-1]['data'], style_code)
+
+    groundtruth_processed = None
+    if groundtruth_files:
+        groundtruth_processed = process_geojson_for_frontend(groundtruth_files[-1]['data'], style_code)
+
     return {
         "session_id": session_id,
         "style_code": style_code,
-        "origin_file": origin_files[-1] if origin_files else None,
+        "origin_file": {"filename": origin_files[-1]['filename'], "data": origin_processed} if origin_files else None,
         "has_origin": len(origin_files) > 0,
-        "layout_file": layout_files[-1] if layout_files else (origin_files[-1] if origin_files else None),
+        "layout_file": {"filename": layout_files[-1]['filename'], "data": layout_processed} if layout_files else ({"filename": origin_files[-1]['filename'], "data": origin_processed} if origin_files else None),
         "has_layout": len(layout_files) > 0,
-        "groundtruth_file": groundtruth_files[-1] if groundtruth_files else (layout_files[-1] if layout_files else (origin_files[-1] if origin_files else None)),
+        "groundtruth_file": {"filename": groundtruth_files[-1]['filename'], "data": groundtruth_processed} if groundtruth_files else ({"filename": layout_files[-1]['filename'], "data": layout_processed} if layout_files else ({"filename": origin_files[-1]['filename'], "data": origin_processed} if origin_files else None)),
         "has_groundtruth": len(groundtruth_files) > 0,
     }
 

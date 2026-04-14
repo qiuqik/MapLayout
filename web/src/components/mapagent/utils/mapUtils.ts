@@ -1,16 +1,15 @@
-import coordtransform from 'coordtransform';
-
-const MAPBOX_DIRECTIONS_API = 'https://api.mapbox.com/directions/v5/mapbox/walking';
-
 export interface TransformedMapData {
   points: any[];
   lines: any[];
   polygons: any[];
   globalProps: any;
 }
+
+// 后端已返回 WGS84 坐标，不再需要转换
 export const transformSingleCoordinate = (coord: number[]) => {
-  return coordtransform.gcj02towgs84(...coord);
+  return coord; // 直接返回
 }
+
 export const transformAllCoordinates = (geojson: any): TransformedMapData => {
   if (!geojson?.features) {
     return { points: [], lines: [], polygons: [], globalProps: geojson?.global_properties };
@@ -22,33 +21,22 @@ export const transformAllCoordinates = (geojson: any): TransformedMapData => {
   for (const feature of geojson.features) {
     const transformedFeature = JSON.parse(JSON.stringify(feature));
     if (feature.geometry?.type === 'Point') {
-      const coord = coordtransform.gcj02towgs84(...feature.geometry.coordinates);
-      transformedFeature.geometry.coordinates = coord;
       transformedFeature.properties = transformedFeature.properties || {};
-      transformedFeature.properties.coordinates = coord;
-      
+      transformedFeature.properties.coordinates = feature.geometry.coordinates;
+
       if (feature.properties?.card_coord) {
-        transformedFeature.properties.card_coord = coordtransform.gcj02towgs84(...feature.properties.card_coord);
+        transformedFeature.properties.card_coord = feature.properties.card_coord;
       }
       if (feature.properties?.label_coord) {
-        transformedFeature.properties.label_coord = coordtransform.gcj02towgs84(...feature.properties.label_coord);
+        transformedFeature.properties.label_coord = feature.properties.label_coord;
       }
-      
+
       points.push(transformedFeature);
     } else if (feature.geometry?.type === 'LineString') {
-      const coords = feature.geometry.coordinates;
-      const transformedCoords = coords.map((c: number[]) => coordtransform.gcj02towgs84(...c));
-      transformedFeature.geometry.coordinates = transformedCoords;
       lines.push(transformedFeature);
     } else if (feature.geometry?.type === 'Polygon') {
-      const coords = feature.geometry.coordinates;
-      const transformedCoords = coords.map((ring: number[][]) => 
-        ring.map((c: number[]) => coordtransform.gcj02towgs84(...c))
-      );
-      transformedFeature.geometry.coordinates = transformedCoords;
       polygons.push(transformedFeature);
     }
-    
   }
   return {
     points,
@@ -57,72 +45,6 @@ export const transformAllCoordinates = (geojson: any): TransformedMapData => {
     globalProps: geojson.global_properties
   };
 };
-
-export async function fetchWalkingRoute(
-  coordinates: number[][],
-  token: string
-): Promise<number[][]> {
-  const MAX_WAYPOINTS = 5;
-  
-  if (coordinates.length > MAX_WAYPOINTS) {
-    const allRoutes: number[][] = [];
-    for (let i = 0; i < coordinates.length - 1; i += MAX_WAYPOINTS - 1) {
-      const segment = coordinates.slice(i, i + MAX_WAYPOINTS);
-      const segmentRoute = await fetchSingleRoute(segment, token);
-      allRoutes.push(...segmentRoute);
-    }
-    return allRoutes;
-  }
-
-  try {
-    const coords = coordinates.map((c) => `${c[0]},${c[1]}`).join(';');
-    const url = `${MAPBOX_DIRECTIONS_API}/${coords}?geometries=geojson&access_token=${token}`;
-    
-    if (url.length > 2000) {
-      console.warn('URL length exceeds limit, using straight line');
-      return coordinates;
-    }
-
-    const res = await fetch(url);
-    
-    if (!res.ok) {
-      throw new Error(`Mapbox API error: ${res.status} ${res.statusText}`);
-    }
-
-    const data = await res.json();
-    if (data.message) {
-      throw new Error(`Mapbox API error: ${data.message}`);
-    }
-
-    const routeCoords = data.routes?.[0]?.geometry?.coordinates;
-    if (routeCoords) {
-      return routeCoords;
-    } else {
-      console.warn('Mapbox API returned no route data');
-      return coordinates;
-    }
-  } catch (e) {
-    console.warn('Mapbox Directions API failed, using straight line:', e);
-    return coordinates;
-  }
-}
-
-async function fetchSingleRoute(
-  coordinates: number[][],
-  token: string
-): Promise<number[][]> {
-  try {
-    const coords = coordinates.map((c) => `${c[0]},${c[1]}`).join(';');
-    const url = `${MAPBOX_DIRECTIONS_API}/${coords}?geometries=geojson&access_token=${token}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Segment request failed: ${res.status}`);
-    const data = await res.json();
-    return data.routes?.[0]?.geometry?.coordinates || coordinates;
-  } catch (e) {
-    console.warn('Single segment request failed, using straight line:', e);
-    return coordinates;
-  }
-}
 
 export const populateTemplate = (template: string, properties: any, globalProperties?: any) => {
   let html = template;
