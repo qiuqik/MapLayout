@@ -1,7 +1,7 @@
 import { forceSimulation, forceX, forceY } from 'd3-force';
 import type { CostField } from './costField';
 import { sampleCostFieldForce } from './costField';
-import type { LayoutItemInput, LayoutItemOutput, LeaderLine } from './types';
+import type { LayoutItemInput, LayoutItemOutput, LeaderLine, Rect } from './types';
 import { rectCollideForce } from './rectCollide';
 import type { Segment } from './obstacles';
 
@@ -30,6 +30,12 @@ export type LayoutContext = {
   costField?: CostField;
   /** Line segments for hard collision (from lines and polygon outlines) */
   segments?: Segment[];
+  /**
+   * Global item bounding rects in map-container pixel space.
+   * Used as hard-constraint obstacles in post-processing.
+   * Soft repulsion is handled by including these rects in the cost field.
+   */
+  globalRects?: Rect[];
 };
 
 type SimNode = {
@@ -247,7 +253,36 @@ export function runForceLayout(
         }
       }
     }
-    
+
+    // 3. Resolve card/label vs global item rect overlaps (HARD CONSTRAINT)
+    // Global items (title panels, overview cards, etc.) are fixed on screen and
+    // must not be overlapped by any label or card.
+    if (ctx.globalRects && ctx.globalRects.length > 0) {
+      const globalPadding = 8;
+      for (const n of nodes) {
+        const halfW = n.width / 2;
+        const halfH = n.height / 2;
+        for (const gr of ctx.globalRects) {
+          // gr uses top-left origin; convert to center for overlap math
+          const gCx = gr.x + gr.width / 2;
+          const gCy = gr.y + gr.height / 2;
+          const dx = n.x - gCx;
+          const dy = n.y - gCy;
+          const overlapX = halfW + gr.width / 2 + globalPadding - Math.abs(dx);
+          const overlapY = halfH + gr.height / 2 + globalPadding - Math.abs(dy);
+          if (overlapX > 0 && overlapY > 0) {
+            anyOverlap = true;
+            // Push the node away along the axis of minimum penetration
+            if (overlapX < overlapY) {
+              n.x += dx >= 0 ? overlapX : -overlapX;
+            } else {
+              n.y += dy >= 0 ? overlapY : -overlapY;
+            }
+          }
+        }
+      }
+    }
+
     if (!anyOverlap) break;
   }
 

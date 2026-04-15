@@ -19,7 +19,7 @@ import CardRenderer from './renderers/CardRenderer';
 import LabelRenderer from './renderers/LabelRenderer';
 import DraggableOutput from './DraggableOutput';
 
-import type { LayoutItemInput, LayoutItemOutput, LayoutItemPosition, LeaderLine } from '@/app/agent/layout/types';
+import type { LayoutItemInput, LayoutItemOutput, LayoutItemPosition, LeaderLine, Rect } from '@/app/agent/layout/types';
 import { buildObstacleRects, buildObstacleSegments } from '@/app/agent/layout/obstacles';
 import { buildCostFieldFromRects, type CostField } from '@/app/agent/layout/costField';
 import { runForceLayout, type LayoutParams } from '@/app/agent/layout/forceLayout';
@@ -66,6 +66,10 @@ interface TravelMapProps {
 export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, rerunLayoutTrigger = 0 }: TravelMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
+  // Bounding rects of global items in map-container px space (set via onMeasured callback).
+  const globalRectsRef = useRef<Rect[]>([]);
+  // Always points to the latest recomputeLayout closure so handleGlobalMeasured can call it.
+  const recomputeLayoutRef = useRef<() => void>(() => {});
   const [layoutState, setLayoutState] = useState<{
     inputs: LayoutItemInput[];
     outputs: LayoutItemOutput[];
@@ -241,6 +245,34 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     return inputs;
   }, [transformedData.points, transformedData.polygons, transformedData.globalProps, labelStyles, cardStyles]);
 
+  // Called by GlobalRenderer after it measures its rendered children.
+  // Converts viewport-space bounding rects to map-container-space and stores them.
+  // Then triggers a layout recompute so global items are treated as obstacles.
+  const handleGlobalMeasured = useCallback(
+    (viewportRects: Array<{ x: number; y: number; width: number; height: number }>) => {
+      const raw = mapRef.current as any;
+      const map = raw?.getMap ? raw.getMap() : raw;
+      if (!map) return;
+      const containerBBox = map.getContainer().getBoundingClientRect();
+      // Safety filter: exclude rects that are nearly full-screen in BOTH dimensions.
+      // These are background overlay elements, not content panels we want to avoid.
+      const maxW = containerBBox.width  * 0.7;
+      const maxH = containerBBox.height * 0.7;
+      const converted: Rect[] = viewportRects
+        .map((r) => ({
+          x: r.x - containerBBox.left,
+          y: r.y - containerBBox.top,
+          width: r.width,
+          height: r.height,
+        }))
+        .filter((r) => r.width > 0 && r.height > 0 && !(r.width > maxW && r.height > maxH));
+      globalRectsRef.current = converted;
+      // Recompute layout with updated obstacles (via ref, always latest closure)
+      recomputeLayoutRef.current();
+    },
+    []
+  );
+
   useEffect(() => {
     // built layout inputs
     const next = buildLayoutInputs();
@@ -347,8 +379,12 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     );
     const segments = buildObstacleSegments({ linesPx, polygonsPx });
 
+    // Include global item rects in the cost field so the Gaussian repulsion field
+    // pushes labels/cards away from them during the simulation.
+    const allObstacles = [...obstacles, ...globalRectsRef.current];
+
     const mergedField = { ...DEFAULT_FIELD, ...fieldParams };
-    const field = buildCostFieldFromRects(obstacles, {
+    const field = buildCostFieldFromRects(allObstacles, {
       width: viewport.width,
       height: viewport.height,
       ...mergedField,
@@ -372,7 +408,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
     const { outputs, leaderLines } = runForceLayout(
       ready,
-      { viewport, costField: field, segments },
+      { viewport, costField: field, segments, globalRects: globalRectsRef.current },
       { ...DEFAULT_FORCE, ...forceParams }
     );
     
@@ -387,6 +423,12 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     console.log("after layout outputs:", outputsWithLngLat);
     setLayoutState((s) => ({ ...s, viewport, outputs: outputsWithLngLat, leaderLines }));
   }, [displayLines, transformedData.points, transformedData.polygons, forceParams, fieldParams, layoutState.inputs, rerunLayoutTrigger]);
+
+  // Keep recomputeLayoutRef always pointing to the latest closure.
+  // handleGlobalMeasured calls this ref so it never captures a stale version.
+  useEffect(() => {
+    recomputeLayoutRef.current = recomputeLayout;
+  });
 
   // useEffect(() => {
   //   if (layoutState.inputs.length === 0) return;
@@ -655,7 +697,13 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         ))}
       </div>
 
-      {!hideOverlays && <GlobalRenderer globalElements={globalElements} globalProps={transformedData.globalProps} />}
+      {!hideOverlays && (
+        <GlobalRenderer
+          globalElements={globalElements}
+          globalProps={transformedData.globalProps}
+          onMeasured={handleGlobalMeasured}
+        />
+      )}
     </div>
   );
 }
