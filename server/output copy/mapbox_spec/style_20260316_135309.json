@@ -1,0 +1,41 @@
+{
+  "_used_visual_ids": [
+    "basemap_standard",
+    "point_blue_triangle",
+    "route_red_line",
+    "label_black_text"
+  ],
+  "BaseMap": [
+    {
+      "visual_id": "basemap_standard",
+      "type": "standard",
+      "description": "标准街道地图底图，包含道路、公园、建筑名称等基础地理信息"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_blue_triangle",
+      "iconSvg": "<svg width=\"100%\" height=\"100%\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><polygon points=\"12,2 18,18 6,18\" fill=\"#007BFF\"/></svg>",
+      "description": "蓝色实心三角形图标，表示特定位置"
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "route_red_line",
+      "color": "#D32F2F",
+      "width": 6,
+      "style": "navigationCurve",
+      "description": "红色粗实线构成的连续路径，连接多个景点"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_black_text",
+      "template": "<div style='position: absolute; font-size: 20px; font-weight: bold; color: black; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); white-space: nowrap; z-index: 100;'>{properties.name}</div>",
+      "anchored_to": [
+        "point_blue_triangle"
+      ],
+      "description": "黑色加粗大号文字标签，标注地名或景点名称"
+    }
+  ]
+}

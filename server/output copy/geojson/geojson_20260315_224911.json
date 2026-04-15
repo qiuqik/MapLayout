@@ -1,0 +1,296 @@
+{
+  "type": "FeatureCollection",
+  "global_properties": [
+    {
+      "title": "3天重庆市区精华游（2人，预算≤3000元）",
+      "description": "住解放碑/小什字商圈2晚；D1：解放碑步行街→洪崖洞→朝天门广场&来福士外堤→重庆大剧院江湾广场（夜景）；D2：磁器口古镇→李子坝轻轨站观景台→鹅岭二厂/鹅岭公园→解放碑夜市/好吃街；D3：长江索道（新华路站⇄上新街站）→南山一棵树观景台→弹子石老街。交通以地铁为主，多数核心景点免费。预算：住宿2晚约1200–1600元、餐饮约800元（含火锅+小吃）、交通与小门票约200–300元，总花费控制在3000元内。",
+      "visual_id": "global_vis_1"
+    },
+    {
+      "title": "行程脉络",
+      "description": "D1（渝中→江北）：解放碑→洪崖洞→朝天门&来福士→大剧院夜景；D2（沙坪坝→渝中）：磁器口→李子坝→鹅岭二厂/公园→解放碑夜市；D3（渝中⇄南岸）：长江索道→南山一棵树→弹子石老街。",
+      "visual_id": "global_vis_1"
+    }
+  ],
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.575329,
+            29.557253
+          ],
+          [
+            106.579027,
+            29.562204
+          ],
+          [
+            106.587247,
+            29.564813
+          ],
+          [
+            106.58135,
+            29.569932
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_vis_1",
+        "name": "D1 路线：渝中→江北夜景线",
+        "description": "解放碑→洪崖洞→朝天门&来福士外堤→重庆大剧院江湾广场"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.456,
+            29.582
+          ],
+          [
+            106.5486,
+            29.5603
+          ],
+          [
+            106.545,
+            29.551
+          ],
+          [
+            106.577491,
+            29.556189
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_vis_1",
+        "name": "D2 路线：沙坪坝→渝中城市风景线",
+        "description": "磁器口古镇→李子坝观景点→鹅岭二厂/鹅岭公园→解放碑夜市/好吃街"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            106.582734,
+            29.558265
+          ],
+          [
+            106.594183,
+            29.55244
+          ],
+          [
+            106.612,
+            29.549
+          ],
+          [
+            106.6016,
+            29.5458
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_vis_1",
+        "name": "D3 路线：渝中⇄南岸观景线",
+        "description": "长江索道（新华路站⇄上新街站）→南山一棵树→弹子石老街"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.575329,
+          29.557253
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "解放碑步行街",
+        "description": "渝中区核心商圈，行程起点；住解放碑/小什字商圈更便捷",
+        "access": "地铁1/2/6号线：小什字/临江门/较场口站"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.579027,
+          29.562204
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "洪崖洞",
+        "description": "渝中区热门夜景地标",
+        "access": "自解放碑步行约10–15分钟"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.587247,
+          29.564813
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "朝天门广场 & 来福士外堤",
+        "description": "渝中区两江交汇观景点，临近来福士广场",
+        "access": "步行或地铁至小什字后步行前往"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.58135,
+          29.569932
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "重庆大剧院·江湾广场",
+        "description": "江北区观两江夜景优选",
+        "access": "地铁6号线 大剧院站"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.456,
+          29.582
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "磁器口古镇",
+        "description": "沙坪坝区，老街小吃与传统风貌",
+        "access": "地铁1号线 磁器口站"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.5486,
+          29.5603
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "李子坝轻轨站观景台",
+        "description": "渝中区，轻轨穿楼打卡点",
+        "access": "地铁2号线 李子坝站"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.545,
+          29.551
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "鹅岭二厂 / 鹅岭公园",
+        "description": "渝中区，城市改造园区与山城公园结合",
+        "access": "地铁1号线 鹅岭站，步行前往"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.577491,
+          29.556189
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "解放碑夜市 / 好吃街",
+        "description": "渝中区，夜间小吃集中地",
+        "access": "多线地铁直达解放碑商圈"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.582734,
+          29.558265
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "长江索道·新华路站（渝中）",
+        "description": "渝中区上站，长江索道打卡起点",
+        "access": "地铁1/6号线至小什字后步行"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.594183,
+          29.55244
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "长江索道·上新街站（南岸）",
+        "description": "南岸区下站，连接南岸片区",
+        "access": "上新街站出站即到"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.612,
+          29.549
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "南山一棵树观景台",
+        "description": "南岸区俯瞰渝中半岛夜景",
+        "access": "上新街转公交/打车约10–15分钟"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.6016,
+          29.5458
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "弹子石老街",
+        "description": "南岸区历史街区，临近海棠溪/弹子石站",
+        "access": "地铁环线 海棠溪/弹子石站"
+      }
+    }
+  ]
+}

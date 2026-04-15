@@ -1,0 +1,86 @@
+{
+  "_used_visual_ids": [
+    "basemap_standard",
+    "global_title",
+    "global_legend",
+    "point_start_star",
+    "point_stop_dot",
+    "point_anchor_green",
+    "point_bus_blue",
+    "point_bus_pink",
+    "card_name_orange",
+    "card_info_blue",
+    "label_route_info",
+    "route_main_solid",
+    "route_sub_dashed"
+  ],
+  "BaseMap": {
+    "visual_id": "basemap_standard",
+    "type": "standard"
+  },
+  "Global": [
+    {
+      "visual_id": "global_title",
+      "template": "<div style=\"position: absolute; top: 20px; left: 20px; z-index: 100; width: 300px; font-family: sans-serif;\"><h1 style=\"margin: 0; font-size: 38px; color: #D0021B; font-weight: 900; line-height: 1.1; letter-spacing: 1px; -webkit-text-stroke: 2px white; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);\">{global_properties[0].title}</h1><div style=\"margin-top: 8px; background: rgba(255,255,255,0.95); padding: 8px 12px; border-radius: 8px; border-left: 4px solid #D0021B; box-shadow: 0 2px 8px rgba(0,0,0,0.1);\"><p style=\"margin: 0; font-size: 12px; color: #333; line-height: 1.4;\">{global_properties[0].description}</p></div></div>"
+    },
+    {
+      "visual_id": "global_legend",
+      "template": "<div style=\"position: absolute; bottom: 30px; left: 20px; z-index: 100; width: 260px; background: white; border-radius: 12px; padding: 12px 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.15); font-family: sans-serif;\"><div style=\"font-size: 14px; font-weight: bold; color: #333; margin-bottom: 6px;\">{global_properties[1].title}</div><div style=\"font-size: 12px; color: #666; line-height: 1.5; margin-bottom: 10px;\">{global_properties[1].description}</div><div style=\"display: flex; gap: 15px; align-items: center; border-top: 1px solid #eee; padding-top: 8px;\"><div style=\"display: flex; align-items: center; gap: 4px;\"><span style=\"width: 20px; height: 4px; background: #D0021B; border-radius: 2px;\"></span><span style=\"font-size: 10px; color: #999;\">主路线</span></div><div style=\"display: flex; align-items: center; gap: 4px;\"><span style=\"width: 20px; height: 4px; border: 1px dashed #D0021B; background: rgba(208,2,27,0.1);\"></span><span style=\"font-size: 10px; color: #999;\">区域</span></div></div></div>"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_start_star",
+      "iconSvg": "<svg width=\"100%\" height=\"100%\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z\" fill=\"#D0021B\" stroke=\"white\" stroke-width=\"1.5\" stroke-linejoin=\"round\"/><path d=\"M12 15V19\" stroke=\"white\" stroke-width=\"1.5\" stroke-linecap=\"round\"/></svg>"
+    },
+    {
+      "visual_id": "point_stop_dot",
+      "iconSvg": "<svg width=\"100%\" height=\"100%\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"12\" cy=\"12\" r=\"7\" fill=\"#D0021B\" stroke=\"white\" stroke-width=\"2.5\"/><circle cx=\"12\" cy=\"12\" r=\"3\" fill=\"white\"/></svg>"
+    },
+    {
+      "visual_id": "point_anchor_green",
+      "iconSvg": "<svg width=\"100%\" height=\"100%\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M12 4V16M12 4C10.5 4 9.5 5 9.5 6C9.5 7 10.5 8 12 8C13.5 8 14.5 7 14.5 6C14.5 5 13.5 4 12 4ZM12 16C8 16 5 13 5 13M12 16C16 16 19 13 19 13M12 16V19M9 19H15\" stroke=\"#7ED321\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>"
+    },
+    {
+      "visual_id": "point_bus_blue",
+      "iconSvg": "<svg width=\"100%\" height=\"100%\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"4\" y=\"5\" width=\"16\" height=\"14\" rx=\"3\" fill=\"#4A90E2\"/><path d=\"M4 14H20\" stroke=\"white\" stroke-width=\"1\"/><rect x=\"6\" y=\"7\" width=\"12\" height=\"5\" rx=\"1\" fill=\"white\"/><circle cx=\"7\" cy=\"16\" r=\"1.5\" fill=\"white\"/><circle cx=\"17\" cy=\"16\" r=\"1.5\" fill=\"white\"/></svg>"
+    },
+    {
+      "visual_id": "point_bus_pink",
+      "iconSvg": "<svg width=\"100%\" height=\"100%\" viewBox=\"0 0 24 24\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\"><rect x=\"4\" y=\"5\" width=\"16\" height=\"14\" rx=\"3\" fill=\"#EC407A\"/><path d=\"M4 14H20\" stroke=\"white\" stroke-width=\"1\"/><rect x=\"6\" y=\"7\" width=\"12\" height=\"5\" rx=\"1\" fill=\"white\"/><circle cx=\"7\" cy=\"16\" r=\"1.5\" fill=\"white\"/><circle cx=\"17\" cy=\"16\" r=\"1.5\" fill=\"white\"/></svg>"
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "route_main_solid",
+      "color": "#D0021B",
+      "width": 6,
+      "style": "navigationCurve"
+    }
+  ],
+  "Area": [
+    {
+      "visual_id": "route_sub_dashed",
+      "backgroundColor": "#D0021B15",
+      "borderColor": "#D0021B",
+      "borderWidth": 2,
+      "opacity": 0.9
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_name_orange",
+      "template": "<div style=\"width: 130px; transform: translateX(-50%); background: linear-gradient(90deg, #FF9966 0%, #FF5E62 100%); border-radius: 20px; padding: 5px 10px; box-shadow: 0 3px 8px rgba(255, 94, 98, 0.4); border: 2px solid white; display: flex; align-items: center; justify-content: center;\"><span style=\"color: white; font-size: 13px; font-weight: bold; font-family: sans-serif; white-space: nowrap;\">{properties.name}</span></div>"
+    },
+    {
+      "visual_id": "card_info_blue",
+      "template": "<div style=\"width: 150px; transform: translateX(-50%); background: #5D8AC2; border-radius: 8px; padding: 6px 8px; box-shadow: 0 2px 6px rgba(93, 138, 194, 0.3); margin-top: 4px; border: 1px solid white;\"><div style=\"color: white; font-size: 11px; line-height: 1.3; font-family: sans-serif; text-align: center;\">{properties.card_description}</div></div>"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_route_info",
+      "template": "<div style=\"width: 120px; text-align: center; transform: translateY(-50%);\"><span style=\"font-family: sans-serif; font-weight: 800; font-size: 14px; font-style: italic; color: #D0021B; -webkit-text-stroke: 3.5px white; paint-order: stroke fill; text-shadow: 0 2px 4px rgba(0,0,0,0.1);\">{properties.label_text}</span></div>"
+    }
+  ]
+}

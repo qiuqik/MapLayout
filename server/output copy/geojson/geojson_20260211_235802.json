@@ -1,0 +1,345 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "五公祠（海口）",
+                "index": 1,
+                "width": null,
+                "category": "attraction",
+                "desc": "建议08:30-09:45参观。了解海南历史名人与明清建筑，园林适合拍照。门票亲民，适合早晨避开人流。",
+                "address": "海口市琼山区国兴大道南侧 五公祠景区",
+                "openTime": "08:00-17:30",
+                "ticketPrice": "¥25",
+                "rating": 4.4,
+                "tags": [
+                    "历史",
+                    "古迹",
+                    "园林",
+                    "摄影",
+                    "文化"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "游客兴趣分布",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "历史文化",
+                            "value": 45,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "古建摄影",
+                            "value": 30,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "园林漫步",
+                            "value": 25,
+                            "data": null
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    110.276957,
+                    20.001911
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    110.3314,
+                    20.0076
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "海南省博物馆（新馆）",
+                "index": 2,
+                "width": null,
+                "category": "attraction",
+                "desc": "建议10:10-11:40参观。免费需持证入馆，系统展示海南历史、民族与海洋文化。",
+                "address": "海口市美兰区国兴大道68号 海南省博物馆",
+                "openTime": "09:00-17:00（周一闭馆）",
+                "ticketPrice": "免费（需预约或身份证）",
+                "rating": 4.5,
+                "tags": [
+                    "博物馆",
+                    "免费",
+                    "雨天友好",
+                    "科普",
+                    "文化"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "热门展厅每日客流（人次）",
+                    "xAxis": [
+                        "史前",
+                        "民族",
+                        "海洋",
+                        "自然"
+                    ],
+                    "series": [
+                        {
+                            "title": "人流量(每日平均)",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                320,
+                                280,
+                                260,
+                                240
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    110.366585,
+                    20.005161
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    110.3565,
+                    20.0199
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "骑楼老街（中山路一带）",
+                "index": 3,
+                "width": null,
+                "category": "attraction",
+                "desc": "建议13:30-15:00漫步。骑楼风情+本地小吃，可喝椰子、尝海南粉，适合扫街拍照。",
+                "address": "海口市龙华区中山路/博爱北路一带 骑楼老街",
+                "openTime": "全天开放（商铺10:00-22:00）",
+                "ticketPrice": "免费",
+                "rating": 4.3,
+                "tags": [
+                    "老街",
+                    "美食",
+                    "步行",
+                    "建筑",
+                    "网红"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "不同时段客流指数",
+                    "xAxis": [
+                        "09:00",
+                        "12:00",
+                        "15:00",
+                        "18:00",
+                        "20:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "客流指数",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                60,
+                                120,
+                                180,
+                                220,
+                                160
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    110.27985,
+                    20.030211
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    110.3228,
+                    20.0307
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "万绿园（Evergreen Park）",
+                "index": 4,
+                "width": null,
+                "category": "attraction",
+                "desc": "建议15:20-16:40休闲。临海城市中央绿地，草坪广阔，适合放风筝、慢跑与家庭活动。",
+                "address": "海口市龙华区滨海大道 万绿园",
+                "openTime": "06:00-22:00",
+                "ticketPrice": "免费",
+                "rating": 4.2,
+                "tags": [
+                    "公园",
+                    "亲子",
+                    "休闲",
+                    "绿地",
+                    "运动"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "园内常见活动占比",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "慢跑",
+                            "value": 25,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "亲子",
+                            "value": 35,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "拍照",
+                            "value": 15,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "休闲野餐",
+                            "value": 25,
+                            "data": null
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    110.3641,
+                    20.03978
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    110.336,
+                    20.0415
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "白沙门公园（海甸岛海边）",
+                "index": 5,
+                "width": null,
+                "category": "attraction",
+                "desc": "建议17:00-18:30看海与日落。可远眺世纪大桥与海口湾，适合黄昏散步与骑行。",
+                "address": "海口市美兰区海甸岛 白沙门公园",
+                "openTime": "06:00-22:00",
+                "ticketPrice": "免费",
+                "rating": 4.1,
+                "tags": [
+                    "海边",
+                    "日落",
+                    "骑行",
+                    "摄影",
+                    "亲子"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "傍晚观景舒适度",
+                    "xAxis": [
+                        "16:00",
+                        "17:00",
+                        "18:00",
+                        "19:00",
+                        "20:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "舒适度指数",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                70,
+                                80,
+                                95,
+                                85,
+                                75
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    110.28578,
+                    20.056699
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    110.3435,
+                    20.0738
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "line",
+                "title": "海口一日游路线（预算¥300内）",
+                "index": null,
+                "width": 4,
+                "category": "route",
+                "desc": "五公祠 → 海南省博物馆 → 骑楼老街 → 万绿园 → 白沙门公园。门票合计约¥25，餐饮+公交/打车控制在¥300内。",
+                "address": null,
+                "openTime": null,
+                "ticketPrice": null,
+                "rating": null,
+                "tags": [
+                    "一日游",
+                    "经济实惠",
+                    "城市观光"
+                ],
+                "chartData": null
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        110.3314,
+                        20.0076
+                    ],
+                    [
+                        110.3565,
+                        20.0199
+                    ],
+                    [
+                        110.3228,
+                        20.0307
+                    ],
+                    [
+                        110.336,
+                        20.0415
+                    ],
+                    [
+                        110.3435,
+                        20.0738
+                    ]
+                ]
+            }
+        }
+    ]
+}

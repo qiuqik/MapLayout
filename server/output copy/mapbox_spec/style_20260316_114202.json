@@ -1,0 +1,124 @@
+{
+  "_used_visual_ids": [
+    "basemap_illustration",
+    "point_vis_1",
+    "point_vis_2",
+    "area_vis_1",
+    "area_vis_2",
+    "area_vis_3",
+    "route_vis_1",
+    "label_vis_1",
+    "label_vis_2",
+    "card_vis_1",
+    "card_vis_2",
+    "card_vis_3",
+    "edge_vis_1",
+    "edge_vis_2",
+    "edge_vis_3",
+    "global_vis_1"
+  ],
+  "BaseMap": [
+    {
+      "visual_id": "basemap_illustration",
+      "type": "blank",
+      "iconSvg": "<svg width=\"100%\" height=\"100%\" viewBox=\"0 0 100 100\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"100\" height=\"100\" fill=\"url(#grad)\"/><defs><linearGradient id=\"grad\" x1=\"0%\" y1=\"0%\" x2=\"100%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"#e0f7ff\"/><stop offset=\"100%\" stop-color=\"#ffe4f2\"/></linearGradient></defs></svg>"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_vis_1",
+      "iconSvg": "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"12\" cy=\"12\" r=\"10\" fill=\"#FF9800\"/><path d=\"M12 6.5L10 9H14L12 6.5Z\" fill=\"white\"/><path d=\"M10 12H14V14H10V12Z\" fill=\"white\"/><path d=\"M10 16H14V18H10V16Z\" fill=\"white\"/></svg>"
+    },
+    {
+      "visual_id": "point_vis_2",
+      "iconSvg": "<svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"8\" cy=\"8\" r=\"6\" fill=\"#FFD700\"/></svg>"
+    }
+  ],
+  "Area": [
+    {
+      "visual_id": "area_vis_1",
+      "backgroundColor": "#a8e6cf",
+      "borderColor": "#008080",
+      "borderWidth": 1,
+      "opacity": 0.5
+    },
+    {
+      "visual_id": "area_vis_2",
+      "backgroundColor": "#c8e6c9",
+      "borderColor": "#2e7d32",
+      "borderWidth": 1,
+      "opacity": 0.5
+    },
+    {
+      "visual_id": "area_vis_3",
+      "backgroundColor": "#f3e5f5",
+      "borderColor": "#9c27b0",
+      "borderWidth": 1,
+      "opacity": 0.5
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "route_vis_1",
+      "color": "#000000",
+      "width": 4,
+      "style": "navigationCurve"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_vis_1",
+      "template": "<div style=\"font-size: 14px; font-weight: bold; color: #333; white-space: nowrap; background-color: rgba(255,255,255,0.8); padding: 2px 6px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);\">{properties.label_text}</div>"
+    },
+    {
+      "visual_id": "label_vis_2",
+      "template": "<div style=\"font-size: 12px; color: #444; font-weight: normal; white-space: nowrap;\">{properties.label_text}</div>"
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_vis_1",
+      "template": "<div style=\"background-color: #a8e6cf; border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin: 8px; font-size: 14px; line-height: 1.5; color: #000; max-width: 200px;\">\n  <div style=\"font-weight: bold; color: #008080; margin-bottom: 4px;\">{properties.card_title}</div>\n  <div>{properties.card_description}</div>\n</div>"
+    },
+    {
+      "visual_id": "card_vis_2",
+      "template": "<div style=\"background-color: #c8e6c9; border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin: 8px; font-size: 14px; line-height: 1.5; color: #000; max-width: 200px;\">\n  <div style=\"font-weight: bold; color: #2e7d32; margin-bottom: 4px;\">{properties.card_title}</div>\n  <div>{properties.card_description}</div>\n</div>"
+    },
+    {
+      "visual_id": "card_vis_3",
+      "template": "<div style=\"background-color: #f3e5f5; border-radius: 8px; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin: 8px; font-size: 14px; line-height: 1.5; color: #000; max-width: 200px;\">\n  <div style=\"font-weight: bold; color: #9c27b0; margin-bottom: 4px;\">{properties.card_title}</div>\n  <div>{properties.card_description}</div>\n</div>"
+    }
+  ],
+  "Edge": [
+    {
+      "visual_id": "edge_vis_1",
+      "anchored_from": "card_vis_1",
+      "anchored_to": "area_vis_1",
+      "color": "#e91e63",
+      "type": "straight",
+      "arrowhead": true
+    },
+    {
+      "visual_id": "edge_vis_2",
+      "anchored_from": "card_vis_2",
+      "anchored_to": "area_vis_2",
+      "color": "#e91e63",
+      "type": "straight",
+      "arrowhead": true
+    },
+    {
+      "visual_id": "edge_vis_3",
+      "anchored_from": "card_vis_3",
+      "anchored_to": "point_vis_1",
+      "color": "#e91e63",
+      "type": "straight",
+      "arrowhead": true
+    }
+  ],
+  "Global": [
+    {
+      "visual_id": "global_vis_1",
+      "template": "<div style=\"position: absolute; top: 0; left: 0; right: 0; height: 60px; background-color: #e678d9; display: flex; align-items: center; justify-content: center; z-index: 100; font-size: 32px; font-weight: bold; color: #000; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2);\">{global_properties[0].title}</div>"
+    }
+  ]
+}

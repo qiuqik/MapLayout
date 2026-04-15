@@ -1,0 +1,87 @@
+{
+  "_style_extraction_thought": "观察到地图存在明显的颜色分区逻辑（蓝、绿、粉），因此将 Area（区域）和 Card（详情列表卡片）分别拆分为 3 种对应的颜色样式以保持视觉对应关系。Point 分为两类：带有房屋图标的城市节点和橙色圆点的滑雪场节点。Label 分为两类：无背景的城市名称和带有橙色圆角背景的滑雪场名称。Route 统一为黑色粗线。Edge 统一为红色指向性箭头。Global 包含顶部的标题栏。",
+  "BaseMap": [
+    {
+      "visual_id": "basemap_illustration",
+      "type": "blank",
+      "description": "极简矢量风格底图，背景为极淡的蓝色/白色，用于承载上层彩色区域"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_city",
+      "description": "圆形图标，内部包含简化的房屋/建筑图案，边缘有深色描边，代表城市或中转地"
+    },
+    {
+      "visual_id": "point_resort",
+      "description": "橙色实心小圆点，带有淡蓝色光晕或描边，代表具体景点位置"
+    }
+  ],
+  "Area": [
+    {
+      "visual_id": "area_blue",
+      "description": "浅蓝色不规则多边形色块，覆盖地图上方区域"
+    },
+    {
+      "visual_id": "area_green",
+      "description": "浅绿色不规则多边形色块，覆盖地图左下方区域"
+    },
+    {
+      "visual_id": "area_pink",
+      "description": "浅粉色不规则多边形色块，覆盖地图右下方区域"
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "route_main",
+      "description": "黑色粗实线，连接各个城市节点和景点节点，形成交通网络"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_city_name",
+      "description": "黑色纯文本标签，无背景，位于城市图标旁",
+      "anchored_to": "point_city"
+    },
+    {
+      "visual_id": "label_resort_tag",
+      "description": "橙色圆角矩形背景标签，黑色文字，位于景点圆点旁",
+      "anchored_to": "point_resort"
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_list_blue",
+      "description": "浅蓝色矩形卡片，包含区域标题和多行列表文本（景点名称及等级），对应蓝色区域",
+      "anchored_to": "area_blue"
+    },
+    {
+      "visual_id": "card_list_green",
+      "description": "浅绿色矩形卡片，包含区域标题和多行列表文本（景点名称及等级），对应绿色区域",
+      "anchored_to": "area_green"
+    },
+    {
+      "visual_id": "card_list_pink",
+      "description": "浅粉色矩形卡片，包含区域标题和多行列表文本（景点名称及等级），对应粉色区域",
+      "anchored_to": "area_pink"
+    }
+  ],
+  "Edge": [
+    {
+      "visual_id": "edge_arrow_red",
+      "description": "红色细长箭头，从列表卡片指向地图上的对应区域或路线",
+      "anchored_from": [
+        "card_list_blue",
+        "card_list_green",
+        "card_list_pink"
+      ],
+      "anchored_to": "route_main"
+    }
+  ],
+  "Global": [
+    {
+      "visual_id": "global_header",
+      "description": "顶部通栏标题，粉色背景条，包含巨大的黑色粗体标题文字"
+    }
+  ]
+}

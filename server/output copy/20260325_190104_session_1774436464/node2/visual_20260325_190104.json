@@ -1,0 +1,38 @@
+{
+  "_style_extraction_thought": "观察到图中有一张山西地形底图，为灰绿色浮雕风格；多个橙色圆点作为景点标记，每个点附带一个深绿色背景标签（含名称和价格）；一条橙色实线连接所有景点形成旅游路线；顶部有黄色大标题文字；无区域划分、卡片或箭头连线。所有标签样式一致，因此合并为1个Label类；所有POI点样式一致，合并为1个Point类；所有路线段为同一种颜色和粗细的实线，合并为1个Route类。",
+  "BaseMap": [
+    {
+      "visual_id": "basemap_illustration",
+      "type": "blank",
+      "description": "手绘风格浮雕地形图，呈现灰绿与浅棕渐变的山地地貌"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_vis_1",
+      "description": "橙色圆形地标图标，内含白色小圆点"
+    }
+  ],
+  "Area": [],
+  "Route": [
+    {
+      "visual_id": "route_vis_1",
+      "description": "橙色实线连接各景点，形成环形主线路"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_vis_1",
+      "description": "深绿色矩形背景标签，内含白色文字（景点名+价格），依附于POI点",
+      "anchored_to": "point_vis_1"
+    }
+  ],
+  "Card": [],
+  "Edge": [],
+  "Global": [
+    {
+      "visual_id": "global_vis_1",
+      "description": "顶部黄色加粗大字标题：山西旅游路线推荐"
+    }
+  ]
+}

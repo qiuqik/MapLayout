@@ -1,0 +1,103 @@
+{
+  "BaseMap": [
+    {
+      "visual_id": "basemap_illustration",
+      "type": "blank",
+      "iconSvg": "<svg width='100%' height='100%'  xmlns='http://www.w3.org/2000/svg'><defs><linearGradient id='grad' x1='0%' y1='0%' x2='100%' y2='100%'><stop offset='0%' stop-color='#e6f7ff'/><stop offset='100%' stop-color='#ffe6f7'/></linearGradient></defs><rect width='100%' height='100%' fill='url(#grad)' /></svg>"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_vis_1",
+      "iconSvg": "<svg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><circle cx='12' cy='12' r='8' fill='#ffd700' stroke='#000' stroke-width='1'/><path d='M12 8v4l2 2h-4z' fill='#000'/><path d='M12 14v4l2 2h-4z' fill='#000'/></svg>"
+    },
+    {
+      "visual_id": "point_vis_2",
+      "iconSvg": "<svg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'><circle cx='8' cy='8' r='4' fill='none' stroke='#000' stroke-width='1'/></svg>"
+    }
+  ],
+  "Area": [
+    {
+      "visual_id": "area_vis_1",
+      "backgroundColor": "#a8e6cf",
+      "opacity": 0.5,
+      "borderColor": "#000",
+      "borderWidth": 1
+    },
+    {
+      "visual_id": "area_vis_2",
+      "backgroundColor": "#c8e6c9",
+      "opacity": 0.5,
+      "borderColor": "#000",
+      "borderWidth": 1
+    },
+    {
+      "visual_id": "area_vis_3",
+      "backgroundColor": "#f3e5f5",
+      "opacity": 0.5,
+      "borderColor": "#000",
+      "borderWidth": 1
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "route_vis_1",
+      "color": "#000",
+      "width": 4,
+      "style": "navigationCurve"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_vis_1",
+      "template": "<div style='font-size:14px; color:#000; background:#fff; padding:2px 6px; border-radius:4px; box-shadow:0 1px 3px rgba(0,0,0,0.3); white-space:nowrap;'>{properties.name}</div>"
+    },
+    {
+      "visual_id": "label_vis_2",
+      "template": "<div style='font-size:12px; color:#000; font-weight:bold; white-space:nowrap;'>{properties.name}</div>"
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_vis_1",
+      "template": "<div style='background:#b3d9ff; padding:10px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); font-size:14px; line-height:1.5; color:#000; max-width:200px;'>{properties.title}<br>{properties.description.replace(/\\n/g, '<br>')}</div>"
+    },
+    {
+      "visual_id": "card_vis_2",
+      "template": "<div style='background:#c8f2c8; padding:10px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); font-size:14px; line-height:1.5; color:#000; max-width:200px;'>{properties.title}<br>{properties.description.replace(/\\n/g, '<br>')}</div>"
+    },
+    {
+      "visual_id": "card_vis_3",
+      "template": "<div style='background:#fde5ff; padding:10px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.1); font-size:14px; line-height:1.5; color:#000; max-width:200px;'>{properties.title}<br>{properties.description.replace(/\\n/g, '<br>')}</div>"
+    }
+  ],
+  "Edge": [
+    {
+      "visual_id": "edge_vis_1",
+      "anchored_from": "card_vis_1",
+      "anchored_to": "area_vis_1",
+      "color": "#d32f2f",
+      "type": "arrow"
+    },
+    {
+      "visual_id": "edge_vis_2",
+      "anchored_from": "card_vis_2",
+      "anchored_to": "area_vis_2",
+      "color": "#d32f2f",
+      "type": "arrow"
+    },
+    {
+      "visual_id": "edge_vis_3",
+      "anchored_from": "card_vis_3",
+      "anchored_to": "area_vis_3",
+      "color": "#d32f2f",
+      "type": "arrow"
+    }
+  ],
+  "Global": [
+    {
+      "visual_id": "global_vis_1",
+      "template": "<div style='position:absolute; top:0; left:0; width:100%; height:60px; background:#ff98cc; display:flex; align-items:center; justify-content:center; z-index:100; font-size:32px; font-weight:bold; color:#000; text-align:center; padding:10px; box-sizing:border-box; overflow:hidden;'>{global_properties[0].title}</div>"
+    }
+  ]
+}

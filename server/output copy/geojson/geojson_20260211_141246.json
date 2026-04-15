@@ -1,0 +1,238 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "line",
+                "title": "西湖一日游路线（断桥→雷峰塔→灵隐寺）",
+                "index": null,
+                "width": 4,
+                "category": "route",
+                "desc": "步行沿白堤与苏堤至雷峰塔，再乘公交前往灵隐寺；票务约￥115，餐饮与交通控制在￥185内，总预算≈￥300",
+                "address": null,
+                "openTime": null,
+                "ticketPrice": null,
+                "rating": null,
+                "tags": [
+                    "步行",
+                    "公交",
+                    "一日游",
+                    "西湖经典线"
+                ],
+                "chartData": null
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        120.1656,
+                        30.2622
+                    ],
+                    [
+                        120.155,
+                        30.258
+                    ],
+                    [
+                        120.146,
+                        30.251
+                    ],
+                    [
+                        120.142,
+                        30.2438
+                    ],
+                    [
+                        120.147,
+                        30.2358
+                    ],
+                    [
+                        120.1338,
+                        30.2385
+                    ],
+                    [
+                        120.1109,
+                        30.242
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "断桥残雪（白堤东端）",
+                "index": 1,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "西湖标志性景点，清晨与傍晚光线佳，适合摄影与漫步；可沿白堤西行直达孤山与苏堤。",
+                "address": "杭州市西湖区 北山街 白堤东端（断桥）",
+                "openTime": "全天开放",
+                "ticketPrice": "免费",
+                "rating": 4.6,
+                "tags": [
+                    "西湖",
+                    "摄影",
+                    "日出日落",
+                    "人文",
+                    "免费"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "到访人群偏好占比",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "摄影",
+                            "value": 35.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "散步",
+                            "value": 40.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "观景",
+                            "value": 25.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.1656,
+                    30.2622
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "雷峰塔",
+                "index": 2,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "登塔可俯瞰西湖全景，傍晚看日落尤佳；可从苏堤步行至南岸入园。",
+                "address": "杭州市西湖区 南山路 雷峰塔景区",
+                "openTime": "08:00-20:30（17:00后停止售票）",
+                "ticketPrice": "￥40",
+                "rating": 4.5,
+                "tags": [
+                    "西湖",
+                    "观景",
+                    "历史",
+                    "日落",
+                    "建筑"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "小时客流量（参考）",
+                    "xAxis": [
+                        "09:00",
+                        "11:00",
+                        "13:00",
+                        "15:00",
+                        "17:00",
+                        "19:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "客流量",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                180.0,
+                                260.0,
+                                300.0,
+                                280.0,
+                                320.0,
+                                220.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.147,
+                    30.2358
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "灵隐寺（含飞来峰）",
+                "index": 3,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "杭州最著名古寺，石窟造像密集；建议下午到访，避开上午香客高峰。",
+                "address": "杭州市西湖区 灵隐路 法云弄1号",
+                "openTime": "07:00-18:00",
+                "ticketPrice": "￥75（飞来峰+灵隐寺）",
+                "rating": 4.7,
+                "tags": [
+                    "佛教",
+                    "石窟",
+                    "历史",
+                    "人文",
+                    "自然"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "月到访量（参考）",
+                    "xAxis": [
+                        "1月",
+                        "2月",
+                        "3月",
+                        "4月",
+                        "5月",
+                        "6月",
+                        "7月",
+                        "8月",
+                        "9月",
+                        "10月",
+                        "11月",
+                        "12月"
+                    ],
+                    "series": [
+                        {
+                            "title": "到访量",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                45.0,
+                                50.0,
+                                60.0,
+                                70.0,
+                                85.0,
+                                95.0,
+                                110.0,
+                                100.0,
+                                90.0,
+                                80.0,
+                                70.0,
+                                60.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.1109,
+                    30.242
+                ]
+            }
+        }
+    ]
+}

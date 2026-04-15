@@ -1,0 +1,517 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "line",
+                "title": "杭州西湖1日游路线（预算≤¥200）",
+                "index": null,
+                "width": 4,
+                "category": "route",
+                "desc": "建议行程：09:00 断桥残雪 → 09:45 孤山 → 10:45 喜茶（湖滨银泰）打卡（≈¥26/杯） → 11:30 霸王茶姬（平海路）打卡（≈¥22/杯） → 12:00 湖滨音乐喷泉及湖畔步行 → 13:30 柳浪闻莺 → 15:00 中国丝绸博物馆（免费） → 16:30 雷峰塔（门票约¥45） → 18:00 收尾。交通以地铁1号线龙翔桥/定安路站步行为主。预算估算：茶饮约¥48、门票¥45、午餐简餐¥50、交通¥10，合计≈¥153，预留机动≈¥40，整体控制在¥200以内。若需更省，可不登雷峰塔或选择湖畔简餐。",
+                "address": null,
+                "openTime": null,
+                "ticketPrice": null,
+                "rating": null,
+                "tags": [
+                    "一日游",
+                    "西湖",
+                    "步行路线",
+                    "轻预算",
+                    "茶饮打卡"
+                ],
+                "chartData": null
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        120.1646,
+                        30.2593
+                    ],
+                    [
+                        120.157,
+                        30.259
+                    ],
+                    [
+                        120.1689,
+                        30.2573
+                    ],
+                    [
+                        120.1705,
+                        30.2603
+                    ],
+                    [
+                        120.1697,
+                        30.2599
+                    ],
+                    [
+                        120.1682,
+                        30.2479
+                    ],
+                    [
+                        120.1546,
+                        30.2339
+                    ],
+                    [
+                        120.1429,
+                        30.2389
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "断桥残雪（白堤北端）",
+                "index": 1,
+                "width": null,
+                "category": "scenic",
+                "desc": "西湖经典地标，清晨人少光线柔和，适合拍照后沿白堤步行至孤山。",
+                "address": "杭州市西湖区北山街白堤北端",
+                "openTime": "全天开放",
+                "ticketPrice": "免费",
+                "rating": 4.7,
+                "tags": [
+                    "西湖",
+                    "摄影",
+                    "步行友好",
+                    "日出推荐"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "不同时段游客密度指数",
+                    "xAxis": [
+                        "08:00",
+                        "10:00",
+                        "14:00",
+                        "17:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "游客密度",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                40,
+                                70,
+                                65,
+                                50
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    120.146215,
+                    30.263528
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.1646,
+                    30.2593
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "孤山（孤山公园/观湖）",
+                "index": 2,
+                "width": null,
+                "category": "scenic",
+                "desc": "穿过白堤抵达孤山，环湖树荫步道舒适，可顺访附近的浙江省博物馆孤山馆（免费）。",
+                "address": "杭州市西湖区孤山路周边",
+                "openTime": "06:00-18:00（公园）",
+                "ticketPrice": "免费",
+                "rating": 4.6,
+                "tags": [
+                    "西湖",
+                    "公园",
+                    "博物馆附近",
+                    "阴凉步道"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "孤山常见活动占比",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "湖景漫步",
+                            "value": 45,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "博物馆参观",
+                            "value": 30,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "摄影",
+                            "value": 25,
+                            "data": null
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    120.127633,
+                    30.254232
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.157,
+                    30.259
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "喜茶（湖滨银泰 in77 店）",
+                "index": 3,
+                "width": null,
+                "category": "tea shop",
+                "desc": "湖滨商圈人气网红茶饮，推荐芝芝多肉葡萄、纯茶拿铁系列。可外带至湖边休憩。",
+                "address": "杭州市上城区湖滨银泰 in77 商圈（近湖滨路/平海路）",
+                "openTime": "10:00-22:00",
+                "ticketPrice": "≈￥26/杯",
+                "rating": 4.3,
+                "tags": [
+                    "网红茶饮",
+                    "打卡",
+                    "湖滨商圈",
+                    "外带适合"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "热销品类占比（门店样本）",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "芝芝水果",
+                            "value": 40,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "纯茶拿铁",
+                            "value": 35,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "特调冷萃",
+                            "value": 25,
+                            "data": null
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    120.138663,
+                    30.244571
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.1689,
+                    30.2573
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "霸王茶姬（平海路店）",
+                "index": 4,
+                "width": null,
+                "category": "tea shop",
+                "desc": "口味偏清爽的国风茶饮，招牌鲜果茶与纯茶系列适合步行途中解暑。",
+                "address": "杭州市上城区平海路沿线（湖滨商圈）",
+                "openTime": "10:00-22:00",
+                "ticketPrice": "≈￥22/杯",
+                "rating": 4.4,
+                "tags": [
+                    "网红茶饮",
+                    "国风",
+                    "平海路",
+                    "性价比"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "门店畅销品类占比",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "鲜果茶",
+                            "value": 38,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "纯茶",
+                            "value": 34,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "牛乳茶",
+                            "value": 28,
+                            "data": null
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    120.172384,
+                    30.26341
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.1705,
+                    30.2603
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "湖滨音乐喷泉（湖畔休闲）",
+                "index": 5,
+                "width": null,
+                "category": "scenic",
+                "desc": "湖滨步行区打卡位，傍晚可看音乐喷泉表演（具体场次以当日公告为准）。白天湖畔休闲、逛商圈。",
+                "address": "杭州市上城区湖滨步行街西湖边",
+                "openTime": "喷泉常见时段19:00/20:00（季节调整）；步行区全天",
+                "ticketPrice": "免费",
+                "rating": 4.5,
+                "tags": [
+                    "湖畔",
+                    "喷泉",
+                    "商圈",
+                    "夜景"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "喷泉时段人流指数（晚间）",
+                    "xAxis": [
+                        "19:00",
+                        "19:30",
+                        "20:00",
+                        "20:30",
+                        "21:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "人流指数",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                30,
+                                60,
+                                80,
+                                70,
+                                50
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    120.178899,
+                    30.24614
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.1697,
+                    30.2599
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "柳浪闻莺公园",
+                "index": 6,
+                "width": null,
+                "category": "scenic",
+                "desc": "西湖南岸的大草坪与花境，适合午后休憩、家庭出游。可沿南山路继续步行。",
+                "address": "杭州市上城区南山路与清泰街西端附近",
+                "openTime": "06:00-18:00",
+                "ticketPrice": "免费",
+                "rating": 4.5,
+                "tags": [
+                    "西湖十景",
+                    "草坪",
+                    "亲子",
+                    "午后休憩"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "舒适度指数（随时段变化）",
+                    "xAxis": [
+                        "09:00",
+                        "12:00",
+                        "15:00",
+                        "17:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "舒适度",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                60,
+                                70,
+                                80,
+                                75
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    120.169903,
+                    30.233139
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.1682,
+                    30.2479
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "中国丝绸博物馆（免费）",
+                "index": 7,
+                "width": null,
+                "category": "museum",
+                "desc": "国家级丝绸专题博物馆，展陈系统，夏季清凉避暑。周一闭馆请注意。",
+                "address": "杭州市上城区玉皇山路73号",
+                "openTime": "09:00-17:00（周一闭馆，16:30后停止入馆）",
+                "ticketPrice": "免费",
+                "rating": 4.6,
+                "tags": [
+                    "博物馆",
+                    "避暑",
+                    "文化",
+                    "免费"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "热门展厅人气指数",
+                    "xAxis": [
+                        "丝绸史",
+                        "织造工艺",
+                        "时尚展",
+                        "染色技艺"
+                    ],
+                    "series": [
+                        {
+                            "title": "人气",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                60,
+                                50,
+                                40,
+                                45
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    120.125712,
+                    30.224288
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.1546,
+                    30.2339
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "雷峰塔（登塔观景）",
+                "index": 8,
+                "width": null,
+                "category": "scenic",
+                "desc": "登塔可眺望西湖南山景致，夕阳时段视野佳。若需控预算可选择在塔外拍照不登塔。",
+                "address": "杭州市西湖区南山路周边（近净慈寺）",
+                "openTime": "08:30-17:00（以景区公告为准）",
+                "ticketPrice": "约￥45（成人）",
+                "rating": 4.4,
+                "tags": [
+                    "登高",
+                    "夕阳",
+                    "西湖北岸全景",
+                    "预算可选"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "登塔排队时长（分钟）",
+                    "xAxis": [
+                        "09:00",
+                        "10:00",
+                        "11:00",
+                        "13:00",
+                        "15:00",
+                        "16:30"
+                    ],
+                    "series": [
+                        {
+                            "title": "排队时长",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                10,
+                                20,
+                                25,
+                                15,
+                                20,
+                                10
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    120.115647,
+                    30.241007
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.1429,
+                    30.2389
+                ]
+            }
+        }
+    ]
+}

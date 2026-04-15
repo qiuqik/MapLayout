@@ -1,0 +1,89 @@
+{
+  "BaseMap": [
+    {
+      "visual_id": "basemap_illustration",
+      "type": "blank",
+      "description": "浅色渐变背景（淡蓝到粉红），无实际地理纹理，以抽象区域划分呈现新疆北疆轮廓"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_vis_1",
+      "description": "橙色圆形图标，内含滑雪人物图案，代表滑雪场位置"
+    },
+    {
+      "visual_id": "point_vis_2",
+      "description": "黄色圆形图标，无内部图案，表示次要节点或城市"
+    }
+  ],
+  "Area": [
+    {
+      "visual_id": "area_vis_1",
+      "description": "浅蓝色半透明区域，覆盖阿勒泰地区及周边，用于区分地理范围"
+    },
+    {
+      "visual_id": "area_vis_2",
+      "description": "浅绿色半透明区域，覆盖伊犁地区及周边"
+    },
+    {
+      "visual_id": "area_vis_3",
+      "description": "浅粉色半透明区域，覆盖乌鲁木齐及周边"
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "route_vis_1",
+      "description": "黑色粗实线，连接主要城市与滑雪场，构成主干线路网络"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_vis_1",
+      "description": "文本标签：如‘吉克普林滑雪场’、‘可可托海滑雪场’等，标注在对应点位旁"
+    },
+    {
+      "visual_id": "label_vis_2",
+      "description": "城市名称标签：如‘阿勒泰’、‘布尔津’、‘克拉玛依’等，位于路线交汇处"
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_vis_1",
+      "description": "浅蓝色背景卡片，包含‘阿勒泰地区及周边’的滑雪场列表及其等级（如4S、5S）"
+    },
+    {
+      "visual_id": "card_vis_2",
+      "description": "浅绿色背景卡片，包含‘伊犁地区及周边’的滑雪场信息"
+    },
+    {
+      "visual_id": "card_vis_3",
+      "description": "浅粉色背景卡片，包含‘乌鲁木齐及周边’的滑雪场信息"
+    }
+  ],
+  "Edge": [
+    {
+      "visual_id": "edge_vis_1",
+      "description": "红色箭头线，从‘阿勒泰地区及周边’卡片指向阿勒泰区域",
+      "anchored_from": "card_vis_1",
+      "anchored_to": "area_vis_1"
+    },
+    {
+      "visual_id": "edge_vis_2",
+      "description": "红色箭头线，从‘伊犁地区及周边’卡片指向精河附近",
+      "anchored_from": "card_vis_2",
+      "anchored_to": "area_vis_2"
+    },
+    {
+      "visual_id": "edge_vis_3",
+      "description": "红色箭头线，从‘乌鲁木齐及周边’卡片指向丝绸之路滑雪场",
+      "anchored_from": "card_vis_3",
+      "anchored_to": "point_vis_1"
+    }
+  ],
+  "Global": [
+    {
+      "visual_id": "global_vis_1",
+      "description": "顶部大标题：‘新疆北疆滑雪场分布图’，黑色加粗字体，置于粉紫色背景条上"
+    }
+  ]
+}

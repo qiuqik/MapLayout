@@ -1,0 +1,166 @@
+{
+  "BaseMap": [
+    {
+      "visual_id": "basemap_illustration",
+      "type": "blank",
+      "description": "手绘插画风格底图，背景为渐变色（浅蓝到淡黄），底部有湖泊、胡杨林与山丘的景观插画，整体呈现南疆秋日风光"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_vis_1",
+      "description": "圆形地标图标，内含建筑图案，代表城市或景点位置"
+    },
+    {
+      "visual_id": "point_vis_2",
+      "description": "绿色树木图标，代表自然景观或植被区域"
+    }
+  ],
+  "Area": [],
+  "Route": [
+    {
+      "visual_id": "route_vis_1",
+      "description": "黑色实线主路线，连接乌鲁木齐、库尔勒、库车、阿克苏、阿拉尔、和田、塔县等地，形成环线路径"
+    },
+    {
+      "visual_id": "route_vis_2",
+      "description": "红色虚线支线，标注为‘沙漠公路’，从阿拉尔延伸至和田"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_vis_1",
+      "description": "城市名称标签：如‘乌鲁木齐’、‘库尔勒’等，依附于对应点位",
+      "anchored_to": [
+        "point_vis_1"
+      ]
+    },
+    {
+      "visual_id": "label_vis_2",
+      "description": "景点名称标签：如‘喀什古城’、‘轮台胡杨林’等，位于信息卡上方",
+      "anchored_to": [
+        "card_vis_1",
+        "card_vis_2",
+        "card_vis_3",
+        "card_vis_4",
+        "card_vis_5",
+        "card_vis_6",
+        "card_vis_7",
+        "card_vis_8"
+      ]
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_vis_1",
+      "description": "橙色背景卡片，包含景点名称与文字描述，如‘喀什古城’介绍内容",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "card_vis_2",
+      "description": "橙色背景卡片，内容为‘烈焰泉’的说明",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "card_vis_3",
+      "description": "橙色背景卡片，内容为‘克孜利亚峡谷’的说明",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "card_vis_4",
+      "description": "橙色背景卡片，内容为‘塔塔秘境’的说明",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "card_vis_5",
+      "description": "橙色背景卡片，内容为‘轮台胡杨林’的说明",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "card_vis_6",
+      "description": "橙色背景卡片，内容为‘约特干故城’的说明",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "card_vis_7",
+      "description": "橙色背景卡片，内容为‘泽普金胡杨’的说明",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "card_vis_8",
+      "description": "橙色背景卡片，内容为‘冰川公园’的说明",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "card_vis_9",
+      "description": "橙色背景卡片，内容为‘白沙湖’的说明",
+      "anchored_to": "point_vis_1"
+    }
+  ],
+  "Edge": [
+    {
+      "visual_id": "edge_vis_1",
+      "description": "红色箭头线，从信息卡指向对应地点图标，表示关联关系",
+      "anchored_from": "card_vis_1",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "edge_vis_2",
+      "description": "红色箭头线，从信息卡指向对应地点图标",
+      "anchored_from": "card_vis_2",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "edge_vis_3",
+      "description": "红色箭头线，从信息卡指向对应地点图标",
+      "anchored_from": "card_vis_3",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "edge_vis_4",
+      "description": "红色箭头线，从信息卡指向对应地点图标",
+      "anchored_from": "card_vis_4",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "edge_vis_5",
+      "description": "红色箭头线，从信息卡指向对应地点图标",
+      "anchored_from": "card_vis_5",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "edge_vis_6",
+      "description": "红色箭头线，从信息卡指向对应地点图标",
+      "anchored_from": "card_vis_6",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "edge_vis_7",
+      "description": "红色箭头线，从信息卡指向对应地点图标",
+      "anchored_from": "card_vis_7",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "edge_vis_8",
+      "description": "红色箭头线，从信息卡指向对应地点图标",
+      "anchored_from": "card_vis_8",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "edge_vis_9",
+      "description": "红色箭头线，从信息卡指向对应地点图标",
+      "anchored_from": "card_vis_9",
+      "anchored_to": "point_vis_1"
+    }
+  ],
+  "Global": [
+    {
+      "visual_id": "global_vis_1",
+      "description": "顶部大标题：秋季南疆环线攻略，黑色粗体字，橙色背景条幅"
+    },
+    {
+      "visual_id": "global_vis_2",
+      "description": "副标题：乌进喀出，不走回头路，位于标题下方，橙色背景框内"
+    }
+  ]
+}

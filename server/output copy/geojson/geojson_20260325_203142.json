@@ -1,0 +1,490 @@
+{
+  "_mapping_thought": "参考视觉容器给出两大色块 Area（浅蓝、浅绿）、两类路线（黑线主干、红线特色段）、两类点位（城市图标、景点路牌插画），以及城市文字 Label、景点橙色 Card 和全局标题。将行程按地理逻辑拆分为“阿勒泰·布尔津板块”和“伊犁·伊宁—霍城板块”，分别映射到 area_blue_region 与 area_green_region，并在各自区域内列出清单型 Label。主干跨城交通（乌鲁木齐↔阿勒泰/布尔津↔伊宁/霍城↔乌鲁木齐）以黑色路线呈现；区域内的短途风景路段（布尔津—五彩滩、伊宁—惠远—薰衣草—伊宁）以红色路线强调。城市节点使用 point_city_icon 并附加城市文字 label_city_text；景点使用 point_signpost_illustration，并为每个景点附着橙色 card_scenic_spot。两个 Area、所有 Card/Label 均被复用与填充，保证视觉容器充分承载 Node 1 的行程信息。",
+  "type": "FeatureCollection",
+  "global_properties": [
+    {
+      "title": "3天阿勒泰 + 伊犁连线（乌鲁木齐进出）",
+      "description": "D1 乌鲁木齐→阿勒泰/布尔津→五彩滩→河堤夜市→夜班返乌；D2 乌鲁木齐→伊宁→喀赞其→伊犁河公园/大桥；D3 伊宁→惠远古城→解忧公主薰衣草园→伊宁飞/火车返乌。以火车/大巴为主，搭配1段区内航班；住经济型；人均约2500–3000元，旺季务必提前订票并早出发。",
+      "visual_id": "global_top_banner"
+    },
+    {
+      "title": "交通与预算要点",
+      "description": "航段：乌鲁木齐↔阿勒泰/伊宁约1–1.5小时；陆路：乌鲁木齐↔伊宁火车约9–11小时或大巴约4–5小时。建议轻装上阵、卡日落与河谷风光时段，旺季尽早订票与早出发控制风险与预算。",
+      "visual_id": "global_corner_badge"
+    }
+  ],
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            87.481092,
+            43.917012
+          ],
+          [
+            87.000724,
+            48.222971
+          ],
+          [
+            86.868162,
+            47.704582
+          ],
+          [
+            87.528997,
+            43.840272
+          ],
+          [
+            81.277732,
+            43.967034
+          ],
+          [
+            80.908179,
+            43.99331
+          ],
+          [
+            81.333342,
+            43.957238
+          ],
+          [
+            87.481092,
+            43.917012
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_black_line",
+        "name": "跨城主干线路",
+        "description": "乌鲁木齐（飞）→阿勒泰→布尔津（夜班大巴）→乌鲁木齐→伊宁→惠远→伊宁（飞/火车）→乌鲁木齐",
+        "transport_mix": "航班 + 火车/大巴"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            86.868162,
+            47.704582
+          ],
+          [
+            86.680702,
+            47.837537
+          ],
+          [
+            86.897558,
+            47.677485
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_red_line",
+        "name": "布尔津—五彩滩观景段",
+        "description": "县城—五彩滩—河堤夜市/额尔齐斯河畔（区间车/县内交通）",
+        "day": "D1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            81.277732,
+            43.967034
+          ],
+          [
+            80.908179,
+            43.99331
+          ],
+          [
+            80.905,
+            44.058
+          ],
+          [
+            81.333342,
+            43.957238
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_red_line",
+        "name": "伊宁—惠远—薰衣草—返伊宁",
+        "description": "伊宁站/市区—惠远古城—解忧公主薰衣草园—伊宁机场/站（县/市内交通）",
+        "day": "D3"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.481092,
+          43.917012
+        ]
+      },
+      "properties": {
+        "visual_id": "point_city_icon",
+        "name": "乌鲁木齐地窝堡机场",
+        "description": "进出疆枢纽，D1去阿勒泰/D3自伊宁返乌转机或返程",
+        "day": "D1/D3",
+        "label_coord": [
+          87.49,
+          43.92
+        ],
+        "label_visual_id": "label_city_text",
+        "transport": "航班"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.528997,
+          43.840272
+        ]
+      },
+      "properties": {
+        "visual_id": "point_city_icon",
+        "name": "乌鲁木齐站",
+        "description": "连接伊宁方向长距离陆路交通（火车/大巴）",
+        "day": "D2",
+        "label_coord": [
+          87.615,
+          43.81
+        ],
+        "label_visual_id": "label_city_text",
+        "transport": "火车/大巴"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.000724,
+          48.222971
+        ]
+      },
+      "properties": {
+        "visual_id": "point_city_icon",
+        "name": "阿勒泰机场",
+        "description": "D1区内航班抵达点，转布尔津县城",
+        "day": "D1",
+        "label_coord": [
+          88.1,
+          47.75
+        ],
+        "label_visual_id": "label_city_text",
+        "transport": "航班（约1.5小时）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.868162,
+          47.704582
+        ]
+      },
+      "properties": {
+        "visual_id": "point_city_icon",
+        "name": "布尔津县客运站",
+        "description": "转乘至五彩滩及县内交通；夜班大巴返乌鲁木齐",
+        "day": "D1",
+        "label_coord": [
+          86.89,
+          47.71
+        ],
+        "label_visual_id": "label_city_text",
+        "transport": "区间班车/夜班大巴"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          81.277732,
+          43.967034
+        ]
+      },
+      "properties": {
+        "visual_id": "point_city_icon",
+        "name": "伊宁市站",
+        "description": "D2 抵达伊宁主要车站；D3 出发前往霍城/惠远",
+        "day": "D2/D3",
+        "label_coord": [
+          81.35,
+          43.92
+        ],
+        "label_visual_id": "label_city_text",
+        "transport": "直达火车/城际大巴"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          81.333342,
+          43.957238
+        ]
+      },
+      "properties": {
+        "visual_id": "point_city_icon",
+        "name": "伊宁机场",
+        "description": "D3 返乌可选航段（约1小时）",
+        "day": "D3",
+        "label_coord": [
+          81.35,
+          43.965
+        ],
+        "label_visual_id": "label_city_text",
+        "transport": "航班"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.680702,
+          47.837537
+        ]
+      },
+      "properties": {
+        "visual_id": "point_signpost_illustration",
+        "name": "五彩滩",
+        "description": "布尔津县·阿勒泰地区；日落最佳，区间车入园",
+        "day": "D1",
+        "card_coord": [
+          86.86,
+          47.72
+        ],
+        "card_visual_id": "card_scenic_spot",
+        "card_title": "五彩滩",
+        "card_desc": "额尔齐斯河畔地貌奇观，拍落日与河湾"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.897558,
+          47.677485
+        ]
+      },
+      "properties": {
+        "visual_id": "point_signpost_illustration",
+        "name": "布尔津河堤夜市 / 额尔齐斯河畔",
+        "description": "夜市美食与河畔漫步，夜班大巴前补给休整",
+        "day": "D1",
+        "card_coord": [
+          86.88,
+          47.705
+        ],
+        "card_visual_id": "card_scenic_spot",
+        "card_title": "河堤夜市",
+        "card_desc": "烤鱼/奶茶/手抓肉，注意夜间保暖与返程时间"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          81.332486,
+          43.901992
+        ]
+      },
+      "properties": {
+        "visual_id": "point_signpost_illustration",
+        "name": "喀赞其民俗旅游区",
+        "description": "伊宁市区内，彩色民居与民俗体验",
+        "day": "D2",
+        "card_coord": [
+          81.335,
+          43.95
+        ],
+        "card_visual_id": "card_scenic_spot",
+        "card_title": "喀赞其",
+        "card_desc": "建议上午或傍晚漫游，尊重民俗与拍摄礼仪"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          81.294063,
+          43.892306
+        ]
+      },
+      "properties": {
+        "visual_id": "point_signpost_illustration",
+        "name": "伊犁河公园 / 伊犁河大桥",
+        "description": "河谷风光，傍晚看桥与河畔日落",
+        "day": "D2",
+        "card_coord": [
+          81.29,
+          43.855
+        ],
+        "card_visual_id": "card_scenic_spot",
+        "card_title": "伊犁河畔",
+        "card_desc": "大桥夜景佳，注意防蚊与安全"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.908179,
+          43.99331
+        ]
+      },
+      "properties": {
+        "visual_id": "point_signpost_illustration",
+        "name": "惠远古城",
+        "description": "霍城县，清代边疆要塞遗址",
+        "day": "D3",
+        "card_coord": [
+          80.89,
+          44.062
+        ],
+        "card_visual_id": "card_scenic_spot",
+        "card_title": "惠远古城",
+        "card_desc": "步行游览为主，可连游薰衣草基地"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.905,
+          44.058
+        ]
+      },
+      "properties": {
+        "visual_id": "point_signpost_illustration",
+        "name": "解忧公主薰衣草园（季节性）",
+        "description": "霍城县，5–7月花期最佳，其余季节以温室/文创为主",
+        "day": "D3",
+        "card_coord": [
+          80.915,
+          44.06
+        ],
+        "card_visual_id": "card_scenic_spot",
+        "card_title": "薰衣草观光基地",
+        "card_desc": "避开正午强光，提前确认花期与开放时段"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              80.90410445652888,
+              44.05844497403446
+            ],
+            [
+              80.90740265335965,
+              43.99267969380931
+            ],
+            [
+              81.29393120993707,
+              43.89131472235004
+            ],
+            [
+              87.52974244628702,
+              43.839605434299436
+            ],
+            [
+              87.00113697471548,
+              48.223881742490704
+            ],
+            [
+              80.90410445652888,
+              44.05844497403446
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "area_blue_region",
+        "name": "阿勒泰 · 布尔津板块",
+        "label_coord": [
+          87.3,
+          47.72
+        ],
+        "label_visual_id": "label_info_list",
+        "label_title": "D1 阿勒泰—布尔津要点",
+        "label_lines": [
+          "• 五彩滩（日落推荐）",
+          "• 布尔津河堤夜市/额尔齐斯河畔",
+          "• 交通：阿勒泰机场→布尔津县城（班车/拼车）",
+          "• 夜班大巴：布尔津→乌鲁木齐（注意保暖与安全）"
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              80.90410445652888,
+              44.05844497403446
+            ],
+            [
+              80.90740265335965,
+              43.99267969380931
+            ],
+            [
+              81.29393120993707,
+              43.89131472235004
+            ],
+            [
+              87.52974244628702,
+              43.839605434299436
+            ],
+            [
+              87.00113697471548,
+              48.223881742490704
+            ],
+            [
+              80.90410445652888,
+              44.05844497403446
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "area_green_region",
+        "name": "伊犁 · 伊宁—霍城板块",
+        "label_coord": [
+          81.0,
+          43.98
+        ],
+        "label_visual_id": "label_info_list",
+        "label_title": "D2–D3 伊犁要点",
+        "label_lines": [
+          "• D2：喀赞其民俗区 → 伊犁河公园/大桥",
+          "• D3：惠远古城 → 解忧公主薰衣草园（季节）",
+          "• 交通：乌鲁木齐—伊宁（火车9–11h/大巴4–5h）",
+          "• 建议：旺季早订票、轻装、留出机动时间"
+        ]
+      }
+    }
+  ]
+}

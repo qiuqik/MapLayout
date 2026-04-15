@@ -1,0 +1,569 @@
+{
+  "_mapping_thought": "虽然参考视觉是手绘风格、含行政分区填色，但我剥离了其原有地域语义，仅复用其UI容器。基于行程内容，我将北京3天行程按“城市核心（东/西/朝阳）”、“海淀（皇家园林）”与“延庆（八达岭长城）”三个逻辑游玩区域划分为Polygon，并复用相同的 area_vis_3（城市核心类）和 area_vis_1（西部山区类）。为每个区域生成了卡片（card_vis_1）展示当日/该区景点与交通要点，同时在Polygon上配置标签（label_vis_1/2/3）用于区域标题说明。针对关键POI（如故宫、八达岭、颐和园等）附加了卡片与标签；其余POI至少附加标签，避免视觉容器空置。由于视觉字典的线条类为Edge，我将D1/D2/D3日线路径用 edge_vis_1 的LineString表达，并额外用Edge将区域标签与Polygon（首个POI点）建立指引线。Polygon坐标按要求平铺纳入该区域内所有POI的经纬度，由下游计算凸包闭合。",
+  "type": "FeatureCollection",
+  "global_properties": [
+    {
+      "title": "3天2夜北京经典游 ≤2000元",
+      "description": "D1：天安门/国博→故宫→景山→什刹海/烟袋斜街→南锣鼓巷；D2：八达岭长城→奥林匹克公园（鸟巢/水立方外观）；D3：颐和园→圆明园→三里屯太古里；建议全程尽量地铁接驳，S2与故宫需实名预约。",
+      "visual_id": "global_vis_1"
+    },
+    {
+      "title": "预算与预约提示（两晚）",
+      "description": "住宿：西直门/雍和宫/崇文门地铁枢纽附近快捷酒店2晚≈700–900元；门票≈137元（故宫60、景山2、八达岭35、颐和园30、圆明园10）；市内交通≈80元；餐饮≈600–800元；合计≤2000元。提示：故宫与S2需提前实名预约；八达岭不坐缆车更省；尽量地铁直达。",
+      "visual_id": "global_vis_2"
+    }
+  ],
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.397755,
+            39.903182
+          ],
+          [
+            116.401304,
+            39.905374
+          ],
+          [
+            116.397029,
+            39.917839
+          ],
+          [
+            116.396551,
+            39.925875
+          ],
+          [
+            116.394748,
+            39.939329
+          ],
+          [
+            116.402394,
+            39.937182
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "edge_vis_1",
+        "name": "D1 城市核心步行+地铁线路",
+        "description": "天安门广场/国博→故宫→景山→什刹海/烟袋斜街→南锣鼓巷"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.349,
+            39.94
+          ],
+          [
+            116.353,
+            39.94
+          ],
+          [
+            116.02,
+            40.359
+          ],
+          [
+            116.396,
+            39.992
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "edge_vis_1",
+        "name": "D2 城市-八达岭-奥林匹克公园线路",
+        "description": "西直门/北京北站（乘S2）→八达岭站→奥林匹克公园（鸟巢/水立方外观）"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.272,
+            39.999
+          ],
+          [
+            116.305,
+            40.01
+          ],
+          [
+            116.455,
+            39.936
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "edge_vis_1",
+        "name": "D3 海淀皇家园林→三里屯线路",
+        "description": "颐和园→圆明园遗址公园→三里屯太古里"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.397755,
+          39.903182
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_1",
+        "name": "天安门广场",
+        "description": "东城区，D1起点；地铁1号线 天安门东/西",
+        "label_coord": [
+          116.39,
+          39.905
+        ],
+        "label_visual_id": "label_vis_1",
+        "card_coord": [
+          116.38,
+          39.9
+        ],
+        "card_visual_id": "card_vis_1",
+        "tips": "与国博相邻，适合与故宫联游；安检排队较多，提前到达。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.401304,
+          39.905374
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "中国国家博物馆",
+        "description": "东城区，天安门东侧；建议预约参观",
+        "label_coord": [
+          116.412,
+          39.902
+        ],
+        "label_visual_id": "label_vis_1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.397029,
+          39.917839
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_1",
+        "name": "故宫博物院",
+        "description": "东城区，从天安门步行入午门；需实名预约",
+        "label_coord": [
+          116.405,
+          39.92
+        ],
+        "label_visual_id": "label_vis_1",
+        "card_coord": [
+          116.41,
+          39.918
+        ],
+        "card_visual_id": "card_vis_1",
+        "tips": "建议上午入园，逆时针参观中轴线与重点殿宇。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.396551,
+          39.925875
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_6",
+        "name": "景山公园",
+        "description": "西城区，出神武门过马路即到；登万春亭俯瞰紫禁城",
+        "label_coord": [
+          116.402,
+          39.926
+        ],
+        "label_visual_id": "label_vis_1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.394748,
+          39.939329
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_6",
+        "name": "什刹海 / 烟袋斜街",
+        "description": "西城区，地铁6/8号线 什刹海/北海北；老北京风情",
+        "label_coord": [
+          116.383,
+          39.944
+        ],
+        "label_visual_id": "label_vis_1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.402394,
+          39.937182
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "南锣鼓巷",
+        "description": "东城区，地铁6/8号线 南锣鼓巷站",
+        "label_coord": [
+          116.41,
+          39.945
+        ],
+        "label_visual_id": "label_vis_1"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.02,
+          40.359
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_5",
+        "name": "八达岭长城",
+        "description": "延庆区，北京北站乘市郊铁路S2至八达岭站；步行或摆渡至检票口",
+        "label_coord": [
+          116.035,
+          40.365
+        ],
+        "label_visual_id": "label_vis_2",
+        "card_coord": [
+          116.05,
+          40.355
+        ],
+        "card_visual_id": "card_vis_1",
+        "tips": "提前预约S2；不坐缆车更省预算，注意穿防滑鞋与补水。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.396,
+          39.992
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "奥林匹克公园（鸟巢/水立方外观）",
+        "description": "朝阳区，地铁8号线 奥林匹克公园站",
+        "label_coord": [
+          116.405,
+          39.997
+        ],
+        "label_visual_id": "label_vis_2",
+        "card_coord": [
+          116.415,
+          39.995
+        ],
+        "card_visual_id": "card_vis_1",
+        "tips": "傍晚光线更适合拍夜景外观。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.272,
+          39.999
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_6",
+        "name": "颐和园",
+        "description": "海淀区，地铁4号线 北宫门站",
+        "label_coord": [
+          116.28,
+          40.005
+        ],
+        "label_visual_id": "label_vis_3",
+        "card_coord": [
+          116.26,
+          40.01
+        ],
+        "card_visual_id": "card_vis_1",
+        "tips": "推荐先游万寿山—昆明湖环线，保留体力返程。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.305,
+          40.01
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_6",
+        "name": "圆明园遗址公园",
+        "description": "海淀区，地铁4号线 圆明园站",
+        "label_coord": [
+          116.312,
+          40.015
+        ],
+        "label_visual_id": "label_vis_3",
+        "card_coord": [
+          116.32,
+          40.02
+        ],
+        "card_visual_id": "card_vis_1",
+        "tips": "留足时间步行参观遗址与展陈。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.455,
+          39.936
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_2",
+        "name": "三里屯太古里",
+        "description": "朝阳区，地铁10号线 团结湖/农业展览馆站",
+        "label_coord": [
+          116.462,
+          39.94
+        ],
+        "label_visual_id": "label_vis_3"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              116.01935192457603,
+              40.35976157615828
+            ],
+            [
+              116.27127876381536,
+              39.998307310772454
+            ],
+            [
+              116.39768977044767,
+              39.902184129715096
+            ],
+            [
+              116.455992143674,
+              39.93587489632245
+            ],
+            [
+              116.01935192457603,
+              40.35976157615828
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "area_vis_3",
+        "name": "城市核心区（东/西/朝阳）",
+        "summary": "涵盖D1主要景点与D2奥林匹克公园、D3三里屯；以地铁与步行为主。",
+        "label_coord": [
+          116.41,
+          39.92
+        ],
+        "label_visual_id": "label_vis_2",
+        "card_coord": [
+          116.43,
+          39.905
+        ],
+        "card_visual_id": "card_vis_1",
+        "card_title": "核心区玩法与交通",
+        "card_details": "D1：天安门/国博→故宫→景山→什刹海→南锣；D2：奥林匹克公园外观；D3：三里屯夜景。住宿优选：西直门/雍和宫/崇文门。建议：全程乘地铁，节省预算与时间。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              116.01935192457603,
+              40.35976157615828
+            ],
+            [
+              116.27127876381536,
+              39.998307310772454
+            ],
+            [
+              116.39768977044767,
+              39.902184129715096
+            ],
+            [
+              116.455992143674,
+              39.93587489632245
+            ],
+            [
+              116.01935192457603,
+              40.35976157615828
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "area_vis_3",
+        "name": "海淀·皇家园林片区",
+        "summary": "D3核心：颐和园与圆明园，路线紧凑、相距较近。",
+        "label_coord": [
+          116.29,
+          40.005
+        ],
+        "label_visual_id": "label_vis_3",
+        "card_coord": [
+          116.285,
+          40.02
+        ],
+        "card_visual_id": "card_vis_1",
+        "card_title": "D3 海淀游览建议",
+        "card_details": "地铁4号线北宫门/圆明园站往返；早点入园避开人流，预留拍照与步行时间。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              116.01935192457603,
+              40.35976157615828
+            ],
+            [
+              116.27127876381536,
+              39.998307310772454
+            ],
+            [
+              116.39768977044767,
+              39.902184129715096
+            ],
+            [
+              116.455992143674,
+              39.93587489632245
+            ],
+            [
+              116.01935192457603,
+              40.35976157615828
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "area_vis_1",
+        "name": "延庆·八达岭长城片区",
+        "summary": "D2重点：乘S2至八达岭站，步行或摆渡至检票口。",
+        "label_coord": [
+          116.03,
+          40.37
+        ],
+        "label_visual_id": "label_vis_1",
+        "card_coord": [
+          116.04,
+          40.345
+        ],
+        "card_visual_id": "card_vis_1",
+        "card_title": "D2 长城上山攻略",
+        "card_details": "提前预约S2与门票；不坐缆车更省预算；穿防滑鞋，注意补水与防晒。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.41,
+            39.92
+          ],
+          [
+            116.397755,
+            39.903182
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "edge_vis_1",
+        "name": "核心区标签指引线",
+        "description": "将核心区标签框与区域内POI建立引导关联"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.29,
+            40.005
+          ],
+          [
+            116.272,
+            39.999
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "edge_vis_1",
+        "name": "海淀片区标签指引线",
+        "description": "将海淀标签框与区域POI建立引导关联"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.03,
+            40.37
+          ],
+          [
+            116.02,
+            40.359
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "edge_vis_1",
+        "name": "八达岭片区标签指引线",
+        "description": "将八达岭标签框与区域POI建立引导关联"
+      }
+    }
+  ]
+}

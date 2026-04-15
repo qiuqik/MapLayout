@@ -1,0 +1,81 @@
+{
+  "_style_extraction_thought": "观察到地图上的视觉元素被严格分为红、橙、绿三个色系，分别对应三天不同的行程。每个色系包含四类元素：1.手绘风格的圈选线（Route）；2.指示顺序的箭头（Edge）；3.景点名称文字（Label）；4.标示天数的矩形标签（Card）。此外，左上角有一个全局的黄色标题（Global）。底图为标准电子地图。没有用户自定义的Point图标（直接使用文字Label定位）。因此，将根据颜色差异将 Route、Edge、Label、Card 各拆分为 3 个样式类。",
+  "BaseMap": [
+    {
+      "visual_id": "basemap_standard",
+      "type": "standard",
+      "description": "标准电子地图底图，显示浅灰色道路网、浅蓝色江流（长江/嘉陵江）及绿色公园绿地"
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "route_red_loop",
+      "description": "红色手绘风格粗线条，呈闭合或半闭合状，用于圈选第一天的游玩范围"
+    },
+    {
+      "visual_id": "route_orange_loop",
+      "description": "橙色手绘风格粗线条，呈闭合或半闭合状，用于圈选第二天的游玩范围"
+    },
+    {
+      "visual_id": "route_green_loop",
+      "description": "绿色手绘风格粗线条，呈闭合或半闭合状，用于圈选第三天的游玩范围"
+    }
+  ],
+  "Edge": [
+    {
+      "visual_id": "edge_red_arrow",
+      "description": "红色手绘箭头，用于指示景点之间的游览顺序",
+      "anchored_from": "label_red_text",
+      "anchored_to": "label_red_text"
+    },
+    {
+      "visual_id": "edge_orange_arrow",
+      "description": "橙色手绘箭头，用于指示景点之间的游览顺序",
+      "anchored_from": "label_orange_text",
+      "anchored_to": "label_orange_text"
+    },
+    {
+      "visual_id": "edge_green_arrow",
+      "description": "绿色手绘箭头，用于指示景点之间的游览顺序",
+      "anchored_from": "label_green_text",
+      "anchored_to": "label_green_text"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_red_text",
+      "description": "深红色粗体文字，带有白色描边，用于标注第一天行程的景点名称"
+    },
+    {
+      "visual_id": "label_orange_text",
+      "description": "橙色粗体文字，带有白色描边，用于标注第二天行程的景点名称"
+    },
+    {
+      "visual_id": "label_green_text",
+      "description": "绿色粗体文字，带有白色描边，用于标注第三天行程的景点名称"
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_day1",
+      "description": "红色背景矩形色块，内部包含白色文字（DAY1），作为行程分组标记",
+      "anchored_to": "route_red_loop"
+    },
+    {
+      "visual_id": "card_day2",
+      "description": "橙色背景矩形色块，内部包含白色文字（DAY2），作为行程分组标记",
+      "anchored_to": "route_orange_loop"
+    },
+    {
+      "visual_id": "card_day3",
+      "description": "绿色背景矩形色块，内部包含白色文字（DAY3），作为行程分组标记",
+      "anchored_to": "route_green_loop"
+    }
+  ],
+  "Global": [
+    {
+      "visual_id": "global_title",
+      "description": "左上角的大标题，黄色背景矩形，黑色粗体大字"
+    }
+  ]
+}

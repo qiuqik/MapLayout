@@ -14,6 +14,8 @@ const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyle
   return (
     <>
       {points.map((feature: any) => {
+        console.log(" feature ====:", feature);
+
         const cardStyle = cardStyles.find(
           (c: any) => c.visual_id === feature.properties?.card_visual_id
         );
@@ -22,7 +24,8 @@ const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyle
         const coord = feature.properties?.card_coord || feature.geometry.coordinates;
         const [lng, lat] = coord;
         const htmlStr = populateTemplate(cardStyle.template, feature.properties, globalProps);
-        const AhtmlStr = htmlStr.replace(/\s*transform:[^;]+;?/gi, '');
+        // const AhtmlStr = htmlStr.replace(/\s*transform:[^;]+;?/gi, '');
+        // console.log("card html:", htmlStr, AhtmlStr);
 
         return (
           <Marker
@@ -31,7 +34,7 @@ const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyle
             latitude={lat}
             anchor="bottom"
           >
-            <div dangerouslySetInnerHTML={{ __html: AhtmlStr }} />
+            <div dangerouslySetInnerHTML={{ __html: htmlStr }} />
           </Marker>
         );
       })}
@@ -44,7 +47,8 @@ const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyle
         const coord = feature.properties?.card_coord || feature.geometry.coordinates[0][0];
         const [lng, lat] = coord;
         const htmlStr = populateTemplate(cardStyle.template, feature.properties, globalProps);
-        const AhtmlStr = htmlStr.replace(/\s*transform:[^;]+;?/gi, '');
+        // const AhtmlStr = htmlStr.replace(/\s*transform:[^;]+;?/gi, '');
+        // console.log("card html:", htmlStr, AhtmlStr);
 
         return (
           <Marker
@@ -53,7 +57,7 @@ const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyle
             latitude={lat}
             anchor="bottom"
           >
-            <div dangerouslySetInnerHTML={{ __html: AhtmlStr }} />
+            <div dangerouslySetInnerHTML={{ __html: htmlStr }} />
           </Marker>
         );
       })}

@@ -1,0 +1,400 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "line",
+                "title": "阿禾公路+铁贾公路全线导览",
+                "index": null,
+                "width": 4,
+                "category": "route",
+                "desc": "包含阿勒泰出发的阿禾公路、常规公路，以及连通贾登峪与铁热克提的铁贾公路，全面覆盖喀纳斯、禾木、白哈巴等景区的路线网络。",
+                "address": null,
+                "openTime": null,
+                "ticketPrice": null,
+                "rating": null,
+                "tags": [
+                    "公路旅行",
+                    "自驾",
+                    "新疆",
+                    "阿勒泰"
+                ],
+                "chartData": null
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        88.1396,
+                        47.8484
+                    ],
+                    [
+                        86.8584,
+                        47.705
+                    ],
+                    [
+                        87.1448,
+                        48.4967
+                    ],
+                    [
+                        87.02,
+                        48.7
+                    ],
+                    [
+                        87.1448,
+                        48.4967
+                    ],
+                    [
+                        86.757,
+                        48.563
+                    ],
+                    [
+                        86.7818,
+                        48.6946
+                    ],
+                    [
+                        86.757,
+                        48.563
+                    ],
+                    [
+                        87.1448,
+                        48.4967
+                    ],
+                    [
+                        87.35,
+                        48.5
+                    ],
+                    [
+                        87.43,
+                        48.57
+                    ],
+                    [
+                        87.35,
+                        48.5
+                    ],
+                    [
+                        88.1396,
+                        47.8484
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "阿勒泰",
+                "index": 1,
+                "width": null,
+                "category": "City",
+                "desc": "阿禾公路起点，可通往禾木村。",
+                "address": "新疆维吾尔自治区阿勒泰地区阿勒泰市",
+                "openTime": "全天开放",
+                "ticketPrice": "免费",
+                "rating": 4.5,
+                "tags": [
+                    "起点",
+                    "城市",
+                    "交通枢纽"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    88.143965,
+                    47.902724
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    88.1396,
+                    47.8484
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "布尔津",
+                "index": 2,
+                "width": null,
+                "category": "City",
+                "desc": "常规路线途经地，连接阿勒泰与贾登峪的必经之路。",
+                "address": "新疆维吾尔自治区阿勒泰地区布尔津县",
+                "openTime": "全天开放",
+                "ticketPrice": "免费",
+                "rating": 4.5,
+                "tags": [
+                    "途经地",
+                    "城市中转"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    86.244379,
+                    47.724809
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    86.8584,
+                    47.705
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "贾登峪",
+                "index": 3,
+                "width": null,
+                "category": "Hub",
+                "desc": "住宿：此处有住宿地，相对景区内要便宜一些。交通：属于喀纳斯/禾木/白哈巴的中转点。",
+                "address": "新疆阿勒泰地区布尔津县贾登峪",
+                "openTime": "全天开放",
+                "ticketPrice": "免费",
+                "rating": 4.2,
+                "tags": [
+                    "中转点",
+                    "住宿",
+                    "交通枢纽"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    87.259614,
+                    48.205029
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.1448,
+                    48.4967
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "铁热克提门票站",
+                "index": 4,
+                "width": null,
+                "category": "Hub",
+                "desc": "铁贾公路终点，可从此处换乘区间车进入白哈巴。",
+                "address": "新疆阿勒泰地区哈巴河县铁热克提乡",
+                "openTime": "根据季节调整",
+                "ticketPrice": "需购买白哈巴门票/区间车",
+                "rating": 4,
+                "tags": [
+                    "门票站",
+                    "区间车",
+                    "铁贾终点"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    86.148734,
+                    48.311081
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    86.757,
+                    48.563
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "白哈巴",
+                "index": 5,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "需从贾登峪服务中心或铁热克提换乘区间车进入。",
+                "address": "新疆阿勒泰地区哈巴河县白哈巴村",
+                "openTime": "08:30-19:30",
+                "ticketPrice": "收费景区",
+                "rating": 4.8,
+                "tags": [
+                    "西北第一村",
+                    "边境",
+                    "自然风光"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    86.146832,
+                    48.554127
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    86.7818,
+                    48.6946
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "喀纳斯",
+                "index": 6,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "需从贾登峪服务中心，换乘区间车进入。",
+                "address": "新疆阿勒泰地区布尔津县喀纳斯景区",
+                "openTime": "08:00-20:00",
+                "ticketPrice": "收费景区",
+                "rating": 4.9,
+                "tags": [
+                    "国家5A级",
+                    "湖泊",
+                    "森林"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    87.290793,
+                    48.621598
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.02,
+                    48.7
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "禾木景区",
+                "index": 7,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "夏季需从游客中心换乘区间车进入。",
+                "address": "新疆阿勒泰地区布尔津县禾木村",
+                "openTime": "全天开放",
+                "ticketPrice": "收费景区",
+                "rating": 4.8,
+                "tags": [
+                    "古村落",
+                    "摄影",
+                    "秋景"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    87.674702,
+                    48.50593
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.43,
+                    48.57
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "阿禾公路出口",
+                "index": 8,
+                "width": null,
+                "category": "Intersection",
+                "desc": "右转：到达禾木景区游客中心。左转：前往贾登峪服务区。",
+                "address": "阿禾公路沿线岔路口",
+                "openTime": "全天",
+                "ticketPrice": "免费",
+                "rating": null,
+                "tags": [
+                    "岔路口",
+                    "指示点"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    87.834021,
+                    48.330812
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.35,
+                    48.5
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "阿禾公路（信息卡）",
+                "index": 9,
+                "width": null,
+                "category": "Info",
+                "desc": "路线：阿勒泰市-禾木村。路程：209.45 KM，设 31处停车区。沿途：小东沟、野卡峡、通巴森林、禾木村等。",
+                "address": "阿勒泰地区",
+                "openTime": "全天",
+                "ticketPrice": "免费",
+                "rating": null,
+                "tags": [
+                    "路况信息",
+                    "公路旅行"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    87.84068,
+                    48.052622
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.75,
+                    48.15
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "铁贾公路（信息卡）",
+                "index": 10,
+                "width": null,
+                "category": "Info",
+                "desc": "路线：贾登峪-铁热克提。路程：54.1 KM。沿途：山地、森林、草地、湿地等众多自然地貌。",
+                "address": "阿勒泰地区",
+                "openTime": "全天",
+                "ticketPrice": "免费",
+                "rating": null,
+                "tags": [
+                    "路况信息",
+                    "自然地貌"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    86.290462,
+                    47.996288
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    86.95,
+                    48.53
+                ]
+            }
+        }
+    ]
+}

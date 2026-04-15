@@ -1,0 +1,91 @@
+{
+  "_style_extraction_thought": "观察到地图存在明显的颜色分区逻辑：3个不同颜色的地理区块（蓝、绿、粉）作为底层Area，上方对应有3个同色系的矩形清单列表（Card）。此外，滑雪场具体位置使用了橙色圆点（Point）和橙色胶囊状名称标签（Card）。城市节点使用了带有房屋图标的圆形（Point）。路线统一为黑色粗线（Route）。红色箭头（Edge）用于连接清单列表与地图区域。顶部有全局标题（Global）。",
+  "BaseMap": [
+    {
+      "visual_id": "basemap_illustration",
+      "type": "blank",
+      "description": "极简矢量风格底图，背景为极淡的纯色或微渐变"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_city_node",
+      "description": "圆形图标，内部包含房屋/建筑图案，代表城市节点"
+    },
+    {
+      "visual_id": "point_resort_dot",
+      "description": "实心橙色小圆点，代表具体滑雪场位置"
+    }
+  ],
+  "Area": [
+    {
+      "visual_id": "area_zone_blue",
+      "description": "浅蓝色不规则多边形色块，代表北部地理区域"
+    },
+    {
+      "visual_id": "area_zone_green",
+      "description": "浅绿色不规则多边形色块，代表西部地理区域"
+    },
+    {
+      "visual_id": "area_zone_pink",
+      "description": "浅粉色不规则多边形色块，代表南部地理区域"
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "route_main_road",
+      "description": "黑色粗实线，连接各个城市节点和滑雪场"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_city_name",
+      "description": "黑色无背景文本，用于标注城市名称",
+      "anchored_to": "point_city_node"
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_resort_tag",
+      "description": "橙色圆角矩形（胶囊形）背景，内含黑色文字，作为滑雪场的名称标签",
+      "anchored_to": "point_resort_dot"
+    },
+    {
+      "visual_id": "card_summary_blue",
+      "description": "浅蓝色矩形列表框，包含多行文本信息",
+      "anchored_to": "area_zone_blue"
+    },
+    {
+      "visual_id": "card_summary_green",
+      "description": "浅绿色矩形列表框，包含多行文本信息",
+      "anchored_to": "area_zone_green"
+    },
+    {
+      "visual_id": "card_summary_pink",
+      "description": "浅粉色矩形列表框，包含多行文本信息",
+      "anchored_to": "area_zone_pink"
+    }
+  ],
+  "Edge": [
+    {
+      "visual_id": "edge_indicator_arrow",
+      "description": "红色细长箭头，用于指示说明卡片与地图区域/位置的对应关系",
+      "anchored_from": [
+        "card_summary_blue",
+        "card_summary_green",
+        "card_summary_pink"
+      ],
+      "anchored_to": [
+        "area_zone_blue",
+        "area_zone_green",
+        "area_zone_pink"
+      ]
+    }
+  ],
+  "Global": [
+    {
+      "visual_id": "global_header",
+      "description": "顶部横幅标题，黑色大字配粉色底条"
+    }
+  ]
+}

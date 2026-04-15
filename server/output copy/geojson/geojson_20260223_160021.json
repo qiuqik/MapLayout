@@ -1,0 +1,359 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "line",
+                "title": "南京一日游路线",
+                "index": null,
+                "width": 4,
+                "category": "route",
+                "desc": "建议行程：08:30 夫子庙早餐与秦淮河漫步 → 10:30 老门东历史街区与小吃 → 13:00 前往南京大屠杀遇难同胞纪念馆参观（约2-3小时） → 17:30 狮子桥美食街晚餐 → 19:30 玄武湖公园夜间散步收尾。注意纪念馆需预约且周一闭馆。",
+                "address": null,
+                "openTime": null,
+                "ticketPrice": null,
+                "rating": null,
+                "tags": null,
+                "chartData": null
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        118.788972,
+                        32.020699
+                    ],
+                    [
+                        118.787631,
+                        32.011682
+                    ],
+                    [
+                        118.742372,
+                        32.035217
+                    ],
+                    [
+                        118.77787,
+                        32.067833
+                    ],
+                    [
+                        118.79751,
+                        32.087125
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "夫子庙-秦淮风光带（早餐与小吃）",
+                "index": 1,
+                "width": null,
+                "category": "snack area",
+                "desc": "南京传统小吃集中地，适合早上品尝鸭血粉丝汤、盐水鸭、梅花糕等，并沿秦淮河漫步看古建与牌坊。",
+                "address": "南京市秦淮区夫子庙景区",
+                "openTime": "08:00-22:00（商铺时间略有不同）",
+                "ticketPrice": "免费（景区内部分景点另收费）",
+                "rating": 4.5,
+                "tags": [
+                    "鸭血粉丝汤",
+                    "盐水鸭",
+                    "梅花糕",
+                    "秦淮河",
+                    "古建",
+                    "夜景"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "夫子庙热门小吃偏好",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "鸭血粉丝汤",
+                            "value": 35,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "盐水鸭",
+                            "value": 25,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "梅花糕",
+                            "value": 15,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "小笼包",
+                            "value": 15,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "其他",
+                            "value": 10,
+                            "data": null
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    118.814428,
+                    32.028225
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    118.788972,
+                    32.020699
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "老门东历史文化街区（文创与午餐小吃）",
+                "index": 2,
+                "width": null,
+                "category": "heritage street",
+                "desc": "明清里巷风貌保存良好，文创店与手作丰富，适合拍照与品尝牛肉锅贴、糖芋苗、烤鸭夹饼等。中午人气较旺，可分散排队。",
+                "address": "南京市秦淮区老门东历史文化街区",
+                "openTime": "09:00-22:00",
+                "ticketPrice": "免费",
+                "rating": 4.6,
+                "tags": [
+                    "历史街区",
+                    "文创",
+                    "拍照",
+                    "小吃集聚",
+                    "家庭友好"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "不同时段平均排队时长（分钟）",
+                    "xAxis": [
+                        "10:00",
+                        "12:00",
+                        "14:00",
+                        "16:00",
+                        "18:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "avgWaitMin",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                5,
+                                12,
+                                8,
+                                6,
+                                10
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    118.720404,
+                    32.004074
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    118.787631,
+                    32.011682
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "南京大屠杀遇难同胞纪念馆（核心参观）",
+                "index": 3,
+                "width": null,
+                "category": "memorial museum",
+                "desc": "沉重而重要的历史教育场所，建议至少预留2小时安静参观。需预约入馆，周一闭馆。请尊重场馆氛围。",
+                "address": "南京市建邺区水西门大街418号（江东门）",
+                "openTime": "09:00-17:30（17:00停止入馆；周一闭馆）",
+                "ticketPrice": "免费（需提前线上预约）",
+                "rating": 4.8,
+                "tags": [
+                    "历史",
+                    "纪念馆",
+                    "教育",
+                    "预约",
+                    "人文"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "典型参观日小时入馆人数趋势",
+                    "xAxis": [
+                        "09:00",
+                        "11:00",
+                        "13:00",
+                        "15:00",
+                        "17:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "visitors",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                500,
+                                1200,
+                                1100,
+                                900,
+                                600
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    118.7015,
+                    32.041209
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    118.742372,
+                    32.035217
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "狮子桥美食街（晚餐）",
+                "index": 4,
+                "width": null,
+                "category": "food street",
+                "desc": "湖南路一带的经典美食街，汇集各地小吃与本地特色，晚餐选择丰富，交通便捷。",
+                "address": "南京市鼓楼区湖南路狮子桥步行街",
+                "openTime": "10:00-23:00",
+                "ticketPrice": "免费（人均消费约40-70元）",
+                "rating": 4.4,
+                "tags": [
+                    "美食街",
+                    "小吃集聚",
+                    "夜市",
+                    "交通便利"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "晚餐品类选择占比",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "南京特色鸭菜",
+                            "value": 30,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "面点/小吃",
+                            "value": 25,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "烧烤/串串",
+                            "value": 20,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "甜品/饮品",
+                            "value": 15,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "其他地方菜",
+                            "value": 10,
+                            "data": null
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    118.72166,
+                    32.073094
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    118.77787,
+                    32.067833
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "玄武湖公园南门（夜间散步收尾）",
+                "index": 5,
+                "width": null,
+                "category": "park",
+                "desc": "城市湖泊公园，夜景优美，适合饭后散步或慢跑，临近地铁交通方便。",
+                "address": "南京市玄武区玄武湖公园南门（近地铁玄武门站）",
+                "openTime": "06:00-22:00",
+                "ticketPrice": "免费",
+                "rating": 4.7,
+                "tags": [
+                    "湖景",
+                    "夜景",
+                    "步道",
+                    "慢跑",
+                    "亲子"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "体验维度评分（满分5）",
+                    "xAxis": [
+                        "湖景",
+                        "夜景",
+                        "适合散步",
+                        "交通便利"
+                    ],
+                    "series": [
+                        {
+                            "title": "score",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                4.8,
+                                4.7,
+                                4.6,
+                                4.5
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    118.81272,
+                    32.074235
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    118.79751,
+                    32.087125
+                ]
+            }
+        }
+    ]
+}

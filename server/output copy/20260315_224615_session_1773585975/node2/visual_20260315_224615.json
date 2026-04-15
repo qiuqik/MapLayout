@@ -1,0 +1,94 @@
+{
+  "BaseMap": [
+    {
+      "visual_id": "basemap_illustration",
+      "type": "blank",
+      "description": "浅色渐变背景（从淡蓝到粉红），无真实地理细节，仅作为视觉底图"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_vis_1",
+      "description": "圆形图标，内含滑雪图案，代表滑雪场位置"
+    },
+    {
+      "visual_id": "point_vis_2",
+      "description": "城市名称标记点，无特殊图标，仅为文字标签锚点"
+    }
+  ],
+  "Area": [
+    {
+      "visual_id": "area_vis_1",
+      "description": "浅蓝色半透明区域，覆盖阿勒泰地区及周边"
+    },
+    {
+      "visual_id": "area_vis_2",
+      "description": "浅绿色半透明区域，覆盖伊犁地区及周边"
+    },
+    {
+      "visual_id": "area_vis_3",
+      "description": "浅粉色半透明区域，覆盖乌鲁木齐及周边"
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "route_vis_1",
+      "description": "黑色粗线路径，连接多个滑雪场和城市，表示主要交通路线"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_vis_1",
+      "description": "滑雪场名称标签（如‘吉克普林滑雪场’）",
+      "anchored_to": "point_vis_1"
+    },
+    {
+      "visual_id": "label_vis_2",
+      "description": "城市名称标签（如‘阿勒泰’、‘乌鲁木齐’）",
+      "anchored_to": "point_vis_2"
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_vis_1",
+      "description": "浅蓝色卡片，包含‘阿勒泰地区及周边’的滑雪场列表",
+      "anchored_to": "area_vis_1"
+    },
+    {
+      "visual_id": "card_vis_2",
+      "description": "浅绿色卡片，包含‘伊犁地区及周边’的滑雪场列表",
+      "anchored_to": "area_vis_2"
+    },
+    {
+      "visual_id": "card_vis_3",
+      "description": "浅粉色卡片，包含‘乌鲁木齐及周边’的滑雪场列表",
+      "anchored_to": "area_vis_3"
+    }
+  ],
+  "Edge": [
+    {
+      "visual_id": "edge_vis_1",
+      "description": "红色箭头，从‘阿勒泰地区及周边’卡片指向该区域内的滑雪场",
+      "anchored_from": "card_vis_1",
+      "anchored_to": "area_vis_1"
+    },
+    {
+      "visual_id": "edge_vis_2",
+      "description": "红色箭头，从‘伊犁地区及周边’卡片指向该区域内的滑雪场",
+      "anchored_from": "card_vis_2",
+      "anchored_to": "area_vis_2"
+    },
+    {
+      "visual_id": "edge_vis_3",
+      "description": "红色箭头，从‘乌鲁木齐及周边’卡片指向该区域内的滑雪场",
+      "anchored_from": "card_vis_3",
+      "anchored_to": "area_vis_3"
+    }
+  ],
+  "Global": [
+    {
+      "visual_id": "global_vis_1",
+      "description": "顶部大标题：新疆北疆滑雪场分布图，黑体字，置于粉色横幅中"
+    }
+  ]
+}

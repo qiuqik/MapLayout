@@ -1,0 +1,374 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "line",
+                "title": "上海一日游路线",
+                "index": 0,
+                "width": 4,
+                "category": "walk+metro",
+                "desc": "人民广场→南京东路步行街→外滩→豫园→陆家嘴中心绿地；总门票约¥40，适合300元预算",
+                "address": null,
+                "openTime": null,
+                "ticketPrice": null,
+                "rating": null,
+                "tags": null,
+                "chartData": null
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        121.4758,
+                        31.2286
+                    ],
+                    [
+                        121.4782,
+                        31.2356
+                    ],
+                    [
+                        121.4907,
+                        31.2354
+                    ],
+                    [
+                        121.4929,
+                        31.2275
+                    ],
+                    [
+                        121.5015,
+                        31.2392
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "上海博物馆（人民广场）",
+                "index": 1,
+                "width": null,
+                "category": "museum",
+                "desc": "中国古代艺术精品集中地，建议先行预约入馆，早到避开人潮。",
+                "address": "上海市黄浦区人民大道201号",
+                "openTime": "10:00-18:00（周一闭馆）",
+                "ticketPrice": "免费（需预约）",
+                "rating": 4.7,
+                "tags": [
+                    "历史",
+                    "艺术",
+                    "免费",
+                    "热门",
+                    "市中心"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "馆内人流与建议游览时段",
+                    "xAxis": [
+                        "10:00",
+                        "11:00",
+                        "12:00",
+                        "13:00",
+                        "14:00",
+                        "15:00",
+                        "16:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "人流指数(0-10)",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                6,
+                                7,
+                                8,
+                                7,
+                                6,
+                                5,
+                                4
+                            ]
+                        },
+                        {
+                            "title": "建议停留时间(分钟)",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                90,
+                                0,
+                                0,
+                                60,
+                                0,
+                                0,
+                                30
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    121.467193,
+                    31.218929
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    121.4758,
+                    31.2286
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "南京东路步行街",
+                "index": 2,
+                "width": null,
+                "category": "shopping",
+                "desc": "上海最繁华的商业街，适合漫步、购物与街拍。",
+                "address": "上海市黄浦区南京东路（步行街）",
+                "openTime": "步行街全天开放；商铺约10:00-22:00",
+                "ticketPrice": "免费",
+                "rating": 4.4,
+                "tags": [
+                    "购物",
+                    "美食",
+                    "夜景",
+                    "免费",
+                    "步行街"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "全天客流趋势",
+                    "xAxis": [
+                        "10:00",
+                        "12:00",
+                        "14:00",
+                        "16:00",
+                        "18:00",
+                        "20:00",
+                        "22:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "客流指数",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                5,
+                                6,
+                                6,
+                                7,
+                                8,
+                                9,
+                                8
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    121.466129,
+                    31.239513
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    121.4782,
+                    31.2356
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "外滩",
+                "index": 3,
+                "width": null,
+                "category": "scenic",
+                "desc": "观赏万国建筑与浦东天际线的最佳城市露台，夜景尤佳。",
+                "address": "上海市黄浦区中山东一路（外滩）",
+                "openTime": "24小时开放",
+                "ticketPrice": "免费",
+                "rating": 4.8,
+                "tags": [
+                    "江景",
+                    "夜景",
+                    "建筑",
+                    "免费",
+                    "地标"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "游玩偏好占比",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "夜景拍照",
+                            "value": 40,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "江边散步",
+                            "value": 30,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "建筑观赏",
+                            "value": 20,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "观光隧道/轮渡",
+                            "value": 10,
+                            "data": null
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    121.476307,
+                    31.239478
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    121.4907,
+                    31.2354
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "豫园",
+                "index": 4,
+                "width": null,
+                "category": "garden",
+                "desc": "江南古典园林代表，九曲桥、鱼戏、亭台楼阁相映成趣。",
+                "address": "上海市黄浦区安仁街132号",
+                "openTime": "08:45-16:45（节假日略有调整）",
+                "ticketPrice": "¥40",
+                "rating": 4.6,
+                "tags": [
+                    "园林",
+                    "历史",
+                    "摄影",
+                    "古迹"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "各时段排队时间",
+                    "xAxis": [
+                        "09:00",
+                        "10:00",
+                        "11:00",
+                        "12:00",
+                        "13:00",
+                        "14:00",
+                        "15:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "平均排队(分钟)",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                10,
+                                15,
+                                20,
+                                25,
+                                20,
+                                15,
+                                10
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    121.494189,
+                    31.219208
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    121.4929,
+                    31.2275
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "陆家嘴中心绿地",
+                "index": 5,
+                "width": null,
+                "category": "park",
+                "desc": "摩天大楼环抱的城市公园，适合休憩、拍照与欣赏浦东天际线。",
+                "address": "上海市浦东新区陆家嘴环路周边",
+                "openTime": "06:00-22:00",
+                "ticketPrice": "免费",
+                "rating": 4.5,
+                "tags": [
+                    "城市公园",
+                    "天际线",
+                    "免费",
+                    "亲子",
+                    "休闲"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "园内活动偏好",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "拍照打卡",
+                            "value": 35,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "休闲散步",
+                            "value": 40,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "亲子玩耍",
+                            "value": 15,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "跑步锻炼",
+                            "value": 10,
+                            "data": null
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    121.502578,
+                    31.244895
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    121.5015,
+                    31.2392
+                ]
+            }
+        }
+    ]
+}

@@ -1,0 +1,573 @@
+{
+  "_mapping_thought": "参考视觉给了两块区域色块（浅蓝/浅绿）、两种路线样式（黑/红）、节点图标、景点卡片（橙色）与城市名标签（黑字），以及全局标题/标签/文字块。我将用户的“阿勒泰+伊犁5天环线（乌鲁木齐进出、火车为主）”按地理板块主动拆分为两大区域：伊犁-博尔塔拉板块与阿勒泰板块，分别用 area_vis_blue 与 area_vis_green 表达；全程交通动线以黑色粗实线绘制（route_vis_black），并用红色粗实线（route_vis_red）强调“伊宁—果子沟—赛里木湖”的经典观景段。所有关键落脚点与景点用黄色节点（point_vis_node）表示，并为其附加景点卡片（card_vis_spot）与城市标签（label_vis_city）；喀纳斯景区内的“三湾”以木牌插画（point_vis_deco）点缀。全局信息通过 global_header、global_tag、global_text_block 进行预算与玩法概述。两块区域的多边形坐标按规则平铺收录各自所属的景点坐标，下游计算凸包闭合。",
+  "type": "FeatureCollection",
+  "global_properties": [
+    {
+      "title": "5天阿勒泰+伊犁环线（乌鲁木齐进出）",
+      "description": "D1 乌鲁木齐→伊宁→果子沟大桥→赛里木湖→返伊宁；D2 伊宁→那拉提→伊宁夜卧至北屯；D3 北屯→布尔津→贾登峪→喀纳斯（神仙湾/月亮湾/卧龙湾）；D4 禾木→布尔津→五彩滩；D5 北屯/布尔津→乌鲁木齐。火车+班线为主，夜卧衔接节省时间与住宿。",
+      "visual_id": "global_header"
+    },
+    {
+      "title": "交通与预算要点",
+      "description": "人均≈2600-3000元：门票+区间车约700-800元（赛里木湖/那拉提/喀纳斯/禾木/五彩滩），城际交通约900-1100元；住青旅/标间为主；旺淡季班次变化时优先夜卧衔接。",
+      "visual_id": "global_tag"
+    },
+    {
+      "title": "伊犁-博州板块（浅蓝）",
+      "description": "伊宁城/站、果子沟大桥、赛里木湖、那拉提草原。D1：乌鲁木齐→伊宁D字动车约4.5h；伊宁客运站→清水河约1h，清水河→赛里木湖30-40min，环湖区间2-3h；返伊宁市区。D2：伊宁→新源县约2.5h，新源县→那拉提镇约1h，景区区间车游览。",
+      "visual_id": "global_text_block"
+    },
+    {
+      "title": "阿勒泰板块（浅绿）",
+      "description": "北屯市站、布尔津、贾登峪、喀纳斯（三湾）、禾木、五彩滩。D2夜卧伊宁→北屯10-12h；D3 北屯→布尔津约1h，布尔津→贾登峪约2.5h，景区摆渡车；D4 禾木区间1.5-2h，布尔津→五彩滩打车/班车30-40min；D5 北屯/布尔津→乌鲁木齐K字头约10h或白天快车。",
+      "visual_id": "global_text_block"
+    }
+  ],
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            87.528997,
+            43.840272
+          ],
+          [
+            81.277732,
+            43.967034
+          ],
+          [
+            81.153,
+            44.318
+          ],
+          [
+            81.386542,
+            44.617077
+          ],
+          [
+            81.277715,
+            43.908021
+          ],
+          [
+            84.023757,
+            43.239725
+          ],
+          [
+            81.277732,
+            43.967034
+          ],
+          [
+            87.759554,
+            47.323794
+          ],
+          [
+            86.859,
+            47.709
+          ],
+          [
+            86.997,
+            48.644
+          ],
+          [
+            86.982,
+            48.706
+          ],
+          [
+            87.481,
+            48.88
+          ],
+          [
+            86.859,
+            47.709
+          ],
+          [
+            86.846,
+            47.749
+          ],
+          [
+            86.859,
+            47.709
+          ],
+          [
+            87.759554,
+            47.323794
+          ],
+          [
+            87.528997,
+            43.840272
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_vis_black",
+        "name": "5天阿勒泰+伊犁环线主线",
+        "description": "黑色主线：乌鲁木齐→伊宁→果子沟→赛里木湖→伊宁→那拉提→伊宁夜卧→北屯→布尔津→贾登峪→喀纳斯→禾木→布尔津→五彩滩→北屯/布尔津→乌鲁木齐"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            81.277732,
+            43.967034
+          ],
+          [
+            81.153,
+            44.318
+          ],
+          [
+            81.386542,
+            44.617077
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_vis_red",
+        "name": "伊宁—果子沟—赛里木湖观景段",
+        "description": "红色强调路段：D1/D2 经典观景走廊，果子沟大桥至赛里木湖沿线风光。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.528997,
+          43.840272
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_node",
+        "name": "乌鲁木齐站",
+        "description": "默认进出点。去程乘D字动车至伊宁约4.5小时；返程K字头约10小时或白天快车。",
+        "card_coord": [
+          87.45,
+          43.92
+        ],
+        "card_visual_id": "card_vis_spot",
+        "label_coord": [
+          87.598,
+          43.804
+        ],
+        "label_visual_id": "label_vis_city"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          81.277732,
+          43.967034
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_node",
+        "name": "伊宁站",
+        "description": "D1 抵达伊犁门户；D2 晚乘K字头夜卧至北屯（10-12h）。",
+        "card_coord": [
+          81.0,
+          44.2
+        ],
+        "card_visual_id": "card_vis_spot",
+        "label_coord": [
+          81.315,
+          43.905
+        ],
+        "label_visual_id": "label_vis_city"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          81.277715,
+          43.908021
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_node",
+        "name": "伊宁市区",
+        "description": "D1/2 落脚补给；客运站发车至新源县/清水河等。",
+        "card_coord": [
+          81.0,
+          44.2
+        ],
+        "card_visual_id": "card_vis_spot",
+        "label_coord": [
+          81.324,
+          43.916
+        ],
+        "label_visual_id": "label_vis_city"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          81.153,
+          44.318
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_node",
+        "name": "果子沟大桥",
+        "description": "霍城县。伊宁客运站至清水河约1h，继续前往赛里木湖途中可观景打卡。",
+        "card_coord": [
+          81.0,
+          44.2
+        ],
+        "card_visual_id": "card_vis_spot",
+        "label_coord": [
+          81.153,
+          44.318
+        ],
+        "label_visual_id": "label_vis_city"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          81.386542,
+          44.617077
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_node",
+        "name": "赛里木湖",
+        "description": "博尔塔拉州。清水河转车至景区门口30-40min，区间车环湖2-3h，返伊宁休息。",
+        "card_coord": [
+          81.0,
+          44.2
+        ],
+        "card_visual_id": "card_vis_spot",
+        "label_coord": [
+          81.072,
+          44.6
+        ],
+        "label_visual_id": "label_vis_city"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          84.023757,
+          43.239725
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_node",
+        "name": "那拉提草原",
+        "description": "新源县。伊宁→新源县约2.5h，新源县→那拉提镇约1h，景区区间车游览后回伊宁赶夜卧。",
+        "card_coord": [
+          81.0,
+          44.2
+        ],
+        "card_visual_id": "card_vis_spot",
+        "label_coord": [
+          83.269,
+          43.218
+        ],
+        "label_visual_id": "label_vis_city"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.759554,
+          47.323794
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_node",
+        "name": "北屯市站",
+        "description": "阿勒泰地区门户。D2 夜卧抵达（10-12h），衔接前往布尔津。",
+        "card_coord": [
+          87.0,
+          48.0
+        ],
+        "card_visual_id": "card_vis_spot",
+        "label_coord": [
+          87.808,
+          47.356
+        ],
+        "label_visual_id": "label_vis_city"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.859,
+          47.709
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_node",
+        "name": "布尔津县城",
+        "description": "中转与住宿补给地。北屯→布尔津中巴约1h；返程可由此前往北屯坐回乌鲁木齐的列车。",
+        "card_coord": [
+          87.0,
+          48.0
+        ],
+        "card_visual_id": "card_vis_spot",
+        "label_coord": [
+          86.859,
+          47.709
+        ],
+        "label_visual_id": "label_vis_city"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.997,
+          48.644
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_node",
+        "name": "贾登峪",
+        "description": "喀纳斯景区门村。布尔津→贾登峪中巴约2.5h，换乘景区摆渡车进喀纳斯。",
+        "card_coord": [
+          87.0,
+          48.0
+        ],
+        "card_visual_id": "card_vis_spot",
+        "label_coord": [
+          86.997,
+          48.644
+        ],
+        "label_visual_id": "label_vis_city"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.982,
+          48.706
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_node",
+        "name": "喀纳斯湖",
+        "description": "阿勒泰北部核心景区：神仙湾、月亮湾、卧龙湾等，景区摆渡车+徒步。",
+        "card_coord": [
+          87.0,
+          48.0
+        ],
+        "card_visual_id": "card_vis_spot",
+        "label_coord": [
+          86.982,
+          48.706
+        ],
+        "label_visual_id": "label_vis_city"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.481,
+          48.88
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_node",
+        "name": "禾木村",
+        "description": "贾登峪→禾木景区区间车约1.5-2h，日出与村落徒步后返布尔津。",
+        "card_coord": [
+          87.0,
+          48.0
+        ],
+        "card_visual_id": "card_vis_spot",
+        "label_coord": [
+          87.481,
+          48.88
+        ],
+        "label_visual_id": "label_vis_city"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.846,
+          47.749
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_node",
+        "name": "五彩滩",
+        "description": "布尔津西北方向，打车/班车30-40min，日落拍摄位。",
+        "card_coord": [
+          87.0,
+          48.0
+        ],
+        "card_visual_id": "card_vis_spot",
+        "label_coord": [
+          86.846,
+          47.749
+        ],
+        "label_visual_id": "label_vis_city"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.97,
+          48.72
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_deco",
+        "name": "神仙湾（装饰）",
+        "description": "喀纳斯景区内三湾之一的装饰性标注。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.729425,
+          39.834375
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_deco",
+        "name": "月亮湾（装饰）",
+        "description": "喀纳斯景区内三湾之一的装饰性标注。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.98,
+          48.71
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_deco",
+        "name": "卧龙湾（装饰）",
+        "description": "喀纳斯景区内三湾之一的装饰性标注。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              81.15201684979196,
+              44.31818279953069
+            ],
+            [
+              81.27702817681676,
+              43.90729417545793
+            ],
+            [
+              84.02358659889795,
+              43.23873962521627
+            ],
+            [
+              116.73040469879717,
+              39.8341745248972
+            ],
+            [
+              87.4809982482614,
+              48.880999998465704
+            ],
+            [
+              86.96954837713318,
+              48.720892208936384
+            ],
+            [
+              81.38584530834193,
+              44.6177943707086
+            ],
+            [
+              81.15201684979196,
+              44.31818279953069
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "area_vis_blue",
+        "name": "伊犁-博尔塔拉区域",
+        "description": "包含：伊宁城/站、果子沟大桥、赛里木湖、那拉提草原。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              81.15201684979196,
+              44.31818279953069
+            ],
+            [
+              81.27702817681676,
+              43.90729417545793
+            ],
+            [
+              84.02358659889795,
+              43.23873962521627
+            ],
+            [
+              116.73040469879717,
+              39.8341745248972
+            ],
+            [
+              87.4809982482614,
+              48.880999998465704
+            ],
+            [
+              86.96954837713318,
+              48.720892208936384
+            ],
+            [
+              81.38584530834193,
+              44.6177943707086
+            ],
+            [
+              81.15201684979196,
+              44.31818279953069
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "area_vis_green",
+        "name": "阿勒泰区域",
+        "description": "包含：北屯市站、布尔津、贾登峪、喀纳斯、禾木、五彩滩。"
+      }
+    }
+  ]
+}

@@ -1,0 +1,780 @@
+{
+  "type": "FeatureCollection",
+  "global_properties": {
+    "title": "两天走完北京中轴线精华与长城云海：天安门—故宫—慕田峪",
+    "description": "以中轴线为骨架，第一天深度走“天安门广场—故宫—景山—北海—王府井/前门”，第二天轻装出城登临“慕田峪长城”。线路顺路、省时，兼顾取景视野、历史脉络与美食体验，整体花费控制在2000元以内。",
+    "visual_id": "decorator_main_title"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "poi_01",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.397755,
+          39.903182
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_9",
+        "name": "天安门广场（升旗区）",
+        "description": "建议提前预约，按安检指引入场观看升旗。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_02",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.397691,
+          39.904632
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_5",
+        "name": "人民英雄纪念碑",
+        "description": "广场中央地标，可在升旗后短游打卡。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_03",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.393823,
+          39.905024
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_1",
+        "name": "人民大会堂（外观）",
+        "description": "天安门广场西侧外观拍照点。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_04",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.401304,
+          39.905374
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_2",
+        "name": "中国国家博物馆（预约入馆可选）",
+        "description": "天安门广场东侧，作为故宫约满备选线路之一。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_05",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.397,
+          39.916
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_3",
+        "name": "故宫博物院·午门（南门入口）",
+        "description": "实名预约入场，建议选择早场时段。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_06",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.397,
+          39.918
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_7",
+        "name": "太和殿（外朝核心）",
+        "description": "中轴线外朝三大殿之一，拍摄视角佳。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_07",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.396919,
+          39.920238
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_6",
+        "name": "乾清宫（内廷中轴）",
+        "description": "内廷核心建筑，建议按中轴顺序参观。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_08",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.702646,
+          39.083728
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_8",
+        "name": "御花园",
+        "description": "北端园林空间，接神武门出景山最顺。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_09",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.395646,
+          39.923251
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_4",
+        "name": "神武门（北门出口）",
+        "description": "出门即景山南门，便于疏散避峰。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_10",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.397,
+          39.925
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_10",
+        "name": "景山公园·南门",
+        "description": "故宫北门对面，过街即达。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_11",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.3977,
+          39.929
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_12",
+        "name": "景山·万春亭",
+        "description": "俯瞰故宫全景最佳点，位于中轴线北端。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_12",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.394,
+          39.923
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_10",
+        "name": "北海公园·南门",
+        "description": "景山以西约600米，建议从南门入。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_13",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.389,
+          39.928
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_2",
+        "name": "北海公园·琼华岛白塔",
+        "description": "北海核心景观点，可乘船（季节性）。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_14",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.414,
+          39.915
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_9",
+        "name": "王府井大街",
+        "description": "晚间方案A：逛街与美食集中区。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_15",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.404,
+          39.9
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_9",
+        "name": "前门大街—大栅栏",
+        "description": "晚间方案B：老字号密集，夜景氛围佳。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_16",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.435863,
+          39.941903
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_16",
+        "name": "东直门交通枢纽",
+        "description": "乘坐916快至怀柔北大街的换乘起点。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_17",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.634006,
+          40.336215
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_13",
+        "name": "怀柔北大街站（916快）",
+        "description": "公共交通方案换乘H23/H24/H35或打车至景区。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_18",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.565052,
+          40.431668
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_14",
+        "name": "慕田峪长城游客中心",
+        "description": "购票、乘摆渡车上山的起点。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_19",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.565,
+          40.436
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_15",
+        "name": "慕田峪索道/滑道下站",
+        "description": "摆渡车到达后换乘缆车或滑道。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_20",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.573,
+          40.445
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_3",
+        "name": "慕田峪长城·20号楼观景点",
+        "description": "推荐步行段视野极佳，回望山脊层叠。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_21",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.497,
+          39.984
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_11",
+        "name": "798艺术区",
+        "description": "返程可选短游，画廊与咖啡馆集中。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "poi_22",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.396,
+          39.992
+        ]
+      },
+      "properties": {
+        "element_type": "point",
+        "visual_id": "point_marker_12",
+        "name": "奥林匹克公园（鸟巢/水立方外观）",
+        "description": "返程可选短游，拍照打卡。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "area_01",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              116.4037,
+              39.9087
+            ],
+            [
+              116.4042,
+              39.9056
+            ],
+            [
+              116.391,
+              39.905
+            ],
+            [
+              116.407,
+              39.905
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "area",
+        "visual_id": "area_desert",
+        "name": "天安门广场区域",
+        "description": "包含升旗区、人民英雄纪念碑及广场两侧地标（外观）。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "area_02",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              116.397,
+              39.916
+            ],
+            [
+              116.397,
+              39.918
+            ],
+            [
+              116.397,
+              39.92
+            ],
+            [
+              116.397,
+              39.922
+            ],
+            [
+              116.397,
+              39.924
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "area",
+        "visual_id": "area_mountain",
+        "name": "故宫博物院（核心中轴游线）",
+        "description": "午门—太和殿—乾清宫—御花园—神武门。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "area_03",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              116.397,
+              39.925
+            ],
+            [
+              116.3977,
+              39.929
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "area",
+        "visual_id": "area_mountain",
+        "name": "景山公园",
+        "description": "南门至万春亭登高取景区域。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "area_04",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              116.394,
+              39.923
+            ],
+            [
+              116.389,
+              39.928
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "area",
+        "visual_id": "area_lake",
+        "name": "北海公园",
+        "description": "南门—琼华岛白塔一带湖景区域。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "area_05",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              116.559,
+              40.437
+            ],
+            [
+              116.565,
+              40.436
+            ],
+            [
+              116.573,
+              40.445
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "area",
+        "visual_id": "area_mountain",
+        "name": "慕田峪长城景区",
+        "description": "游客中心—索道下站—14至20号楼段观景范围。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "route_01",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.4037,
+            39.9087
+          ],
+          [
+            116.397,
+            39.916
+          ],
+          [
+            116.397,
+            39.918
+          ],
+          [
+            116.397,
+            39.92
+          ],
+          [
+            116.397,
+            39.922
+          ],
+          [
+            116.397,
+            39.924
+          ],
+          [
+            116.397,
+            39.925
+          ],
+          [
+            116.3977,
+            39.929
+          ],
+          [
+            116.394,
+            39.923
+          ],
+          [
+            116.389,
+            39.928
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "route",
+        "visual_id": "route_main",
+        "name": "D1 中轴线主线",
+        "description": "天安门—故宫—景山—北海顺行路线。"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "route_02",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.389,
+            39.928
+          ],
+          [
+            116.414,
+            39.915
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "route",
+        "visual_id": "route_alternative",
+        "name": "D1 晚间方案A",
+        "description": "北海白塔 → 王府井大街"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "route_03",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.389,
+            39.928
+          ],
+          [
+            116.404,
+            39.9
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "route",
+        "visual_id": "route_alternative",
+        "name": "D1 晚间方案B",
+        "description": "北海白塔 → 前门大街—大栅栏"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "route_04",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.434,
+            39.941
+          ],
+          [
+            116.638,
+            40.328
+          ],
+          [
+            116.559,
+            40.437
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "route",
+        "visual_id": "route_main",
+        "name": "D2 公共交通去程",
+        "description": "东直门交通枢纽 → 怀柔北大街 → 慕田峪游客中心"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "route_05",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.559,
+            40.437
+          ],
+          [
+            116.565,
+            40.436
+          ],
+          [
+            116.573,
+            40.445
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "route",
+        "visual_id": "route_main",
+        "name": "D2 景区内动线",
+        "description": "游客中心 → 索道下站 → 20号楼观景点"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "route_06",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.559,
+            40.437
+          ],
+          [
+            116.497,
+            39.984
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "route",
+        "visual_id": "route_alternative",
+        "name": "D2 返程可选：798艺术区",
+        "description": "慕田峪游客中心 → 798艺术区"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "route_07",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.559,
+            40.437
+          ],
+          [
+            116.396,
+            39.992
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "route",
+        "visual_id": "route_alternative",
+        "name": "D2 返程可选：奥林匹克公园",
+        "description": "慕田峪游客中心 → 奥林匹克公园"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "route_08",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.434,
+            39.941
+          ],
+          [
+            116.559,
+            40.437
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "route",
+        "visual_id": "route_alternative",
+        "name": "D2 直通车/跟团去程（示意）",
+        "description": "东直门集合点 → 慕田峪游客中心"
+      }
+    },
+    {
+      "type": "Feature",
+      "id": "route_09",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            116.414,
+            39.915
+          ],
+          [
+            116.559,
+            40.437
+          ]
+        ]
+      },
+      "properties": {
+        "element_type": "route",
+        "visual_id": "route_alternative",
+        "name": "D2 网约车/包车去程（示意）",
+        "description": "王府井一带 → 慕田峪游客中心"
+      }
+    }
+  ]
+}

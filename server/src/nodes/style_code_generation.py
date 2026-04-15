@@ -1,6 +1,38 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from ..utils.agent_utils import AgentState, _escape_prompt_braces, _extract_first_json_object, _robust_json_loads
+import re
+
+
+def clean_transform_from_html(style_code: dict) -> dict:
+    """
+    清洗 stylejson 中 Card 和 Label 的 template HTML 中的 transform 样式
+    保留 Global 元素中的 transform（因为 Global 需要绝对定位）
+    """
+    if not isinstance(style_code, dict):
+        return style_code
+    
+    # 需要清洗的元素类型（Card 和 Label）
+    elements_to_clean = ['Card', 'Label']
+    
+    for element_type in elements_to_clean:
+        if element_type not in style_code:
+            continue
+        
+        for item in style_code[element_type]:
+            if 'template' not in item:
+                continue
+            
+            # 移除 transform 样式（包括 transform 和 -webkit-transform 等前缀）
+            # 匹配 transform: xxx; 或 transform: xxx (最后一项无分号)
+            cleaned_template = re.sub(
+                r'\s*(?:-webkit-|-moz-|-ms-|-o-)?transform\s*:\s*[^;]+;?',
+                '',
+                item['template']
+            )
+            item['template'] = cleaned_template
+    
+    return style_code
 
 
 class StyleCodeGenerationNode:
@@ -160,6 +192,8 @@ class StyleCodeGenerationNode:
                     style_code = _robust_json_loads(json_str)
                 
                 state.style_code = style_code
+                # 清洗 Card 和 Label 中的 transform 样式
+                state.style_code = clean_transform_from_html(state.style_code)
                 print(f"✅ [Node 4] Style Code 生成完成")
                 print(f"   生成的样式类别: {list(style_code.keys())}")
             else:

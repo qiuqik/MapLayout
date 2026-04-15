@@ -1,0 +1,99 @@
+{
+  "_used_visual_ids": [
+    "basemap_illustration",
+    "point_vis_1",
+    "point_vis_2",
+    "point_vis_5",
+    "point_vis_6",
+    "area_vis_1",
+    "area_vis_3",
+    "label_vis_1",
+    "label_vis_2",
+    "label_vis_3",
+    "card_vis_1",
+    "edge_vis_1",
+    "global_vis_1",
+    "global_vis_2"
+  ],
+  "BaseMap": [
+    {
+      "visual_id": "basemap_illustration",
+      "type": "blank",
+      "iconSvg": "<svg width=\"100%\" height=\"100%\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"100%\" height=\"100%\" fill=\"url(#grad-bg)\"/><defs><linearGradient id=\"grad-bg\" x1=\"0%\" y1=\"0%\" x2=\"0%\" y2=\"100%\"><stop offset=\"0%\" stop-color=\"#b8e7f2\"/><stop offset=\"100%\" stop-color=\"#fff9d8\"/></linearGradient></defs></svg>"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_vis_1",
+      "iconSvg": "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z\" fill=\"#e63946\" stroke=\"#f4a261\" stroke-width=\"1\"/><path d=\"M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z\" fill=\"#f4a261\" opacity=\"0.8\"/><path d=\"M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z\" fill=\"#f4a261\" opacity=\"0.8\"/><path d=\"M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z\" fill=\"#f4a261\" opacity=\"0.8\"/></svg>"
+    },
+    {
+      "visual_id": "point_vis_2",
+      "iconSvg": "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M12 2L15 8L18 9L15 14L16 20L12 18L8 20L9 14L6 9L9 8L12 2Z\" fill=\"#2a9d8f\" stroke=\"#1c493b\" stroke-width=\"1\"/><path d=\"M12 2L15 8L18 9L15 14L16 20L12 18L8 20L9 14L6 9L9 8L12 2Z\" fill=\"#1c493b\" opacity=\"0.6\"/></svg>"
+    },
+    {
+      "visual_id": "point_vis_5",
+      "iconSvg": "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><path d=\"M12 2L15 8L18 9L15 14L16 20L12 18L8 20L9 14L6 9L9 8L12 2Z\" fill=\"#6b7280\" stroke=\"#4b5563\" stroke-width=\"1\"/><path d=\"M12 2L15 8L18 9L15 14L16 20L12 18L8 20L9 14L6 9L9 8L12 2Z\" fill=\"#4b5563\" opacity=\"0.8\"/></svg>"
+    },
+    {
+      "visual_id": "point_vis_6",
+      "iconSvg": "<svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" xmlns=\"http://www.w3.org/2000/svg\"><circle cx=\"12\" cy=\"12\" r=\"8\" fill=\"#8bc34a\" stroke=\"#558b2f\" stroke-width=\"1\"/><circle cx=\"12\" cy=\"12\" r=\"4\" fill=\"#ffffff\"/><path d=\"M10 8L10 10L14 10L14 8L10 8Z\" fill=\"#558b2f\"/></svg>"
+    }
+  ],
+  "Area": [
+    {
+      "visual_id": "area_vis_1",
+      "backgroundColor": "#f9f4e8",
+      "borderColor": "#d4af37",
+      "borderWidth": 1,
+      "opacity": 0.7
+    },
+    {
+      "visual_id": "area_vis_3",
+      "backgroundColor": "#e6f7ff",
+      "borderColor": "#0080ff",
+      "borderWidth": 1,
+      "opacity": 0.6
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_vis_1",
+      "template": "<div style=\"background-color: #ffe4b5; border-radius: 8px; padding: 12px; font-size: 14px; color: #000; box-shadow: 0 2px 6px rgba(0,0,0,0.1);\">{properties.name}</div>"
+    },
+    {
+      "visual_id": "label_vis_2",
+      "template": "<div style=\"background-color: #e0f7ff; border-radius: 8px; padding: 12px; font-size: 14px; color: #000; box-shadow: 0 2px 6px rgba(0,0,0,0.1);\">{properties.name}</div>"
+    },
+    {
+      "visual_id": "label_vis_3",
+      "template": "<div style=\"background-color: #e8f5e8; border-radius: 8px; padding: 12px; font-size: 14px; color: #000; box-shadow: 0 2px 6px rgba(0,0,0,0.1);\">{properties.name}</div>"
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_vis_1",
+      "template": "<div style=\"background-color: white; border-radius: 12px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-size: 14px; color: #333; line-height: 1.6; max-width: 200px;\">{properties.card_title}<br>{properties.card_details}</div>"
+    }
+  ],
+  "Edge": [
+    {
+      "visual_id": "edge_vis_1",
+      "color": "#000",
+      "width": 1.5,
+      "style": "straightLine",
+      "type": "straight",
+      "arrowhead": true
+    }
+  ],
+  "Global": [
+    {
+      "visual_id": "global_vis_1",
+      "template": "<div style=\"position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 36px; font-weight: bold; color: #006450; text-align: center; z-index: 100;\">{global_properties[0].title}</div>"
+    },
+    {
+      "visual_id": "global_vis_2",
+      "template": "<div style=\"position: absolute; bottom: 20px; right: 20px; font-size: 14px; color: #888; z-index: 100;\">{global_properties[1].title}</div>"
+    }
+  ]
+}

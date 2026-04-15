@@ -1,0 +1,637 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "line",
+                "title": "北京三日游线路（经济实惠双人行）",
+                "index": 0,
+                "width": 4,
+                "category": "行程线路",
+                "desc": "D1：天安门广场→故宫→景山→北海→什刹海；D2：天坛→前门大栅栏→798艺术区；D3：颐和园→奥林匹克公园。以地铁/公交为主，优先选择免费或低票价景点，双人三日门票合计约¥250-300。",
+                "address": null,
+                "openTime": null,
+                "ticketPrice": null,
+                "rating": null,
+                "tags": [
+                    "三日游",
+                    "经济实惠",
+                    "公共交通优先"
+                ],
+                "chartData": null
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        116.397755,
+                        39.903182
+                    ],
+                    [
+                        116.397029,
+                        39.917839
+                    ],
+                    [
+                        116.396715,
+                        39.924863
+                    ],
+                    [
+                        116.387,
+                        39.924
+                    ],
+                    [
+                        116.389,
+                        39.938
+                    ],
+                    [
+                        116.413,
+                        39.882
+                    ],
+                    [
+                        116.397,
+                        39.899
+                    ],
+                    [
+                        116.496361,
+                        39.985127
+                    ],
+                    [
+                        116.281197,
+                        39.998063
+                    ],
+                    [
+                        116.393096,
+                        40.009926
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "天安门广场",
+                "index": 1,
+                "width": null,
+                "category": "广场",
+                "desc": "北京地标与中轴线起点，清晨可看升旗，夜景氛围佳，适合合影留念。",
+                "address": "北京市东城区东长安街",
+                "openTime": "05:00-22:00（升旗仪式按日出时刻）",
+                "ticketPrice": "免费",
+                "rating": 4.7,
+                "tags": [
+                    "地标",
+                    "升旗",
+                    "夜景",
+                    "中轴线"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "游客活动分布",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "拍照",
+                            "value": 45.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "观看升旗",
+                            "value": 15.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "散步",
+                            "value": 30.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "其他",
+                            "value": 10.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    116.397755,
+                    39.903182
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "故宫博物院（午门）",
+                "index": 2,
+                "width": null,
+                "category": "博物馆",
+                "desc": "世界文化遗产，推荐午门入、神武门出，预留3-4小时深入参观。",
+                "address": "北京市东城区景山前街4号",
+                "openTime": "08:30-17:00（周一闭馆，法定节假日除外）",
+                "ticketPrice": "¥60（旺季参考）",
+                "rating": 4.9,
+                "tags": [
+                    "世界文化遗产",
+                    "宫殿建筑",
+                    "文物",
+                    "必游"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "时段客流指数",
+                    "xAxis": [
+                        "8:30",
+                        "9:30",
+                        "10:30",
+                        "11:30",
+                        "12:30",
+                        "13:30",
+                        "14:30",
+                        "15:30"
+                    ],
+                    "series": [
+                        {
+                            "title": "客流指数",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                20.0,
+                                50.0,
+                                85.0,
+                                90.0,
+                                75.0,
+                                65.0,
+                                60.0,
+                                45.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    116.397029,
+                    39.917839
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "景山公园（万春亭）",
+                "index": 3,
+                "width": null,
+                "category": "公园",
+                "desc": "登高瞰览故宫全景的最佳位置，日落时分观景效果极佳。",
+                "address": "北京市西城区景山西街",
+                "openTime": "06:00-21:00（季节调整）",
+                "ticketPrice": "¥2",
+                "rating": 4.6,
+                "tags": [
+                    "登高",
+                    "全景",
+                    "摄影",
+                    "古典园林"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "观景人流曲线（小时）",
+                    "xAxis": [
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                        "13",
+                        "14",
+                        "15",
+                        "16",
+                        "17",
+                        "18"
+                    ],
+                    "series": [
+                        {
+                            "title": "人流指数",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                10.0,
+                                20.0,
+                                35.0,
+                                40.0,
+                                45.0,
+                                50.0,
+                                48.0,
+                                46.0,
+                                44.0,
+                                42.0,
+                                38.0,
+                                30.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    116.396715,
+                    39.924863
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "北海公园（南门）",
+                "index": 4,
+                "width": null,
+                "category": "公园",
+                "desc": "老北京皇家园林，白塔与湖区是经典景致，可租船游湖。",
+                "address": "北京市西城区文津街1号",
+                "openTime": "06:30-21:00（园区）",
+                "ticketPrice": "¥5（旺季参考）",
+                "rating": 4.5,
+                "tags": [
+                    "湖景",
+                    "古建",
+                    "划船",
+                    "休闲散步"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "季节景致推荐指数",
+                    "xAxis": [
+                        "春",
+                        "夏",
+                        "秋",
+                        "冬"
+                    ],
+                    "series": [
+                        {
+                            "title": "景致指数",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                80.0,
+                                85.0,
+                                90.0,
+                                60.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    116.387,
+                    39.924
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "什刹海·银锭桥",
+                "index": 5,
+                "width": null,
+                "category": "湖区/街区",
+                "desc": "胡同与水系相映，可漫步至烟袋斜街，夜景与小吃丰富。",
+                "address": "北京市西城区什刹海银锭桥",
+                "openTime": "全天",
+                "ticketPrice": "免费",
+                "rating": 4.4,
+                "tags": [
+                    "胡同",
+                    "酒吧",
+                    "小吃",
+                    "夜景"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "游客时段偏好",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "白天",
+                            "value": 60.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "夜间",
+                            "value": 40.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    116.389,
+                    39.938
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "天坛公园（祈年殿）",
+                "index": 6,
+                "width": null,
+                "category": "公园/古建",
+                "desc": "古代祭天场所，轴线对称与回音壁等体验有趣，晨练氛围浓郁。",
+                "address": "北京市东城区天坛东里中街",
+                "openTime": "06:00-22:00（园区）；08:00-17:00（主要殿宇）",
+                "ticketPrice": "¥30（联票参考）",
+                "rating": 4.7,
+                "tags": [
+                    "祭祀文化",
+                    "古建筑",
+                    "晨练",
+                    "世界文化遗产"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "小时客流指数",
+                    "xAxis": [
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                        "13",
+                        "14",
+                        "15"
+                    ],
+                    "series": [
+                        {
+                            "title": "客流指数",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                30.0,
+                                55.0,
+                                70.0,
+                                65.0,
+                                60.0,
+                                58.0,
+                                50.0,
+                                45.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    116.413,
+                    39.882
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "前门大街/大栅栏",
+                "index": 7,
+                "width": null,
+                "category": "历史街区",
+                "desc": "老字号云集的传统商业街，品尝北京小吃的好地方。",
+                "address": "北京市西城区大栅栏街",
+                "openTime": "10:00-22:00（商铺时间不一）",
+                "ticketPrice": "免费",
+                "rating": 4.3,
+                "tags": [
+                    "老字号",
+                    "小吃",
+                    "商业街",
+                    "打卡"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "消费类型占比",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "小吃",
+                            "value": 35.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "购物",
+                            "value": 40.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "拍照打卡",
+                            "value": 15.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "其他",
+                            "value": 10.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    116.397,
+                    39.899
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "798艺术区",
+                "index": 8,
+                "width": null,
+                "category": "艺术区",
+                "desc": "由老工厂改造的艺术社区，画廊/展览/文创店集中，适合漫游拍照。",
+                "address": "北京市朝阳区酒仙桥路4号798艺术区",
+                "openTime": "10:00-18:00（各馆不同）",
+                "ticketPrice": "免费（部分展馆收费）",
+                "rating": 4.5,
+                "tags": [
+                    "艺术",
+                    "工业风",
+                    "画廊",
+                    "文创"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "区内业态比例",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "画廊/展馆",
+                            "value": 40.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "设计/文创店",
+                            "value": 25.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "餐饮咖啡",
+                            "value": 20.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "临时展/活动",
+                            "value": 15.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    116.496361,
+                    39.985127
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "颐和园（东宫门）",
+                "index": 9,
+                "width": null,
+                "category": "皇家园林",
+                "desc": "中国现存规模最大、保存最完整的皇家园林，昆明湖与万寿山最具代表。",
+                "address": "北京市海淀区新建宫门路19号",
+                "openTime": "06:30-18:00（旺季园区）",
+                "ticketPrice": "¥30（旺季园区票）",
+                "rating": 4.8,
+                "tags": [
+                    "皇家园林",
+                    "湖山风光",
+                    "长廊",
+                    "世界文化遗产"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "步行线路距离（km）",
+                    "xAxis": [
+                        "东宫门-仁寿殿",
+                        "仁寿殿-佛香阁",
+                        "佛香阁-苏州街",
+                        "昆明湖西堤"
+                    ],
+                    "series": [
+                        {
+                            "title": "步行距离(km)",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                0.8,
+                                1.2,
+                                1.0,
+                                1.5
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    116.281197,
+                    39.998063
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "奥林匹克森林公园（南门）",
+                "index": 10,
+                "width": null,
+                "category": "城市公园",
+                "desc": "北京城市绿肺，适合跑步骑行，鸟巢/水立方外景近在咫尺。",
+                "address": "北京市朝阳区科荟路与北辰东路交汇处南门",
+                "openTime": "全天",
+                "ticketPrice": "免费",
+                "rating": 4.4,
+                "tags": [
+                    "休闲",
+                    "跑步",
+                    "地标",
+                    "亲子"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "跑步人流时段",
+                    "xAxis": [
+                        "6:00",
+                        "7:00",
+                        "8:00",
+                        "18:00",
+                        "19:00",
+                        "20:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "人流指数",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                50.0,
+                                60.0,
+                                40.0,
+                                70.0,
+                                80.0,
+                                65.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    116.393096,
+                    40.009926
+                ]
+            }
+        }
+    ]
+}

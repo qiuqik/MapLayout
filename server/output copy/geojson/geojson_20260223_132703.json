@@ -1,0 +1,310 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "上海博物馆（人民广场）",
+                "index": 1,
+                "width": null,
+                "category": "museum",
+                "desc": "建议09:00入馆，参观约2-2.5小时。需提前在官网/微信预约免费票；热门展厅建议租用语音导览或参加定时讲解。出馆后可步行或乘地铁前往下一站。",
+                "address": "上海市黄浦区人民大道201号",
+                "openTime": "09:00-17:00（16:00停止入馆）；周一闭馆",
+                "ticketPrice": "免费（需预约）",
+                "rating": 4.7,
+                "tags": [
+                    "历史",
+                    "中国古代艺术",
+                    "免费",
+                    "需预约",
+                    "家庭友好",
+                    "摄影",
+                    "周一闭馆",
+                    "市中心"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "热门馆藏占比",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "青铜器",
+                            "value": 25,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "陶瓷",
+                            "value": 20,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "书法",
+                            "value": 20,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "绘画",
+                            "value": 15,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "玉器",
+                            "value": 10,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "少数民族艺术",
+                            "value": 10,
+                            "data": null
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    121.431531,
+                    31.205399
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    121.475497,
+                    31.228234
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "上海自然博物馆（静安雕塑公园内）",
+                "index": 2,
+                "width": null,
+                "category": "museum",
+                "desc": "建议11:30-14:00参观，馆内餐饮与休息区较多。地铁13号线「自然博物馆」站直达，成人票约¥30。适合亲子与科普爱好者。",
+                "address": "上海市静安区北京西路510号（静安雕塑公园内）",
+                "openTime": "09:00-17:15（16:30停止入馆）；周一闭馆",
+                "ticketPrice": "¥30",
+                "rating": 4.6,
+                "tags": [
+                    "自然科学",
+                    "亲子",
+                    "互动展项",
+                    "科普",
+                    "周一闭馆",
+                    "地铁直达"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "各时段客流量（人次）",
+                    "xAxis": [
+                        "10:00",
+                        "11:00",
+                        "12:00",
+                        "13:00",
+                        "14:00",
+                        "15:00",
+                        "16:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "游客量",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                320,
+                                520,
+                                680,
+                                720,
+                                610,
+                                500,
+                                340
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    121.416598,
+                    31.229656
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    121.462672,
+                    31.235021
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "上海当代艺术博物馆（Power Station of Art）",
+                "index": 3,
+                "width": null,
+                "category": "museum",
+                "desc": "建议15:00-16:30参观。地铁13号线「世博会博物馆」站步行可达。常设展多为免费，部分特展需购票。屋顶平台视野开阔，适合拍照。",
+                "address": "上海市黄浦区花园港路200号",
+                "openTime": "11:00-19:00（18:00停止入馆）；周一闭馆",
+                "ticketPrice": "免费（部分特展收费）",
+                "rating": 4.5,
+                "tags": [
+                    "当代艺术",
+                    "摄影友好",
+                    "设计",
+                    "建筑改造",
+                    "免费为主",
+                    "周一闭馆"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "各展厅平均停留时间（分钟）",
+                    "xAxis": [
+                        "大展厅",
+                        "影像馆",
+                        "设计馆",
+                        "建筑馆",
+                        "项目空间",
+                        "屋顶平台"
+                    ],
+                    "series": [
+                        {
+                            "title": "停留时间",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                35,
+                                28,
+                                30,
+                                25,
+                                22,
+                                18
+                            ]
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    121.49777,
+                    31.215083
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    121.497779,
+                    31.201667
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "中国艺术宫（原世博中国馆）",
+                "index": 4,
+                "width": null,
+                "category": "museum",
+                "desc": "建议16:45-18:00参观，关注「清明上河图数字展」等常设项目。地铁8号线「中国艺术宫」站直达。晚间闭馆较早，注意最后入馆时间。",
+                "address": "上海市浦东新区上南路205号",
+                "openTime": "10:00-18:00（17:00停止入馆）；周一闭馆",
+                "ticketPrice": "免费（部分特展收费）",
+                "rating": 4.4,
+                "tags": [
+                    "美术馆",
+                    "常设展",
+                    "数字展",
+                    "免费为主",
+                    "地铁直达",
+                    "周一闭馆"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "展览类型占比",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "常设展",
+                            "value": 60,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "特展",
+                            "value": 30,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "互动体验",
+                            "value": 10,
+                            "data": null
+                        }
+                    ]
+                },
+                "cardcoord": [
+                    121.448213,
+                    31.182294
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    121.49474,
+                    31.184338
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "line",
+                "title": "上海一日博物馆路线（预算≤¥100）",
+                "index": null,
+                "width": 4,
+                "category": "route",
+                "desc": "路线：上海博物馆 → 上海自然博物馆 → 上海当代艺术博物馆 → 中国艺术宫。交通建议：步行/地铁13号线（自然博物馆站、世博会博物馆站）接驳，最后换乘地铁8号线至中国艺术宫站。预计门票总支出约¥30（其余均免费），加上地铁交通约¥10-20，整体控制在¥50以内。注意四馆周一闭馆，务必选择非周一出行并提前预约上海博物馆。",
+                "address": null,
+                "openTime": null,
+                "ticketPrice": null,
+                "rating": null,
+                "tags": [
+                    "一日游",
+                    "公共交通友好",
+                    "低预算",
+                    "城市文化线路"
+                ],
+                "chartData": null
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        121.475497,
+                        31.228234
+                    ],
+                    [
+                        121.462672,
+                        31.235021
+                    ],
+                    [
+                        121.497779,
+                        31.201667
+                    ],
+                    [
+                        121.49474,
+                        31.184338
+                    ]
+                ]
+            }
+        }
+    ]
+}

@@ -1,0 +1,98 @@
+{
+  "_used_visual_ids": [
+    "basemap_standard",
+    "edge_arrow_red",
+    "edge_arrow_brown",
+    "edge_arrow_pink",
+    "edge_arrow_blue",
+    "area_style_red",
+    "area_style_brown",
+    "area_style_pink",
+    "area_style_blue",
+    "label_num_red",
+    "label_num_brown",
+    "label_num_pink",
+    "label_num_blue"
+  ],
+  "BaseMap": [
+    {
+      "visual_id": "basemap_standard",
+      "type": "standard",
+      "template": "<div style=\"position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 360px; background: rgba(255, 255, 255, 0.95); padding: 16px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-family: sans-serif; z-index: 1000;\"><h1 style=\"margin: 0 0 8px 0; font-size: 18px; color: #333; font-weight: bold; text-align: center;\">{global_properties[0].title}</h1><p style=\"margin: 0; font-size: 13px; color: #666; line-height: 1.5; text-align: justify;\">{global_properties[0].description}</p></div>"
+    }
+  ],
+  "Area": [
+    {
+      "visual_id": "area_style_red",
+      "backgroundColor": "#C0392B15",
+      "borderColor": "#C0392B",
+      "borderWidth": 3,
+      "opacity": 0.9
+    },
+    {
+      "visual_id": "area_style_brown",
+      "backgroundColor": "#D3540015",
+      "borderColor": "#D35400",
+      "borderWidth": 3,
+      "opacity": 0.9
+    },
+    {
+      "visual_id": "area_style_pink",
+      "backgroundColor": "#9B59B615",
+      "borderColor": "#9B59B6",
+      "borderWidth": 3,
+      "opacity": 0.9
+    },
+    {
+      "visual_id": "area_style_blue",
+      "backgroundColor": "#2980B915",
+      "borderColor": "#2980B9",
+      "borderWidth": 3,
+      "opacity": 0.9
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "edge_arrow_red",    
+      "color": "#C0392B",
+      "width": 4,
+      "style": "navigationCurve"
+    },
+    {
+      "visual_id": "edge_arrow_brown",    
+      "color": "#D35400",
+      "width": 4,
+      "style": "navigationCurve"
+    },
+    {
+      "visual_id": "edge_arrow_pink",    
+      "color": "#9B59B6",
+      "width": 4,
+      "style": "navigationCurve"
+    },
+    {
+      "visual_id": "edge_arrow_blue",    
+      "color": "#2980B9",
+      "width": 4,
+      "style": "navigationCurve"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_num_red",    
+      "template": "<div style=\"width: 40px; text-align: center; color: #C0392B; font-family: 'Comic Sans MS', cursive, sans-serif; font-size: 36px; font-weight: bold; text-shadow: 2px 2px 0px #FFFFFF;\">{properties.order}</div>"
+    },
+    {
+      "visual_id": "label_num_brown",       
+      "template": "<div style=\"width: 40px; text-align: center; color: #D35400; font-family: 'Comic Sans MS', cursive, sans-serif; font-size: 36px; font-weight: bold; text-shadow: 2px 2px 0px #FFFFFF;\">{properties.order}</div>"
+    },
+    {
+      "visual_id": "label_num_pink",    
+      "template": "<div style=\"width: 40px; text-align: center; color: #9B59B6; font-family: 'Comic Sans MS', cursive, sans-serif; font-size: 36px; font-weight: bold; text-shadow: 2px 2px 0px #FFFFFF;\">{properties.order}</div>"
+    },
+    {
+      "visual_id": "label_num_blue",    
+      "template": "<div style=\"width: 40px; text-align: center; color: #2980B9; font-family: 'Comic Sans MS', cursive, sans-serif; font-size: 36px; font-weight: bold; text-shadow: 2px 2px 0px #FFFFFF;\">{properties.order}</div>"
+    }
+  ]
+}

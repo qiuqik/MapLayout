@@ -1,0 +1,492 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "line",
+                "title": "重庆2日游路线（预算约1200元）",
+                "index": null,
+                "width": 4,
+                "category": "itinerary",
+                "desc": "D1：解放碑→长江索道→鹅岭公园→朝天门→洪崖洞→佩姐老火锅；D2：李子坝站穿楼轻轨→磁器口古镇→返回解放碑。预算参考：交通约80元、门票/体验约100元（索道+公园）、餐饮约700元（含火锅正餐）、其他约320元（咖啡/小吃/纪念品）。",
+                "address": null,
+                "openTime": null,
+                "ticketPrice": null,
+                "rating": null,
+                "tags": null,
+                "chartData": null
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        106.575,
+                        29.5633
+                    ],
+                    [
+                        106.5797,
+                        29.558
+                    ],
+                    [
+                        106.5403,
+                        29.5518
+                    ],
+                    [
+                        106.5879,
+                        29.5663
+                    ],
+                    [
+                        106.5786,
+                        29.5636
+                    ],
+                    [
+                        106.5745,
+                        29.5569
+                    ],
+                    [
+                        106.5379,
+                        29.5718
+                    ],
+                    [
+                        106.4549,
+                        29.5823
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "解放碑步行街",
+                "index": 1,
+                "width": null,
+                "category": "Day 1",
+                "desc": "重庆城市地标与商业核心，适合上午逛街与品尝小吃；临近较场口与洪崖洞。",
+                "address": "重庆市渝中区解放碑步行街",
+                "openTime": "全天开放，商铺10:00-22:00",
+                "ticketPrice": "免费",
+                "rating": 4.6,
+                "tags": [
+                    "步行街",
+                    "购物",
+                    "美食",
+                    "地标",
+                    "拍照"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "游客活动偏好",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "购物",
+                            "value": 50.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "美食打卡",
+                            "value": 30.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "地标拍照",
+                            "value": 20.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    106.575,
+                    29.5633
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "长江索道（北站）",
+                "index": 2,
+                "width": null,
+                "category": "Day 1",
+                "desc": "横跨长江的城市交通与观景体验，连接渝中与南岸；建议避开晚高峰。",
+                "address": "重庆市渝中区新华路 长江索道北站",
+                "openTime": "08:00-21:30",
+                "ticketPrice": "单程约25元，往返约50元",
+                "rating": 4.7,
+                "tags": [
+                    "索道",
+                    "跨江",
+                    "城市风光",
+                    "体验"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "不同时段平均排队时长(分钟)",
+                    "xAxis": [
+                        "09:00",
+                        "12:00",
+                        "15:00",
+                        "18:00",
+                        "20:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "平均排队时长",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                10.0,
+                                20.0,
+                                25.0,
+                                30.0,
+                                15.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    106.5797,
+                    29.558
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "鹅岭公园",
+                "index": 3,
+                "width": null,
+                "category": "Day 1",
+                "desc": "老牌城市公园与观景点，远眺两江与城市天际线。",
+                "address": "重庆市渝中区鹅岭正街176号",
+                "openTime": "08:00-20:00",
+                "ticketPrice": "门票约5元",
+                "rating": 4.4,
+                "tags": [
+                    "城市公园",
+                    "观景",
+                    "休闲",
+                    "植物"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "各时段游客指数(1-5)",
+                    "xAxis": [
+                        "09:00",
+                        "11:00",
+                        "13:00",
+                        "15:00",
+                        "17:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "游客指数",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                2.0,
+                                3.0,
+                                4.0,
+                                4.0,
+                                3.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    106.5403,
+                    29.5518
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "朝天门广场",
+                "index": 4,
+                "width": null,
+                "category": "Day 1",
+                "desc": "两江汇流地标，傍晚至夜间观景最佳，可选乘坐游船。",
+                "address": "重庆市渝中区朝天门码头广场",
+                "openTime": "全天开放",
+                "ticketPrice": "免费（游船需另付费）",
+                "rating": 4.5,
+                "tags": [
+                    "两江汇流",
+                    "观景",
+                    "夜景",
+                    "游船"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "到访目的占比",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "两江风景",
+                            "value": 40.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "乘坐游船",
+                            "value": 35.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "休闲散步",
+                            "value": 25.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    106.5879,
+                    29.5663
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "洪崖洞民俗风貌区",
+                "index": 5,
+                "width": null,
+                "category": "Day 1",
+                "desc": "层层叠叠的巴渝吊脚楼与灯火夜景；建议晚间到访拍摄夜景与轻轨桥景。",
+                "address": "重庆市渝中区沧白路88号",
+                "openTime": "10:00-22:00（夜景最佳）",
+                "ticketPrice": "免费，部分商铺消费自理",
+                "rating": 4.7,
+                "tags": [
+                    "夜景",
+                    "巴渝建筑",
+                    "美食街",
+                    "拍照"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "最佳到访时段",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "夜间",
+                            "value": 60.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "日落时分",
+                            "value": 25.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "白天",
+                            "value": 15.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    106.5786,
+                    29.5636
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "佩姐老火锅（较场口店）",
+                "index": 6,
+                "width": null,
+                "category": "Day 1",
+                "desc": "本地人也常去的正宗老火锅，红汤麻辣鲜香，建议晚餐排队错峰。",
+                "address": "重庆市渝中区较场口附近（日月光广场）",
+                "openTime": "11:00-23:30",
+                "ticketPrice": "人均约120-180元",
+                "rating": 4.6,
+                "tags": [
+                    "老火锅",
+                    "正宗",
+                    "麻辣",
+                    "排队热门"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "辣度选择占比",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "微辣",
+                            "value": 20.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "中辣",
+                            "value": 35.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "重辣",
+                            "value": 45.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    106.5745,
+                    29.5569
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "李子坝轻轨站（穿楼打卡点）",
+                "index": 7,
+                "width": null,
+                "category": "Day 2",
+                "desc": "热门“轻轨穿楼”拍摄点，可在站外观景平台拍摄，或乘车体验。",
+                "address": "重庆市渝中区嘉陵江滨江路 李子坝站附近",
+                "openTime": "06:00-23:00",
+                "ticketPrice": "免费（乘车按地铁票价2-7元）",
+                "rating": 4.5,
+                "tags": [
+                    "轻轨穿楼",
+                    "城市交通",
+                    "网红打卡",
+                    "拍照"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "15分钟内经过列车数量",
+                    "xAxis": [
+                        "09:00",
+                        "11:00",
+                        "13:00",
+                        "15:00",
+                        "17:00",
+                        "19:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "列车数量",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                4.0,
+                                4.0,
+                                5.0,
+                                5.0,
+                                5.0,
+                                4.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    106.5379,
+                    29.5718
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "磁器口古镇",
+                "index": 8,
+                "width": null,
+                "category": "Day 2",
+                "desc": "古街巷与川渝小吃集中地，适合慢游与品茶；上午到访更清静。",
+                "address": "重庆市沙坪坝区磁器口古镇",
+                "openTime": "09:00-18:00",
+                "ticketPrice": "免费",
+                "rating": 4.6,
+                "tags": [
+                    "古镇",
+                    "美食",
+                    "历史",
+                    "手工艺"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "人气美食偏好",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "陈麻花",
+                            "value": 25.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "豆花/小吃",
+                            "value": 20.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "茶馆",
+                            "value": 30.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "烤串/特色小吃",
+                            "value": 25.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    106.4549,
+                    29.5823
+                ]
+            }
+        }
+    ]
+}

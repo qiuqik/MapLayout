@@ -1,0 +1,35 @@
+{
+  "mapConfig": {
+    "BaseMap": "standard",
+    "backgroundColor": "#f8fafc"
+  },
+  "routes": {
+    "color": "#dc2626",
+    "width": 4,
+    "lineStatus": "NavigationCurve"
+  },
+  "points": {
+    "type": "div-svg",
+    "color": "#ea580c",
+    "svg": "<svg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><circle cx='12' cy='12' r='10' stroke='#ea580c' stroke-width='2'/><circle cx='12' cy='12' r='4' fill='#ea580c'/></svg>"
+  },
+  "connectLine": {
+    "color": "#6b7280",
+    "type": "SmoothCurve",
+    "arrow": "Point2Card"
+  },
+  "card": {
+    "borderColor": "#d1d5db",
+    "backgroundColor": "#ffffff",
+    "textColor": "#1f2937",
+    "title": true,
+    "category": false,
+    "rating": false,
+    "desc": false,
+    "tags": false,
+    "chart": false,
+    "address": false,
+    "openTime": false,
+    "ticketPrice": false
+  }
+}

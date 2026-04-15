@@ -1,0 +1,98 @@
+{
+  "_style_extraction_thought": "观察到地图上的视觉元素被严格分为 4 组色系（红、橙棕、粉紫、深蓝），每组色系代表一个独立的游览区域。每组包含四类一致的 UI 元素：1. 手绘风格的粗线框区域（Area）；2. 区域内的手写数字编号（Label）；3. 白色背景配对应色系文字的地点卡片（Card）；4. 连接卡片指示顺序的对应色系手绘箭头（Edge）。为了准确还原这种色彩编码逻辑，我将针对这 4 种色系分别提取对应的 Area、Card、Edge 和 Label 样式类。",
+  "BaseMap": [
+    {
+      "visual_id": "basemap_standard",
+      "type": "standard",
+      "description": "标准电子地图底图，显示街道网格、绿地、水系（长江/嘉陵江）及底图自带文字标注"
+    }
+  ],
+  "Area": [
+    {
+      "visual_id": "area_style_red",
+      "description": "红色手绘风格粗线条闭合线框，无填充，用于圈定中部游览区域"
+    },
+    {
+      "visual_id": "area_style_brown",
+      "description": "橙棕色手绘风格粗线条闭合线框，无填充，用于圈定右侧沿江长条状区域"
+    },
+    {
+      "visual_id": "area_style_pink",
+      "description": "粉紫色手绘风格粗线条闭合线框，无填充，用于圈定左上角游览区域"
+    },
+    {
+      "visual_id": "area_style_blue",
+      "description": "深蓝色手绘风格粗线条闭合线框，无填充，用于圈定底部游览区域"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_num_red",
+      "description": "红色手写风格大号数字（如'1'），标识区域顺序",
+      "anchored_to": "area_style_red"
+    },
+    {
+      "visual_id": "label_num_brown",
+      "description": "橙棕色手写风格大号数字（如'2'），标识区域顺序",
+      "anchored_to": "area_style_brown"
+    },
+    {
+      "visual_id": "label_num_pink",
+      "description": "粉紫色手写风格大号数字（如'3'），标识区域顺序",
+      "anchored_to": "area_style_pink"
+    },
+    {
+      "visual_id": "label_num_blue",
+      "description": "深蓝色手写风格大号数字（如'4'），标识区域顺序",
+      "anchored_to": "area_style_blue"
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_style_red_text",
+      "description": "白色背景矩形卡片，无边框，内部包含红色文字（景点名称）",
+      "anchored_to": "area_style_red"
+    },
+    {
+      "visual_id": "card_style_brown_text",
+      "description": "白色背景矩形卡片，无边框，内部包含橙棕色文字（景点名称）",
+      "anchored_to": "area_style_brown"
+    },
+    {
+      "visual_id": "card_style_pink_text",
+      "description": "白色背景矩形卡片，无边框，内部包含粉紫色文字（景点名称）",
+      "anchored_to": "area_style_pink"
+    },
+    {
+      "visual_id": "card_style_blue_text",
+      "description": "白色背景矩形卡片，无边框，内部包含深蓝色文字（景点名称）",
+      "anchored_to": "area_style_blue"
+    }
+  ],
+  "Edge": [
+    {
+      "visual_id": "edge_arrow_red",
+      "description": "红色手绘风格短箭头，连接各个卡片以指示游览顺序",
+      "anchored_from": "card_style_red_text",
+      "anchored_to": "card_style_red_text"
+    },
+    {
+      "visual_id": "edge_arrow_brown",
+      "description": "橙棕色手绘风格短箭头，连接各个卡片以指示游览顺序",
+      "anchored_from": "card_style_brown_text",
+      "anchored_to": "card_style_brown_text"
+    },
+    {
+      "visual_id": "edge_arrow_pink",
+      "description": "粉紫色手绘风格短箭头，连接各个卡片以指示游览顺序",
+      "anchored_from": "card_style_pink_text",
+      "anchored_to": "card_style_pink_text"
+    },
+    {
+      "visual_id": "edge_arrow_blue",
+      "description": "深蓝色手绘风格短箭头，连接各个卡片以指示游览顺序",
+      "anchored_from": "card_style_blue_text",
+      "anchored_to": "card_style_blue_text"
+    }
+  ]
+}

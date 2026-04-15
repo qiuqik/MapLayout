@@ -1,0 +1,546 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "line",
+                "title": "冬季阿勒泰+赛湖环线路线",
+                "index": null,
+                "width": 4,
+                "category": "route",
+                "desc": "以乌鲁木齐为起点的冬季北疆大环线，西线途经安集海、赛里木湖、克拉玛依，北上游览白哈巴、喀纳斯、禾木，最后经阿勒泰走沙漠公路返回乌鲁木齐。",
+                "address": null,
+                "openTime": null,
+                "ticketPrice": null,
+                "rating": null,
+                "tags": [
+                    "冬季旅游",
+                    "自驾环线",
+                    "北疆",
+                    "冰雪游"
+                ],
+                "chartData": null
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        87.6168,
+                        43.8256
+                    ],
+                    [
+                        85.1386,
+                        44.1565
+                    ],
+                    [
+                        84.9023,
+                        44.425
+                    ],
+                    [
+                        81.1667,
+                        44.5833
+                    ],
+                    [
+                        84.9023,
+                        44.425
+                    ],
+                    [
+                        84.8739,
+                        45.5959
+                    ],
+                    [
+                        87.2667,
+                        47.2
+                    ],
+                    [
+                        86.8584,
+                        47.705
+                    ],
+                    [
+                        86.7818,
+                        48.6946
+                    ],
+                    [
+                        87.02,
+                        48.7
+                    ],
+                    [
+                        87.43,
+                        48.57
+                    ],
+                    [
+                        87.48,
+                        48.55
+                    ],
+                    [
+                        87.43,
+                        48.57
+                    ],
+                    [
+                        88.1396,
+                        47.8484
+                    ],
+                    [
+                        88.16,
+                        47.85
+                    ],
+                    [
+                        88.1396,
+                        47.8484
+                    ],
+                    [
+                        87.8,
+                        45.5
+                    ],
+                    [
+                        87.6168,
+                        43.8256
+                    ]
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "乌鲁木齐",
+                "index": 1,
+                "width": null,
+                "category": "City",
+                "desc": "环线自驾的起点与终点，新疆维吾尔自治区首府。",
+                "address": "新疆维吾尔自治区乌鲁木齐市",
+                "openTime": "全天开放",
+                "ticketPrice": "免费",
+                "rating": 4.5,
+                "tags": [
+                    "起点",
+                    "终点",
+                    "城市"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    88.481466,
+                    43.855122
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.6168,
+                    43.8256
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "安集海大峡谷",
+                "index": 2,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "峡谷被白雪覆盖，红色岩壁与冰雪对比鲜明，航拍景色壮观。",
+                "address": "新疆塔城地区沙湾市安集海镇",
+                "openTime": "全天开放",
+                "ticketPrice": "免费/视景区开发状况而定",
+                "rating": 4.6,
+                "tags": [
+                    "峡谷",
+                    "地质奇观",
+                    "航拍"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    85.23778,
+                    44.47082
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    85.1386,
+                    44.1565
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "奎屯",
+                "index": 3,
+                "width": null,
+                "category": "City",
+                "desc": "前往赛里木湖和克拉玛依的枢纽城市。",
+                "address": "新疆伊犁哈萨克自治州奎屯市",
+                "openTime": "全天开放",
+                "ticketPrice": "免费",
+                "rating": null,
+                "tags": [
+                    "途经地",
+                    "中转站"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    82.440691,
+                    44.67076
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    84.9023,
+                    44.425
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "赛里木湖",
+                "index": 4,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "冬有冰泡\\蓝冰奇景，湖映雪山，日出日落绝美",
+                "address": "新疆博尔塔拉蒙古自治州博乐市达勒特镇",
+                "openTime": "全天开放",
+                "ticketPrice": "￥145（含区间车）",
+                "rating": 4.9,
+                "tags": [
+                    "蓝冰",
+                    "冰泡",
+                    "日落日出",
+                    "湖泊"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    79.371759,
+                    44.754423
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    81.1667,
+                    44.5833
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "克拉玛依",
+                "index": 5,
+                "width": null,
+                "category": "City",
+                "desc": "环线途经著名的石油城。",
+                "address": "新疆维吾尔自治区克拉玛依市",
+                "openTime": "全天开放",
+                "ticketPrice": "免费",
+                "rating": null,
+                "tags": [
+                    "石油城",
+                    "途经地"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    82.06232,
+                    45.535252
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    84.8739,
+                    45.5959
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "乌伦古湖",
+                "index": 6,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "北疆大型内陆湖，冬季可观赏冬捕。",
+                "address": "新疆阿勒泰地区福海县",
+                "openTime": "全天开放",
+                "ticketPrice": "约￥45",
+                "rating": 4.3,
+                "tags": [
+                    "湖泊",
+                    "冬捕",
+                    "自然风光"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    83.160318,
+                    46.218548
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.2667,
+                    47.2
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "布尔津",
+                "index": 7,
+                "width": null,
+                "category": "City",
+                "desc": "前往喀纳斯景区的重要中转城市，以夜市和烤鱼闻名。",
+                "address": "新疆阿勒泰地区布尔津县",
+                "openTime": "全天开放",
+                "ticketPrice": "免费",
+                "rating": 4.5,
+                "tags": [
+                    "中转站",
+                    "童话边城"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    83.437156,
+                    47.058307
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    86.8584,
+                    47.705
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "白哈巴",
+                "index": 8,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "西北第一村，邻哈萨克斯坦，雪覆木屋，小众纯净",
+                "address": "新疆阿勒泰地区哈巴河县白哈巴村",
+                "openTime": "全天",
+                "ticketPrice": "收费景区",
+                "rating": 4.7,
+                "tags": [
+                    "边境村落",
+                    "小众",
+                    "纯净"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    82.687043,
+                    47.818836
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    86.7818,
+                    48.6946
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "喀纳斯",
+                "index": 9,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "湖冻如蓝宝石，月亮湾S形雪景、神仙湾晨雾雾凇亮眼",
+                "address": "新疆阿勒泰地区布尔津县喀纳斯景区",
+                "openTime": "冬季全天",
+                "ticketPrice": "收费景区",
+                "rating": 4.9,
+                "tags": [
+                    "晨雾",
+                    "雾凇",
+                    "冰雪湖泊"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    80.080374,
+                    48.200956
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.02,
+                    48.7
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "禾木",
+                "index": 10,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "雪裹木屋村落，晨雾弥漫，冬日炊烟景致静谧",
+                "address": "新疆阿勒泰地区布尔津县禾木村",
+                "openTime": "全天",
+                "ticketPrice": "收费景区",
+                "rating": 4.8,
+                "tags": [
+                    "古村落",
+                    "晨雾炊烟",
+                    "雪景"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    88.533097,
+                    48.135477
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.43,
+                    48.57
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "吉克普林",
+                "index": 11,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "冬季冰雪秘境，可赏林海雪原，是滑雪与观雪景的好去处",
+                "address": "新疆阿勒泰地区禾木吉克普林",
+                "openTime": "日间开放",
+                "ticketPrice": "视滑雪/观光项目而定",
+                "rating": 4.7,
+                "tags": [
+                    "滑雪胜地",
+                    "林海雪原"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    88.93414,
+                    47.270613
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.48,
+                    48.55
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "阿勒泰",
+                "index": 12,
+                "width": null,
+                "category": "City",
+                "desc": "中国雪都，冰雪旅游的核心城市。",
+                "address": "新疆阿勒泰地区阿勒泰市",
+                "openTime": "全天开放",
+                "ticketPrice": "免费",
+                "rating": 4.6,
+                "tags": [
+                    "中国雪都",
+                    "枢纽城市"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    89.032674,
+                    46.643128
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    88.1396,
+                    47.8484
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "将军山",
+                "index": 13,
+                "width": null,
+                "category": "Scenic Spot",
+                "desc": "位于阿勒泰市内的顶级滑雪场，以夕阳滑雪景致闻名。",
+                "address": "新疆阿勒泰市将军山国际滑雪度假区",
+                "openTime": "日间/夜场",
+                "ticketPrice": "视滑雪项目而定",
+                "rating": 4.8,
+                "tags": [
+                    "滑雪",
+                    "市区雪场"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    88.559205,
+                    45.796956
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    88.16,
+                    47.85
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "沙漠公路",
+                "index": 14,
+                "width": null,
+                "category": "Highway",
+                "desc": "图中标红路线，即从阿勒泰返回乌鲁木齐穿越沙漠的快速通道（S21）。",
+                "address": "新疆维吾尔自治区内",
+                "openTime": "全天",
+                "ticketPrice": "免费",
+                "rating": null,
+                "tags": [
+                    "穿越沙漠",
+                    "快速返程"
+                ],
+                "chartData": null,
+                "cardcoord": [
+                    88.630537,
+                    44.805097
+                ]
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.8,
+                    45.5
+                ]
+            }
+        }
+    ]
+}

@@ -1,0 +1,99 @@
+{
+  "_style_extraction_thought": "观察到底图为纯色带水印；图中有三种不同颜色的多边形色块代表核心区域，因此提取3个Area类；景点标记主要分为深绿色带白边和深红色带白边的小圆点，提取2个Point类；景点名称文本样式一致（部分带浅色底），核心区域名称字体较大，周边区域名称字体浅灰，提取3个Label类；城市之间的连接线为黑色虚线带箭头，提取1个Route类；3个行程规划卡片虽然内容不同但视觉边框、排版和左上角椭圆标签样式完全一致，合并提取为1个Card类；连接区域和卡片的细线提取为1个Edge类；顶部的复杂标题、左下角缩略地图、右下角指北针和说明文字作为全局元素提取为4个Global类。",
+  "BaseMap": [
+    {
+      "visual_id": "basemap_blank_1",
+      "type": "blank",
+      "description": "浅米色纯色背景，表面带有浅色隐约的巨大斜体文字水印图案"
+    }
+  ],
+  "Area": [
+    {
+      "visual_id": "area_vis_1",
+      "description": "橙色/浅砖红色无边框多边形色块"
+    },
+    {
+      "visual_id": "area_vis_2",
+      "description": "土黄色/深卡其色无边框多边形色块"
+    },
+    {
+      "visual_id": "area_vis_3",
+      "description": "棕色/深褐色无边框多边形色块"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_vis_1",
+      "description": "深绿色实心小圆点，带有明显的白色外描边"
+    },
+    {
+      "visual_id": "point_vis_2",
+      "description": "深红色实心小圆点，带有明显的白色外描边"
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "route_vis_1",
+      "description": "黑色细虚线，带有指示方向的箭头"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_vis_1",
+      "description": "深色中等字号文本，部分文本底部带有浅绿色半透明矩形底色框",
+      "anchored_to": [
+        "point_vis_1",
+        "point_vis_2"
+      ]
+    },
+    {
+      "visual_id": "label_vis_2",
+      "description": "深褐色大字号加粗文本",
+      "anchored_to": [
+        "area_vis_1",
+        "area_vis_2",
+        "area_vis_3"
+      ]
+    },
+    {
+      "visual_id": "label_vis_3",
+      "description": "浅灰色小字号文本，无底色"
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_vis_1",
+      "description": "带有深色细实线边框的浅色背景矩形卡片，内部为列表排版文本；卡片左上角附带一个重叠的棕色实心椭圆形标签（内含白色文字）"
+    }
+  ],
+  "Edge": [
+    {
+      "visual_id": "edge_vis_1",
+      "description": "深色细实线折线，无箭头",
+      "anchored_from": [
+        "area_vis_1",
+        "area_vis_2",
+        "area_vis_3"
+      ],
+      "anchored_to": "card_vis_1"
+    }
+  ],
+  "Global": [
+    {
+      "visual_id": "global_vis_1",
+      "description": "顶部大型复合标题组，包含多种字号、颜色的字体排版，以及不规则的笔刷质感背景色块"
+    },
+    {
+      "visual_id": "global_vis_2",
+      "description": "左下角带有细边框的矩形缩略全域地图组件"
+    },
+    {
+      "visual_id": "global_vis_3",
+      "description": "右下角深褐色多行说明文本"
+    },
+    {
+      "visual_id": "global_vis_4",
+      "description": "右下角黑色指北针图标（垂直箭头与字母N的组合）"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "_used_visual_ids": [
+    "basemap_vis_1",
+    "point_vis_1",
+    "point_vis_2",
+    "route_vis_1",
+    "label_vis_1",
+    "label_vis_2",
+    "global_vis_1",
+    "global_vis_2"
+  ],
+  "BaseMap": [
+    {
+      "visual_id": "basemap_vis_1",
+      "type": "blank",
+      "iconSvg": "<svg width='100%' height='100%' preserveAspectRatio='none' style='display:block;'><defs><linearGradient id='grad' x1='0%' y1='0%' x2='0%' y2='100%'><stop offset='0%' stop-color='#FFFFFF'/><stop offset='30%' stop-color='#F0FDF4'/><stop offset='100%' stop-color='#4ADE80'/></linearGradient></defs><rect width='100%' height='100%' fill='url(#grad)'/></svg>"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_vis_1",
+      "iconSvg": "<svg viewBox='0 0 20 20'><circle cx='10' cy='10' r='6' fill='#FF4500' stroke='#FFFFFF' stroke-width='2'/></svg>"
+    },
+    {
+      "visual_id": "point_vis_2",
+      "iconSvg": "<svg viewBox='0 0 24 24'><path d='M12 2L4 12h5v2H5l7 8 7-8h-4v-2h5z' fill='#15803d' stroke='#FFFFFF' stroke-width='1'/></svg>"
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "route_vis_1",
+      "color": "#F59E0B",
+      "width": 5,
+      "style": "navigationCurve"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_vis_1",
+      "template": "<div style='width: 120px; font-size: 14px; font-weight: bold; color: #1F2937; text-align: left; text-shadow: 0 1px 2px rgba(255,255,255,0.9); padding-left: 8px; font-family: sans-serif;'>{properties.name}</div>"
+    },
+    {
+      "visual_id": "label_vis_2",
+      "template": "<div style='width: 140px; font-size: 13px; font-weight: bold; color: #D97706; text-align: left; text-shadow: 0 1px 2px rgba(255,255,255,0.9); padding-left: 10px; font-family: sans-serif;'>{properties.name}</div>"
+    }
+  ],
+  "Global": [
+    {
+      "visual_id": "global_vis_1",
+      "template": "<div style='position: absolute; top: 30px; left: 30px; width: 200px; z-index: 100; display: flex; flex-direction: column; align-items: flex-start;'><h1 style='margin: 0; font-size: 36px; line-height: 1.1; color: #374151; font-family: serif; font-weight: 900; letter-spacing: 2px; text-shadow: 2px 2px 0px rgba(255,255,255,0.5); transform: rotate(-2deg);'>独库<br>公路</h1><div style='margin-top: 10px; font-size: 14px; color: #4B5563; font-weight: bold; background: rgba(255,255,255,0.6); padding: 4px 8px; border-radius: 4px;'>{global_properties[0].title}</div></div>"
+    },
+    {
+      "visual_id": "global_vis_2",
+      "template": "<div style='position: absolute; bottom: 30px; left: 30px; width: 280px; z-index: 100; font-family: sans-serif;'><div style='display: flex; align-items: flex-start; margin-bottom: 8px;'><div style='width: 10px; height: 10px; background: #F59E0B; border-radius: 50%; margin-top: 5px; margin-right: 8px; flex-shrink: 0;'></div><div style='font-size: 12px; line-height: 1.5; color: #1F2937;'><strong>行程概览：</strong><br>{global_properties[1].description}</div></div></div>"
+    }
+  ]
+}

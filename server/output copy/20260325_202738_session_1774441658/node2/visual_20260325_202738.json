@@ -1,0 +1,68 @@
+{
+  "_style_extraction_thought": "观察到地图主要由两个大的色块区域（浅蓝和浅绿）组成，因此提取为 2 个 Area 类。路线系统清晰地分为黑色实线（常规路段）和红色实线（特色公路），归类为 2 个 Route 类。地点标记（Point）分为两类：一类是代表城市的圆形房屋图标，另一类是代表景点的木制路牌插画。对于文本信息的展示，景点名称统一使用了橙色圆角背景块，归类为 Card；而城市名称和侧边的景点列表则是纯文本，归类为 Label。顶部有明显的全局标题组件。",
+  "BaseMap": [
+    {
+      "visual_id": "basemap_gradient",
+      "type": "blank",
+      "description": "浅色渐变背景，作为整个地图的底层画布"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_city_icon",
+      "description": "黄色圆形底色图标，内部包含黑色线条勾勒的房屋图案，带有黑色描边"
+    },
+    {
+      "visual_id": "point_signpost_illustration",
+      "description": "手绘风格的木制路牌插画，通常位于景点名称卡片附近"
+    }
+  ],
+  "Area": [
+    {
+      "visual_id": "area_blue_region",
+      "description": "浅蓝色不规则多边形色块，覆盖地图右上方区域"
+    },
+    {
+      "visual_id": "area_green_region",
+      "description": "浅绿色不规则多边形色块，覆盖地图左下方区域"
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "route_black_line",
+      "description": "黑色粗实线，连接各个主要城市节点，构成主环线"
+    },
+    {
+      "visual_id": "route_red_line",
+      "description": "红色粗实线，用于强调特定的公路路段"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_city_text",
+      "description": "黑色无衬线字体，无背景，紧邻城市图标显示",
+      "anchored_to": "point_city_icon"
+    },
+    {
+      "visual_id": "label_info_list",
+      "description": "黑色多行文本块，左对齐排版，用于列举区域内的详细地点清单"
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_scenic_spot",
+      "description": "橙色圆角矩形背景色块，内部包含黑色文字，用于标注景点名称",
+      "anchored_to": "point_signpost_illustration"
+    }
+  ],
+  "Global": [
+    {
+      "visual_id": "global_top_banner",
+      "description": "顶部通栏橙色背景条，包含特大号黑色加粗标题文字"
+    },
+    {
+      "visual_id": "global_corner_badge",
+      "description": "左上角橙色圆角矩形标签，带有黑色文字和轻微阴影效果"
+    }
+  ]
+}

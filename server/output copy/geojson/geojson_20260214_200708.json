@@ -1,0 +1,532 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "阿勒泰将军山景区（城市登高）",
+                "index": 1,
+                "width": null,
+                "category": "自然/城市观景",
+                "desc": "位于阿勒泰市区西北的将军山，秋季可登高眺望城市与周围丘陵金色林海，是适应气候与倒时差的轻松首站。",
+                "address": "新疆维吾尔自治区 阿勒泰市 将军山景区",
+                "openTime": "09:00-18:00（秋季）",
+                "ticketPrice": "￥0-40（以现场为准）",
+                "rating": 4.3,
+                "tags": [
+                    "城市登高",
+                    "秋色",
+                    "全景",
+                    "轻徒步"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "主要观景点海拔（m）",
+                    "xAxis": [
+                        "山脚",
+                        "中站",
+                        "山顶"
+                    ],
+                    "series": [
+                        {
+                            "title": "海拔(m)",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                900.0,
+                                1200.0,
+                                1300.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    88.146,
+                    47.862
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "布尔津五彩滩（日落首选）",
+                "index": 2,
+                "width": null,
+                "category": "地貌/日落",
+                "desc": "额尔齐斯河畔的典型雅丹地貌，日落时分色彩层次最丰富，适合傍晚抵达拍摄。",
+                "address": "新疆 阿勒泰地区 布尔津县 五彩滩景区",
+                "openTime": "10:00-22:00（秋季以日落时间适当延长）",
+                "ticketPrice": "￥45-60",
+                "rating": 4.6,
+                "tags": [
+                    "日落",
+                    "雅丹地貌",
+                    "额尔齐斯河",
+                    "摄影"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "月度游客量指数（秋季显著上升）",
+                    "xAxis": [
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12"
+                    ],
+                    "series": [
+                        {
+                            "title": "游客量指数",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                10.0,
+                                12.0,
+                                18.0,
+                                25.0,
+                                35.0,
+                                45.0,
+                                60.0,
+                                70.0,
+                                90.0,
+                                100.0,
+                                40.0,
+                                20.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    86.869,
+                    47.742
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "禾木村（晨雾与白桦林）",
+                "index": 3,
+                "width": null,
+                "category": "村落/秋色",
+                "desc": "图瓦人村落与白桦林交织，秋季晨雾缭绕，是观秋色与人文风情的经典地。",
+                "address": "新疆 阿勒泰地区 布尔津县 禾木村",
+                "openTime": "24小时（景区区间车按运营时间）",
+                "ticketPrice": "￥60-95（含区间车以实际为准）",
+                "rating": 4.7,
+                "tags": [
+                    "清晨晨雾",
+                    "图瓦人",
+                    "白桦林",
+                    "人文摄影"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "摄影题材占比（秋季）",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "村落木屋",
+                            "value": 35.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "白桦林",
+                            "value": 25.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "河谷/栈道",
+                            "value": 20.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "牛马牧道",
+                            "value": 10.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "人文肖像",
+                            "value": 10.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.486,
+                    48.132
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "喀纳斯湖·月亮湾",
+                "index": 4,
+                "width": null,
+                "category": "湖湾/步道",
+                "desc": "喀纳斯景区内标志性弯月形河湾，秋季水色与金黄林海对比强烈，沿步道慢行最佳。",
+                "address": "新疆 阿勒泰地区 布尔津县 喀纳斯景区 月亮湾",
+                "openTime": "08:00-19:30（旺季）",
+                "ticketPrice": "喀纳斯景区门票+区间车套票（约￥160-240）",
+                "rating": 4.9,
+                "tags": [
+                    "湖湾",
+                    "倒影",
+                    "秋色",
+                    "步道摄影"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "秋季日间拍摄光线指数（小时）",
+                    "xAxis": [
+                        "09:00",
+                        "10:00",
+                        "11:00",
+                        "12:00",
+                        "13:00",
+                        "14:00",
+                        "15:00",
+                        "16:00",
+                        "17:00",
+                        "18:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "光线指数",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                60.0,
+                                68.0,
+                                75.0,
+                                85.0,
+                                92.0,
+                                95.0,
+                                90.0,
+                                82.0,
+                                70.0,
+                                58.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    86.982,
+                    48.721
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "喀纳斯观鱼台（全景制高点）",
+                "index": 5,
+                "width": null,
+                "category": "登高/观景",
+                "desc": "登高俯瞰喀纳斯湖与周边群山，秋季山色层次分明；需爬升台阶，注意体力与保暖。",
+                "address": "新疆 阿勒泰地区 布尔津县 喀纳斯景区 观鱼台",
+                "openTime": "08:00-18:00（旺季）",
+                "ticketPrice": "含于喀纳斯景区套票（另有观光车可选）",
+                "rating": 4.8,
+                "tags": [
+                    "制高点",
+                    "全景视野",
+                    "日照金山",
+                    "体能挑战"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "登顶分段耗时参考（分钟）",
+                    "xAxis": [
+                        "起步-1/3",
+                        "1/3-2/3",
+                        "2/3-台阶",
+                        "台阶-顶"
+                    ],
+                    "series": [
+                        {
+                            "title": "耗时",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                15.0,
+                                20.0,
+                                25.0,
+                                30.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.024,
+                    48.736
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "白哈巴村（边境第一村）",
+                "index": 6,
+                "width": null,
+                "category": "村落/边境",
+                "desc": "位于中哈边境附近的图瓦人村落，以金色白桦、原木房和河谷牧场闻名，秋季氛围感极强。",
+                "address": "新疆 阿勒泰地区 哈巴河县 白哈巴村",
+                "openTime": "24小时（边管检查按规定通行）",
+                "ticketPrice": "￥50-72（含区间车政策以实际为准）",
+                "rating": 4.6,
+                "tags": [
+                    "边境风情",
+                    "白桦林",
+                    "河谷牧场",
+                    "人文摄影"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "秋季色彩构成",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "金黄白桦",
+                            "value": 45.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "松林深绿",
+                            "value": 25.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "河谷草地",
+                            "value": 20.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "木屋与栅栏",
+                            "value": 10.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    86.36,
+                    48.12
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "可可托海国家地质公园·大峡谷",
+                "index": 7,
+                "width": null,
+                "category": "地质/峡谷",
+                "desc": "花岗岩地貌与峡谷溪流相映成趣，秋季山谷色彩浓郁，是摄影和徒步的上佳选择。",
+                "address": "新疆 阿勒泰地区 富蕴县 可可托海镇 可可托海地质公园",
+                "openTime": "08:30-18:00（秋季）",
+                "ticketPrice": "￥90-120（含区间车以现场为准）",
+                "rating": 4.7,
+                "tags": [
+                    "地质奇观",
+                    "峡谷溪流",
+                    "徒步",
+                    "秋色"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "经典段落徒步里程（km）",
+                    "xAxis": [
+                        "神钟山",
+                        "鹿鸣谷",
+                        "铁吊桥"
+                    ],
+                    "series": [
+                        {
+                            "title": "里程",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                2.0,
+                                3.5,
+                                1.8
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    89.843,
+                    46.723
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "乌伦古湖·驼颈湾（日落渔村风光）",
+                "index": 8,
+                "width": null,
+                "category": "湖泊/日落",
+                "desc": "位于福海/布尔津一线的沙漠湖泊景观，秋季水鸟与渔获丰富，日落光影通透。",
+                "address": "新疆 阿勒泰地区 福海县/布尔津县 乌伦古湖 驼颈湾",
+                "openTime": "08:00-19:00（秋季）",
+                "ticketPrice": "￥20-30（部分观景点免费）",
+                "rating": 4.4,
+                "tags": [
+                    "沙漠湖泊",
+                    "落日余晖",
+                    "渔村",
+                    "风光摄影"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "秋季日间平均风力（级）",
+                    "xAxis": [
+                        "10:00",
+                        "11:00",
+                        "12:00",
+                        "13:00",
+                        "14:00",
+                        "15:00",
+                        "16:00",
+                        "17:00",
+                        "18:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "风力等级",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                2.0,
+                                2.0,
+                                3.0,
+                                3.0,
+                                4.0,
+                                5.0,
+                                5.0,
+                                4.0,
+                                3.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    87.53,
+                    47.32
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "line",
+                "title": "阿勒泰秋色8日线路",
+                "index": null,
+                "width": 4,
+                "category": "行程路线",
+                "desc": "D1 将军山（阿勒泰市）→ D2 五彩滩（布尔津）→ D3 禾木 → D4-5 喀纳斯（月亮湾、观鱼台）→ D6 白哈巴 → D7 可可托海 → D8 乌伦古湖 → 返回阿勒泰/离程。",
+                "address": null,
+                "openTime": null,
+                "ticketPrice": null,
+                "rating": null,
+                "tags": [
+                    "秋季",
+                    "自驾/包车",
+                    "摄影",
+                    "经典环线"
+                ],
+                "chartData": null
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        88.146,
+                        47.862
+                    ],
+                    [
+                        86.869,
+                        47.742
+                    ],
+                    [
+                        87.486,
+                        48.132
+                    ],
+                    [
+                        86.982,
+                        48.721
+                    ],
+                    [
+                        87.024,
+                        48.736
+                    ],
+                    [
+                        86.36,
+                        48.12
+                    ],
+                    [
+                        89.843,
+                        46.723
+                    ],
+                    [
+                        87.53,
+                        47.32
+                    ],
+                    [
+                        88.146,
+                        47.862
+                    ]
+                ]
+            }
+        }
+    ]
+}

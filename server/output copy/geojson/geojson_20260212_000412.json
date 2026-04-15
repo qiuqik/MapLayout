@@ -1,0 +1,344 @@
+{
+    "type": "FeatureCollection",
+    "features": [
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "青岛奥帆中心（浮山湾）",
+                "index": 1,
+                "width": null,
+                "category": "seaside",
+                "desc": "2008年北京奥运会、残奥会帆船比赛场地，临海步道、游艇码头、灯塔和夜景很美，适合清晨或傍晚散步拍照。",
+                "address": "青岛市市南区浮山湾沿岸（香港中路与东海西路一带）",
+                "openTime": "06:00-22:00",
+                "ticketPrice": "免费",
+                "rating": 4.6,
+                "tags": [
+                    "海边",
+                    "日落",
+                    "码头",
+                    "步道",
+                    "摄影"
+                ],
+                "chartData": {
+                    "type": "bar",
+                    "title": "活动热度（人气指数）",
+                    "xAxis": [
+                        "帆船体验",
+                        "码头散步",
+                        "日落摄影",
+                        "夜景观赏"
+                    ],
+                    "series": [
+                        {
+                            "title": "Popularity",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                35.0,
+                                85.0,
+                                70.0,
+                                60.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.3983,
+                    36.0671
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "五四广场",
+                "index": 2,
+                "width": null,
+                "category": "landmark",
+                "desc": "青岛地标“五月的风”雕塑所在，面朝浮山湾，夜晚有灯光与音乐喷泉，适合城市地标合影。",
+                "address": "青岛市市南区香港中路（浮山湾畔）",
+                "openTime": "24小时",
+                "ticketPrice": "免费",
+                "rating": 4.5,
+                "tags": [
+                    "地标",
+                    "广场",
+                    "城市景观",
+                    "喷泉",
+                    "夜景"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "分时客流（参考）",
+                    "xAxis": [
+                        "08:00",
+                        "10:00",
+                        "12:00",
+                        "14:00",
+                        "16:00",
+                        "18:00",
+                        "20:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "Visitors",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                120.0,
+                                200.0,
+                                280.0,
+                                320.0,
+                                340.0,
+                                300.0,
+                                180.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.3896,
+                    36.0662
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "八大关风景区",
+                "index": 3,
+                "width": null,
+                "category": "historic",
+                "desc": "以多国风格别墅与静谧林荫道著称，春有花、秋有叶，适合慢行、拍婚纱照与建筑爱好者打卡。",
+                "address": "青岛市市南区八大关景区（宁武关路、武胜关路一带）",
+                "openTime": "24小时",
+                "ticketPrice": "免费",
+                "rating": 4.7,
+                "tags": [
+                    "历史建筑",
+                    "街区漫步",
+                    "摄影",
+                    "自然"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "建筑风格占比（示意）",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "德式",
+                            "value": 40.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "俄式",
+                            "value": 18.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "英式",
+                            "value": 15.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "日式",
+                            "value": 8.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "其他",
+                            "value": 19.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.3536,
+                    36.0589
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "小鱼山公园",
+                "index": 4,
+                "width": null,
+                "category": "viewpoint",
+                "desc": "登小鱼山可俯瞰第一海水浴场、栈桥、八大关片区，红瓦绿树、碧海蓝天尽收眼底。",
+                "address": "青岛市市南区琴屿路附近",
+                "openTime": "07:30-17:30",
+                "ticketPrice": "¥15",
+                "rating": 4.4,
+                "tags": [
+                    "观景台",
+                    "城市天际线",
+                    "爬山",
+                    "摄影"
+                ],
+                "chartData": {
+                    "type": "line",
+                    "title": "时段拥挤度（参考）",
+                    "xAxis": [
+                        "08:00",
+                        "10:00",
+                        "12:00",
+                        "14:00",
+                        "16:00"
+                    ],
+                    "series": [
+                        {
+                            "title": "Crowd Index",
+                            "name": null,
+                            "value": null,
+                            "data": [
+                                30.0,
+                                45.0,
+                                55.0,
+                                50.0,
+                                35.0
+                            ]
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.3504,
+                    36.0585
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "point",
+                "title": "青岛啤酒博物馆（登州路馆）",
+                "index": 5,
+                "width": null,
+                "category": "museum",
+                "desc": "了解青岛啤酒百年历史与酿造工艺，含品鉴体验，是青岛城市名片。",
+                "address": "青岛市市北区登州路56号",
+                "openTime": "09:00-17:00（16:00停止入馆）",
+                "ticketPrice": "¥60（含品鉴）",
+                "rating": 4.6,
+                "tags": [
+                    "博物馆",
+                    "工业遗产",
+                    "啤酒品鉴",
+                    "文化"
+                ],
+                "chartData": {
+                    "type": "pie",
+                    "title": "馆内时间分配（建议）",
+                    "xAxis": null,
+                    "series": [
+                        {
+                            "title": null,
+                            "name": "历史馆",
+                            "value": 25.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "酿造工艺",
+                            "value": 30.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "互动区",
+                            "value": 20.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "品鉴",
+                            "value": 15.0,
+                            "data": null
+                        },
+                        {
+                            "title": null,
+                            "name": "商店",
+                            "value": 10.0,
+                            "data": null
+                        }
+                    ]
+                }
+            },
+            "geometry": {
+                "type": "Point",
+                "coordinates": [
+                    120.3563,
+                    36.0723
+                ]
+            }
+        },
+        {
+            "type": "Feature",
+            "properties": {
+                "type": "line",
+                "title": "青岛一日游路线（5景点，门票合计约¥75，300元预算可覆盖）",
+                "index": 0,
+                "width": 4,
+                "category": "route",
+                "desc": "推荐顺序：奥帆中心 → 五四广场 → 八大关 → 小鱼山公园 → 青岛啤酒博物馆；全程步行+公交/地铁，约10-15公里内。",
+                "address": null,
+                "openTime": null,
+                "ticketPrice": null,
+                "rating": null,
+                "tags": [
+                    "一日游",
+                    "步行+公交",
+                    "经济实惠"
+                ],
+                "chartData": null
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [
+                        120.3983,
+                        36.0671
+                    ],
+                    [
+                        120.3896,
+                        36.0662
+                    ],
+                    [
+                        120.3536,
+                        36.0589
+                    ],
+                    [
+                        120.3504,
+                        36.0585
+                    ],
+                    [
+                        120.3563,
+                        36.0723
+                    ]
+                ]
+            }
+        }
+    ]
+}

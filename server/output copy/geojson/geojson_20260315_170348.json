@@ -1,0 +1,261 @@
+{
+  "type": "FeatureCollection",
+  "global_properties": [
+    {
+      "title": "1天上海精华游，预算1000元",
+      "description": "D1：上海博物馆→豫园/城隍庙→外滩→十六铺轮渡至东昌路→上海中心大厦观光厅118层→南京东路步行街→新天地；门票+交通+餐饮预计≤600元，1000元预算充裕；全程以地铁直达为主，轮渡跨江，步行衔接紧凑。",
+      "visual_id": "global_vis_1"
+    },
+    {
+      "title": "人民广场-外滩-陆家嘴-南京东路-新天地",
+      "description": "单日核心动线：地铁+轮渡+步行。",
+      "visual_id": "global_vis_2"
+    }
+  ],
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            121.475497,
+            31.228234
+          ],
+          [
+            121.492466,
+            31.225879
+          ],
+          [
+            121.492127,
+            31.233516
+          ],
+          [
+            121.499109,
+            31.227
+          ],
+          [
+            121.503408,
+            31.230042
+          ],
+          [
+            121.5055,
+            31.2336
+          ],
+          [
+            121.496,
+            31.241
+          ],
+          [
+            121.4748,
+            31.2199
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_vis_1",
+        "name": "上海1日精华路线",
+        "description": "上海博物馆→豫园/城隍庙→外滩→十六铺轮渡→东昌路→上海中心大厦→南京东路步行街→新天地",
+        "mode": "地铁+轮渡+步行"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.475497,
+          31.228234
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_1",
+        "name": "上海博物馆",
+        "district": "黄浦区",
+        "transport": "地铁1/2/8号线 人民广场站",
+        "ticket": "免费（部分特展除外）",
+        "role": "起点"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.492466,
+          31.225879
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_1",
+        "name": "豫园/城隍庙",
+        "district": "黄浦区",
+        "transport": "地铁10号线 豫园站",
+        "ticket": "豫园约40元（庭院区），城隍庙商业区免费",
+        "note": "老城厢美食与园林"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.492127,
+          31.233516
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_1",
+        "name": "外滩",
+        "district": "黄浦区",
+        "transport": "步行可达（自豫园/城隍庙北上）",
+        "ticket": "免费",
+        "note": "黄浦江景+万国建筑群"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.499109,
+          31.227
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_1",
+        "name": "十六铺旅游码头（渡口）",
+        "district": "黄浦区",
+        "transport": "步行至码头，乘黄浦江轮渡至东昌路",
+        "ticket": "轮渡约2元",
+        "note": "跨江前往浦东陆家嘴"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.503408,
+          31.230042
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_1",
+        "name": "东昌路渡口",
+        "district": "浦东新区",
+        "transport": "轮渡到达点，步行或短程接驳至陆家嘴",
+        "ticket": "已含轮渡票价",
+        "note": "浦东江岸"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.5055,
+          31.2336
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_1",
+        "name": "上海中心大厦观光厅（118层）",
+        "district": "浦东新区",
+        "transport": "地铁2号线 陆家嘴站",
+        "ticket": "约180元",
+        "note": "高层观景平台，俯瞰申城天际线"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.496,
+          31.241
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_1",
+        "name": "南京东路步行街",
+        "district": "黄浦区",
+        "transport": "地铁2号线 南京东路站",
+        "ticket": "免费",
+        "note": "购物美食街区"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4748,
+          31.2199
+        ]
+      },
+      "properties": {
+        "visual_id": "point_vis_1",
+        "name": "新天地",
+        "district": "黄浦区",
+        "transport": "地铁10/13号线 新天地站",
+        "ticket": "免费（商业街区）",
+        "role": "收尾点"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              121.4748,
+              31.2199
+            ],
+            [
+              121.499109,
+              31.227
+            ],
+            [
+              121.496,
+              31.241
+            ],
+            [
+              121.475497,
+              31.228234
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "area_vis_1",
+        "name": "黄浦区",
+        "description": "本行程主要活动区：人民广场、外滩、城隍庙、南京东路、新天地等均位于此。"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              121.5055,
+              31.2336
+            ],
+            [
+              121.503408,
+              31.230042
+            ]
+          ]
+        ]
+      },
+      "properties": {
+        "visual_id": "area_vis_1",
+        "name": "浦东新区",
+        "description": "跨江后的陆家嘴片区（东昌路渡口、上海中心大厦）。"
+      }
+    }
+  ]
+}

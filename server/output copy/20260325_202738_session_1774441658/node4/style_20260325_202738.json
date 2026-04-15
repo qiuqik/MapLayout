@@ -1,0 +1,81 @@
+{
+  "_used_visual_ids": [
+    "global_top_banner",
+    "global_corner_badge",
+    "route_black_line",
+    "route_red_line",
+    "point_city_icon",
+    "label_city_text",
+    "point_signpost_illustration",
+    "card_scenic_spot",
+    "area_blue_region",
+    "label_info_list",
+    "area_green_region"
+  ],
+  "Global": [
+    {
+      "visual_id": "global_top_banner",
+      "template": "<div style=\"position: absolute; top: 0; left: 0; width: 100%; background-color: #FF8C00; color: #000000; font-family: sans-serif; font-weight: 900; font-size: 24px; text-align: center; padding: 12px 0; border-bottom: 3px solid #000000; z-index: 1000;\">{global_properties[0].title}</div>"
+    },
+    {
+      "visual_id": "global_corner_badge",
+      "template": "<div style=\"position: absolute; top: 70px; left: 20px; width: 160px; background-color: #FF8C00; color: #000000; font-family: sans-serif; font-weight: 800; font-size: 18px; padding: 8px 12px; border: 2px solid #000000; border-radius: 6px; box-shadow: 4px 4px 0px rgba(0,0,0,0.3); z-index: 1000;\">{global_properties[1].title}</div>"
+    }
+  ],
+  "Point": [
+    {
+      "visual_id": "point_city_icon",
+      "iconSvg": "<svg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'><circle cx='50' cy='50' r='45' fill='#FFD700' stroke='#000000' stroke-width='4' /><path d='M30 52 L30 72 L70 72 L70 52 L50 32 Z' fill='none' stroke='#000000' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' /></svg>"
+    },
+    {
+      "visual_id": "point_signpost_illustration",
+      "iconSvg": "<svg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'><rect x='46' y='40' width='8' height='55' fill='#8B4513' /><path d='M10 15 H80 L92 30 L80 45 H10 Z' fill='#DEB887' stroke='#8B4513' stroke-width='3' /><path d='M90 48 H20 L8 63 L20 78 H90 Z' fill='#DEB887' stroke='#8B4513' stroke-width='3' /></svg>"    
+    }
+  ],
+  "Area": [
+    {
+      "visual_id": "area_blue_region",
+      "backgroundColor": "#B0E0E6",
+      "borderColor": "#5F9EA0",
+      "borderWidth": 0,
+      "opacity": 0.4
+    },
+    {
+      "visual_id": "area_green_region",
+      "backgroundColor": "#98FB98",
+      "borderColor": "#228B22",
+      "borderWidth": 0,
+      "opacity": 0.4
+    }
+  ],
+  "Route": [
+    {
+      "visual_id": "route_black_line",
+      "color": "#000000",
+      "width": 5,
+      "style": "navigationCurve"
+    },
+    {
+      "visual_id": "route_red_line",
+      "color": "#FF0000",
+      "width": 5,
+      "style": "navigationCurve"
+    }
+  ],
+  "Label": [
+    {
+      "visual_id": "label_city_text",
+      "template": "<div style=\"width: 120px; font-family: sans-serif; font-size: 14px; font-weight: bold; color: #000000; text-shadow: 1px 1px 0 #ffffff; text-align: center; margin-top: 5px;\">{properties.name}</div>"
+    },
+    {
+      "visual_id": "label_info_list",
+      "template": "<div style=\"width: 220px; font-family: sans-serif; color: #000000;\"><div style=\"font-weight: bold; font-size: 14px; margin-bottom: 4px;\">{properties.label_title}</div><div style=\"font-size: 12px; line-height: 1.4;\">{properties.label_lines}</div></div>"
+    }
+  ],
+  "Card": [
+    {
+      "visual_id": "card_scenic_spot",
+      "template": "<div style=\"width: auto; display: inline-block; background-color: #FF8C00; border: 1px solid #000000; border-radius: 12px; padding: 2px 10px; font-family: sans-serif; font-size: 12px; font-weight: bold; color: #000000; box-shadow: 2px 2px 0px rgba(0,0,0,0.2); white-space: nowrap;\">{properties.card_title}</div>"
+    }
+  ]
+}
