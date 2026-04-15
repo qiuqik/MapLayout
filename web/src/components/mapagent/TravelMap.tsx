@@ -372,7 +372,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
     const { outputs, leaderLines } = runForceLayout(
       ready,
-      { viewport, costField: field },
+      { viewport, costField: field, segments },
       { ...DEFAULT_FORCE, ...forceParams }
     );
     

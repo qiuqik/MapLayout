@@ -3,6 +3,7 @@ import type { CostField } from './costField';
 import { sampleCostFieldForce } from './costField';
 import type { LayoutItemInput, LayoutItemOutput, LeaderLine } from './types';
 import { rectCollideForce } from './rectCollide';
+import type { Segment } from './obstacles';
 
 export type LayoutParams = {
   /** Pull label/card center towards anchorPx + (0, -lift) */
@@ -27,6 +28,8 @@ export type LayoutParams = {
 export type LayoutContext = {
   viewport: { width: number; height: number };
   costField?: CostField;
+  /** Line segments for hard collision (from lines and polygon outlines) */
+  segments?: Segment[];
 };
 
 type SimNode = {
@@ -44,6 +47,54 @@ type SimNode = {
 
 function clamp(v: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, v));
+}
+
+/**
+ * Find the closest point on a line segment to a given point.
+ */
+function closestPointOnSegment(
+  px: number, py: number,
+  x1: number, y1: number, x2: number, y2: number
+): { x: number; y: number } {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return { x: x1, y: y1 };
+  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / len2));
+  return { x: x1 + t * dx, y: y1 + t * dy };
+}
+
+/**
+ * Check if a rectangle (centered at cx,cy with given half-dimensions) overlaps
+ * with a line segment. Returns the push vector to resolve the overlap.
+ */
+function rectSegmentOverlap(
+  cx: number, cy: number, halfW: number, halfH: number,
+  seg: Segment, padding: number
+): { overlaps: boolean; pushX: number; pushY: number } {
+  // Find closest point on segment to rectangle center
+  const closest = closestPointOnSegment(cx, cy, seg.x1, seg.y1, seg.x2, seg.y2);
+  const dx = cx - closest.x;
+  const dy = cy - closest.y;
+  
+  // Check if closest point is within the rectangle (expanded by padding)
+  const overlapX = halfW + padding - Math.abs(dx);
+  const overlapY = halfH + padding - Math.abs(dy);
+  
+  if (overlapX > 0 && overlapY > 0) {
+    // Collision detected - push along the axis of least penetration
+    if (overlapX < overlapY) {
+      // Push horizontally
+      const sign = dx >= 0 ? 1 : -1;
+      return { overlaps: true, pushX: sign * overlapX, pushY: 0 };
+    } else {
+      // Push vertically
+      const sign = dy >= 0 ? 1 : -1;
+      return { overlaps: true, pushX: 0, pushY: sign * overlapY };
+    }
+  }
+  
+  return { overlaps: false, pushX: 0, pushY: 0 };
 }
 
 function boundingForce(ctx: LayoutContext, params: LayoutParams) {
@@ -152,6 +203,8 @@ export function runForceLayout(
   const MAX_POST_PASSES = 12;
   for (let pass = 0; pass < MAX_POST_PASSES; pass++) {
     let anyOverlap = false;
+    
+    // 1. Resolve card/label vs card/label overlaps
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const a = nodes[i];
@@ -175,6 +228,26 @@ export function runForceLayout(
         }
       }
     }
+    
+    // 2. Resolve card/label vs line/polygon segment overlaps (HARD CONSTRAINT)
+    if (ctx.segments && ctx.segments.length > 0) {
+      const segmentPadding = 12; // 确保 card/label 与线条至少有 12px 的间距
+      for (const n of nodes) {
+        const halfW = n.width / 2;
+        const halfH = n.height / 2;
+        for (const seg of ctx.segments) {
+          const { overlaps, pushX, pushY } = rectSegmentOverlap(
+            n.x, n.y, halfW, halfH, seg, segmentPadding
+          );
+          if (overlaps) {
+            anyOverlap = true;
+            n.x += pushX;
+            n.y += pushY;
+          }
+        }
+      }
+    }
+    
     if (!anyOverlap) break;
   }
 
