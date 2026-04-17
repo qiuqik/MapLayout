@@ -34,7 +34,7 @@ const DEFAULT_FORCE: LayoutParams = {
   alpha: 1,
   alphaDecay: 0.045,
   alphaMin: 0.001,
-  iterations: 360,
+  iterations: 2000,
   leaderThreshold: 28,
 };
 

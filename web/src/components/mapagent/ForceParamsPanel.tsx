@@ -31,7 +31,7 @@ const FORCE_SLIDERS: Array<{
   { key: 'linkStrength',    label: 'Link Strength',          min: 0.01, max: 1,    step: 0.01 },
   { key: 'collideStrength', label: 'Collide Strength',        min: 0.5,  max: 15,   step: 0.5  },
   { key: 'fieldStrength',   label: 'Field Strength',          min: 0,    max: 20,   step: 0.1  },
-  { key: 'iterations',      label: 'Iterations',              min: 50,   max: 800,  step: 10   },
+  { key: 'iterations',      label: 'Iterations',              min: 0,    max: 5000,  step: 10   },
   { key: 'leaderThreshold', label: 'Leader Threshold (px)',   min: 0,    max: 100,  step: 1    },
 ];
 

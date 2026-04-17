@@ -23,7 +23,7 @@ const DEFAULT_FORCE_OVERRIDE: ForceParamsOverride = {
   linkStrength: 0.4,
   collideStrength: 3.5,
   fieldStrength: 5.5,
-  iterations: 360,
+  iterations: 2000,
   leaderThreshold: 28,
 };
 

@@ -76,25 +76,110 @@ function rectSegmentOverlap(
   cx: number, cy: number, halfW: number, halfH: number,
   seg: Segment, padding: number
 ): { overlaps: boolean; pushX: number; pushY: number } {
-  // Find closest point on segment to rectangle center
+  const paddedHalfW = halfW + padding;
+  const paddedHalfH = halfH + padding;
+  
+  const minX = cx - paddedHalfW;
+  const maxX = cx + paddedHalfW;
+  const minY = cy - paddedHalfH;
+  const maxY = cy + paddedHalfH;
+  
+  const segMinX = Math.min(seg.x1, seg.x2);
+  const segMaxX = Math.max(seg.x1, seg.x2);
+  const segMinY = Math.min(seg.y1, seg.y2);
+  const segMaxY = Math.max(seg.y1, seg.y2);
+  
+  if (segMaxX < minX || segMinX > maxX || segMaxY < minY || segMinY > maxY) {
+    return { overlaps: false, pushX: 0, pushY: 0 };
+  }
+  
   const closest = closestPointOnSegment(cx, cy, seg.x1, seg.y1, seg.x2, seg.y2);
   const dx = cx - closest.x;
   const dy = cy - closest.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
   
-  // Check if closest point is within the rectangle (expanded by padding)
-  const overlapX = halfW + padding - Math.abs(dx);
-  const overlapY = halfH + padding - Math.abs(dy);
+  if (dist < 0.001) {
+    const overlapX = paddedHalfW;
+    const overlapY = paddedHalfH;
+    if (overlapX < overlapY) {
+      const sign = cx <= seg.x1 ? -1 : 1;
+      return { overlaps: true, pushX: sign * (paddedHalfW + 1), pushY: 0 };
+    } else {
+      const sign = cy <= seg.y1 ? -1 : 1;
+      return { overlaps: true, pushX: 0, pushY: sign * (paddedHalfH + 1) };
+    }
+  }
+  
+  const overlapX = paddedHalfW - Math.abs(dx);
+  const overlapY = paddedHalfH - Math.abs(dy);
   
   if (overlapX > 0 && overlapY > 0) {
-    // Collision detected - push along the axis of least penetration
     if (overlapX < overlapY) {
-      // Push horizontally
       const sign = dx >= 0 ? 1 : -1;
       return { overlaps: true, pushX: sign * overlapX, pushY: 0 };
     } else {
-      // Push vertically
       const sign = dy >= 0 ? 1 : -1;
       return { overlaps: true, pushX: 0, pushY: sign * overlapY };
+    }
+  }
+  
+  const px = Math.max(minX, Math.min(cx, seg.x1));
+  const py = Math.max(minY, Math.min(cy, seg.y1));
+  const px2 = Math.max(minX, Math.min(cx, seg.x2));
+  const py2 = Math.max(minY, Math.min(cy, seg.y2));
+  
+  let minDist = dist;
+  let pushX = 0;
+  let pushY = 0;
+  
+  const checkPoint = (qx: number, qy: number) => {
+    const dqx = cx - qx;
+    const dqy = cy - qy;
+    const d = Math.sqrt(dqx * dqx + dqy * dqy);
+    if (d < minDist && d > 0.001) {
+      minDist = d;
+      const ox = paddedHalfW - Math.abs(dqx);
+      const oy = paddedHalfH - Math.abs(dqy);
+      if (ox > 0 && oy > 0) {
+        if (ox < oy) {
+          pushX = dqx >= 0 ? ox : -ox;
+          pushY = 0;
+        } else {
+          pushX = 0;
+          pushY = dqy >= 0 ? oy : -oy;
+        }
+      } else {
+        const scale = Math.min(paddedHalfW - Math.abs(dqx), paddedHalfH - Math.abs(dqy));
+        if (Math.abs(dqx) > Math.abs(dqy)) {
+          pushX = dqx >= 0 ? scale : -scale;
+          pushY = 0;
+        } else {
+          pushX = 0;
+          pushY = dqy >= 0 ? scale : -scale;
+        }
+      }
+    }
+  };
+  
+  if (seg.x1 >= minX && seg.x1 <= maxX && seg.y1 >= minY && seg.y1 <= maxY) {
+    checkPoint(seg.x1, seg.y1);
+  }
+  if (seg.x2 >= minX && seg.x2 <= maxX && seg.y2 >= minY && seg.y2 <= maxY) {
+    checkPoint(seg.x2, seg.y2);
+  }
+  
+  if (pushX !== 0 || pushY !== 0) {
+    return { overlaps: true, pushX, pushY };
+  }
+  
+  if (minDist < Math.min(paddedHalfW, paddedHalfH)) {
+    const scale = Math.min(paddedHalfW, paddedHalfH) - minDist + 1;
+    if (Math.abs(dx) > Math.abs(dy)) {
+      const sign = dx >= 0 ? 1 : -1;
+      return { overlaps: true, pushX: sign * scale, pushY: 0 };
+    } else {
+      const sign = dy >= 0 ? 1 : -1;
+      return { overlaps: true, pushX: 0, pushY: sign * scale };
     }
   }
   
@@ -197,15 +282,34 @@ export function runForceLayout(
     .force('bounds', boundingForce(ctx, params))
     .stop();
 
-  for (let i = 0; i < params.iterations; i++) sim.tick();
+  const MAX_SIM_ITERATIONS = 2000;
+  const CONVERGENCE_THRESHOLD = 0.01;
+  
+  for (let i = 0; i < MAX_SIM_ITERATIONS; i++) {
+    const prevPositions = nodes.map(n => ({ x: n.x, y: n.y }));
+    sim.tick();
+    
+    if (i >= params.iterations) {
+      let totalMovement = 0;
+      for (let j = 0; j < nodes.length; j++) {
+        totalMovement += Math.abs(nodes[j].x - prevPositions[j].x);
+        totalMovement += Math.abs(nodes[j].y - prevPositions[j].y);
+      }
+      const avgMovement = totalMovement / nodes.length;
+      if (avgMovement < CONVERGENCE_THRESHOLD) {
+        break;
+      }
+    }
+  }
 
   // Post-process: deterministically resolve any remaining overlaps that the
   // decayed force simulation could not fully eliminate.
-  const MAX_POST_PASSES = 12;
+  // HARD CONSTRAINT: Never allow any overlaps between label/card/line/global
+  const MAX_POST_PASSES = 50;
   for (let pass = 0; pass < MAX_POST_PASSES; pass++) {
     let anyOverlap = false;
     
-    // 1. Resolve card/label vs card/label overlaps
+    // 1. Resolve card/label vs card/label overlaps (HARD CONSTRAINT)
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const a = nodes[i];
@@ -232,7 +336,7 @@ export function runForceLayout(
     
     // 2. Resolve card/label vs line/polygon segment overlaps (HARD CONSTRAINT)
     if (ctx.segments && ctx.segments.length > 0) {
-      const segmentPadding = 12; // 确保 card/label 与线条至少有 12px 的间距
+      const segmentPadding = 12;
       for (const n of nodes) {
         const halfW = n.width / 2;
         const halfH = n.height / 2;
@@ -242,6 +346,7 @@ export function runForceLayout(
           );
           if (overlaps) {
             anyOverlap = true;
+            // Use full overlap resolution
             n.x += pushX;
             n.y += pushY;
           }
@@ -250,15 +355,12 @@ export function runForceLayout(
     }
 
     // 3. Resolve card/label vs global item rect overlaps (HARD CONSTRAINT)
-    // Global items (title panels, overview cards, etc.) are fixed on screen and
-    // must not be overlapped by any label or card.
     if (ctx.globalRects && ctx.globalRects.length > 0) {
       const globalPadding = 8;
       for (const n of nodes) {
         const halfW = n.width / 2;
         const halfH = n.height / 2;
         for (const gr of ctx.globalRects) {
-          // gr uses top-left origin; convert to center for overlap math
           const gCx = gr.x + gr.width / 2;
           const gCy = gr.y + gr.height / 2;
           const dx = n.x - gCx;
@@ -267,7 +369,7 @@ export function runForceLayout(
           const overlapY = halfH + gr.height / 2 + globalPadding - Math.abs(dy);
           if (overlapX > 0 && overlapY > 0) {
             anyOverlap = true;
-            // Push the node away along the axis of minimum penetration
+            // Use full overlap resolution
             if (overlapX < overlapY) {
               n.x += dx >= 0 ? overlapX : -overlapX;
             } else {

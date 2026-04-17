@@ -6,13 +6,12 @@ import re
 
 def clean_transform_from_html(style_code: dict) -> dict:
     """
-    清洗 stylejson 中 Card 和 Label 的 template HTML 中的 transform 样式
-    保留 Global 元素中的 transform（因为 Global 需要绝对定位）
+    清洗 stylejson 中 Card 和 Label 的 template HTML 中的 transform、width、height 样式
+    保留 Global 元素中的这些样式（因为 Global 需要绝对定位）
     """
     if not isinstance(style_code, dict):
         return style_code
     
-    # 需要清洗的元素类型（Card 和 Label）
     elements_to_clean = ['Card', 'Label']
     
     for element_type in elements_to_clean:
@@ -23,14 +22,30 @@ def clean_transform_from_html(style_code: dict) -> dict:
             if 'template' not in item:
                 continue
             
+            template = item['template']
+            
             # 移除 transform 样式（包括 transform 和 -webkit-transform 等前缀）
-            # 匹配 transform: xxx; 或 transform: xxx (最后一项无分号)
-            cleaned_template = re.sub(
+            template = re.sub(
                 r'\s*(?:-webkit-|-moz-|-ms-|-o-)?transform\s*:\s*[^;]+;?',
                 '',
-                item['template']
+                template
             )
-            item['template'] = cleaned_template
+            
+            # 移除 width 样式
+            template = re.sub(
+                r'\s*width\s*:\s*[^;]+;?',
+                '',
+                template
+            )
+            
+            # 移除 height 样式
+            template = re.sub(
+                r'\s*height\s*:\s*[^;]+;?',
+                '',
+                template
+            )
+            
+            item['template'] = template
     
     return style_code
 
