@@ -21,7 +21,6 @@ const TravelMapWithNoSSR = dynamic(
 
 const DEFAULT_FORCE_OVERRIDE: ForceParamsOverride = {
   linkStrength: 0.4,
-  lift: 2,
   collideStrength: 3.5,
   fieldStrength: 5.5,
   iterations: 360,

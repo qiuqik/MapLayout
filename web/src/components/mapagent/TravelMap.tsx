@@ -28,7 +28,6 @@ import type { ForceParamsOverride, FieldParamsOverride } from './ForceParamsPane
 
 const DEFAULT_FORCE: LayoutParams = {
   linkStrength: 0.16,
-  lift: 22,
   collideStrength: 3.5,
   fieldStrength: 1.8,
   boundsPadding: 12,

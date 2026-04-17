@@ -4,7 +4,7 @@ import type { LayoutParams } from '@/app/agent/layout/forceLayout';
 
 export type ForceParamsOverride = Pick<
   LayoutParams,
-  'linkStrength' | 'lift' | 'collideStrength' | 'fieldStrength' | 'iterations' | 'leaderThreshold'
+  'linkStrength' | 'collideStrength' | 'fieldStrength' | 'iterations' | 'leaderThreshold'
 >;
 
 export type FieldParamsOverride = {
@@ -29,7 +29,6 @@ const FORCE_SLIDERS: Array<{
   step: number;
 }> = [
   { key: 'linkStrength',    label: 'Link Strength',          min: 0.01, max: 1,    step: 0.01 },
-  { key: 'lift',            label: 'Lift (px)',               min: 0,    max: 100,  step: 1    },
   { key: 'collideStrength', label: 'Collide Strength',        min: 0.5,  max: 15,   step: 0.5  },
   { key: 'fieldStrength',   label: 'Field Strength',          min: 0,    max: 20,   step: 0.1  },
   { key: 'iterations',      label: 'Iterations',              min: 50,   max: 800,  step: 10   },
