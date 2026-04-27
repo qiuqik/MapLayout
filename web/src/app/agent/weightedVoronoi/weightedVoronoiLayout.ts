@@ -2,7 +2,6 @@ import type { LayoutItemInput, LayoutItemOutput, LeaderLine, CostField, Segment,
 import { sampleCostFieldForce } from '../layout/costField';
 import { forceSimulation, forceX, forceY } from 'd3-force';
 import { rectCollideForce } from '../layout/rectCollide';
-import type { LayoutParams } from '../layout/forceLayout';
 import type { Segment as LayoutSegment } from '../layout/obstacles';
 
 export type VoronoiParams = {
@@ -13,6 +12,16 @@ export type VoronoiParams = {
   boundsPadding: number;
   weightScale: number;
   anchorStrength: number;
+};
+
+export type VoronoiForceParams = {
+  linkStrength: number;
+  collideStrength: number;
+  fieldStrength: number;
+  alpha: number;
+  alphaDecay: number;
+  alphaMin: number;
+  iterations: number;
 };
 
 export type VoronoiContext = {
@@ -496,11 +505,11 @@ function voronoiBoundingForce(ctx: VoronoiContext, params: VoronoiParams) {
   return force as any;
 }
 
-function voronoiFieldRepulsionForce(ctx: VoronoiContext, params: VoronoiParams) {
+function voronoiFieldRepulsionForce(ctx: VoronoiContext, fieldStrength: number) {
   let nodes: VoronoiNode[] = [];
   function force(alpha: number) {
     if (!ctx.costField) return;
-    const k = alpha * 1.8;
+    const k = alpha * fieldStrength;
     for (const n of nodes) {
       const hw = n.width / 2;
       const hh = n.height / 2;
@@ -532,7 +541,7 @@ export function runVoronoiForceLayout(
   >,
   ctx: VoronoiContext,
   voronoiParams: VoronoiParams,
-  forceParams: Partial<LayoutParams>
+  forceParams: VoronoiForceParams
 ): { outputs: LayoutItemOutput[]; leaderLines: LeaderLine[] } {
   let nodes: VoronoiNode[] = inputs.map((it) => {
     const targetX = it.anchorPx.x;
@@ -567,13 +576,13 @@ export function runVoronoiForceLayout(
     }
   }
 
-  const linkStrength = forceParams.linkStrength ?? 0.16;
-  const collideStrength = forceParams.collideStrength ?? 3.5;
-  const fieldStrength = forceParams.fieldStrength ?? 1.8;
-  const iterations = forceParams.iterations ?? 500;
-  const alpha = forceParams.alpha ?? 0.3;
-  const alphaDecay = forceParams.alphaDecay ?? 0.02;
-  const alphaMin = forceParams.alphaMin ?? 0.001;
+  const linkStrength = forceParams.linkStrength;
+  const collideStrength = forceParams.collideStrength;
+  const fieldStrength = forceParams.fieldStrength;
+  const iterations = forceParams.iterations;
+  const alpha = forceParams.alpha;
+  const alphaDecay = forceParams.alphaDecay;
+  const alphaMin = forceParams.alphaMin;
 
   const sim = forceSimulation(nodes as any)
     .alpha(alpha)
@@ -582,7 +591,7 @@ export function runVoronoiForceLayout(
     .force('x', forceX<VoronoiNode>((d) => d.anchorX).strength(linkStrength))
     .force('y', forceY<VoronoiNode>((d) => d.anchorY).strength(linkStrength))
     .force('collide', rectCollideForce(collideStrength))
-    .force('field', voronoiFieldRepulsionForce(ctx, voronoiParams))
+    .force('field', voronoiFieldRepulsionForce(ctx, fieldStrength))
     .force('bounds', voronoiBoundingForce(ctx, voronoiParams))
     .stop();
 
@@ -740,4 +749,14 @@ export const DEFAULT_VORONOI: VoronoiParams = {
   boundsPadding: 10,
   weightScale: 0.25,
   anchorStrength: 0.5,
+};
+
+export const DEFAULT_VORONOI_FORCE: VoronoiForceParams = {
+  linkStrength: 5,
+  collideStrength: 3.0,
+  fieldStrength: 0.5,
+  alpha: 0.25,
+  alphaDecay: 0.025,
+  alphaMin: 0.001,
+  iterations: 4000,
 };

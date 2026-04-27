@@ -546,17 +546,28 @@ export const DEFAULT_VORONOI: VoronoiParams = {
 };
 ```
 
-**力导向参数（继承自LayoutParams）：**
+**Voronoi+Force独立力导向参数：**
 
 ```typescript
-// 与纯力导向相同，默认值如下：
-const linkStrength = forceParams.linkStrength ?? 0.16;
-const collideStrength = forceParams.collideStrength ?? 3.5;
-const fieldStrength = forceParams.fieldStrength ?? 1.8;
-const iterations = forceParams.iterations ?? 500;
-const alpha = forceParams.alpha ?? 0.3;
-const alphaDecay = forceParams.alphaDecay ?? 0.02;
-const alphaMin = forceParams.alphaMin ?? 0.001;
+export type VoronoiForceParams = {
+  linkStrength: number;
+  collideStrength: number;
+  fieldStrength: number;
+  alpha: number;
+  alphaDecay: number;
+  alphaMin: number;
+  iterations: number;
+};
+
+export const DEFAULT_VORONOI_FORCE: VoronoiForceParams = {
+  linkStrength: 0.12,
+  collideStrength: 3.0,
+  fieldStrength: 1.5,
+  alpha: 0.25,
+  alphaDecay: 0.025,
+  alphaMin: 0.001,
+  iterations: 400,
+};
 ```
 
 ### 3.4 参数影响说明
@@ -568,6 +579,17 @@ const alphaMin = forceParams.alphaMin ?? 0.001;
 | segmentPadding | 更宽松线避让 | 标签可能压线 | 8 ~ 20 |
 | globalPadding | 更宽松障碍避让 | 标签可能进入障碍 | 5 ~ 15 |
 | boundsPadding | 更大边界留白 | 标签更靠近边界 | 5 ~ 20 |
+
+### 3.5 Voronoi+Force力导向参数影响说明
+
+| 参数 | 增大效果 | 减小效果 | 推荐范围 |
+|------|----------|----------|----------|
+| linkStrength | 标签更靠近锚点 | 标签分布更均匀 | 0.08 ~ 0.2 |
+| collideStrength | 碰撞排斥更强 | 可能出现重叠 | 2.0 ~ 4.0 |
+| fieldStrength | 更强避开障碍物 | 可能穿过代价场 | 1.0 ~ 2.5 |
+| alpha | 更激进迭代 | 收敛更慢 | 0.15 ~ 0.35 |
+| alphaDecay | 更快冷却 | 更慢冷却 | 0.02 ~ 0.04 |
+| iterations | 更多迭代次数 | 更少迭代 | 300 ~ 600 |
 
 ---
 
@@ -649,7 +671,7 @@ const { outputs, leaderLines } = runSimulatedAnnealingLayout(
 ### 5.3 Voronoi+力导向混合布局
 
 ```typescript
-import { runVoronoiForceLayout, DEFAULT_VORONOI } from '@/app/agent/weightedVoronoi/weightedVoronoiLayout';
+import { runVoronoiForceLayout, DEFAULT_VORONOI, DEFAULT_VORONOI_FORCE } from '@/app/agent/weightedVoronoi/weightedVoronoiLayout';
 
 const { outputs, leaderLines } = runVoronoiForceLayout(
   inputs,
@@ -664,7 +686,11 @@ const { outputs, leaderLines } = runVoronoiForceLayout(
     weightScale: 0.3,
     anchorStrength: 0.6,
   },
-  { ...DEFAULT_FORCE, linkStrength: 0.2 }
+  {
+    ...DEFAULT_VORONOI_FORCE,
+    linkStrength: 0.15,
+    collideStrength: 3.5,
+  }
 );
 ```
 

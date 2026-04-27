@@ -24,7 +24,7 @@ import { buildObstacleRects, buildObstacleSegments } from '@/app/agent/layout/ob
 import { buildCostFieldFromRects, type CostField } from '@/app/agent/layout/costField';
 import { runForceLayout, type LayoutParams } from '@/app/agent/layout/forceLayout';
 import { runSimulatedAnnealingLayout, DEFAULT_SIM_ANNEALING } from '@/app/agent/simulatedAnnealing/simulatedAnnealingLayout';
-import { runVoronoiForceLayout, DEFAULT_VORONOI } from '@/app/agent/weightedVoronoi/weightedVoronoiLayout';
+import { runVoronoiForceLayout, DEFAULT_VORONOI, DEFAULT_VORONOI_FORCE } from '@/app/agent/weightedVoronoi/weightedVoronoiLayout';
 import DebugOverlay from './DebugOverlay';
 import type { ForceParamsOverride, FieldParamsOverride } from './ForceParamsPanel';
 
@@ -419,7 +419,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
           ready,
           { viewport, costField: field, segments, globalRects: globalRectsRef.current },
           DEFAULT_VORONOI,
-          { ...DEFAULT_FORCE, ...forceParams }
+          DEFAULT_VORONOI_FORCE
         )
       : runForceLayout(
           ready,
