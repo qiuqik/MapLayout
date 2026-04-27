@@ -11,7 +11,7 @@ import ForceParamsPanel, { type ForceParamsOverride, type FieldParamsOverride } 
 import type { LayoutItemInput, LayoutItemPosition, LayoutItemOutput } from './layout/types';
 
 import { API_BASE_URL, saveSessionGeojson } from '@/lib/api';
-import type { DatasetType } from '@/components/mapagent/DatasetPanel';
+import type { DatasetType, LayoutAlgorithm } from '@/components/mapagent/DatasetPanel';
 import DatasetPanel from '@/components/mapagent/DatasetPanel';
 
 const TravelMapWithNoSSR = dynamic(
@@ -54,6 +54,7 @@ function AgentPageContent() {
   const [hasGroundtruthFile, setHasGroundtruthFile] = useState(false);
   const [rerunLayoutTrigger, setRerunLayoutTrigger] = useState(0);
   const [mapInfo, setMapInfo] = useState<{ center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } } | null>(null);
+  const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('force');
 
   const handleDatasetChange = useCallback((type: DatasetType) => {
     if (type === 'groundtruth' && !hasGroundtruthFile) {
@@ -309,6 +310,8 @@ function AgentPageContent() {
             onRerunLayout={handleRerunLayout}
             geojson={originGeojson}
             mapInfo={mapInfo}
+            layoutAlgorithm={layoutAlgorithm}
+            onLayoutAlgorithmChange={setLayoutAlgorithm}
           />
         </div>
       </div>
@@ -353,6 +356,7 @@ function AgentPageContent() {
           }}
           onMapInfoChange={setMapInfo}
           rerunLayoutTrigger={rerunLayoutTrigger}
+          layoutAlgorithm={layoutAlgorithm}
         />
       </div>
     </div>

@@ -23,6 +23,7 @@ import type { LayoutItemInput, LayoutItemOutput, LayoutItemPosition, LeaderLine,
 import { buildObstacleRects, buildObstacleSegments } from '@/app/agent/layout/obstacles';
 import { buildCostFieldFromRects, type CostField } from '@/app/agent/layout/costField';
 import { runForceLayout, type LayoutParams } from '@/app/agent/layout/forceLayout';
+import { runSimulatedAnnealingLayout, DEFAULT_SIM_ANNEALING } from '@/app/agent/simulatedAnnealing/simulatedAnnealingLayout';
 import DebugOverlay from './DebugOverlay';
 import type { ForceParamsOverride, FieldParamsOverride } from './ForceParamsPanel';
 
@@ -60,9 +61,10 @@ interface TravelMapProps {
   onGroundtruthChange?: (positions: Record<string, { lng: number; lat: number }>) => void;
   onMapInfoChange?: (mapInfo: { center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } }) => void;
   rerunLayoutTrigger?: number;
+  layoutAlgorithm?: 'force' | 'simulatedAnnealing';
 }
 
-export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, rerunLayoutTrigger = 0 }: TravelMapProps) {
+export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, rerunLayoutTrigger = 0, layoutAlgorithm = 'force' }: TravelMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
   // Bounding rects of global items in map-container px space (set via onMeasured callback).
@@ -405,11 +407,17 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
       };
     });
 
-    const { outputs, leaderLines } = runForceLayout(
-      ready,
-      { viewport, costField: field, segments, globalRects: globalRectsRef.current },
-      { ...DEFAULT_FORCE, ...forceParams }
-    );
+    const { outputs, leaderLines } = layoutAlgorithm === 'simulatedAnnealing'
+      ? runSimulatedAnnealingLayout(
+          ready,
+          { viewport, costField: field, segments, globalRects: globalRectsRef.current },
+          DEFAULT_SIM_ANNEALING
+        )
+      : runForceLayout(
+          ready,
+          { viewport, costField: field, segments, globalRects: globalRectsRef.current },
+          { ...DEFAULT_FORCE, ...forceParams }
+        );
     
     const outputsWithLngLat = outputs.map(o => {
       const lngLat = map.unproject([o.cx, o.cy]);
@@ -421,7 +429,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     
     console.log("after layout outputs:", outputsWithLngLat);
     setLayoutState((s) => ({ ...s, viewport, outputs: outputsWithLngLat, leaderLines }));
-  }, [displayLines, transformedData.points, transformedData.polygons, forceParams, fieldParams, layoutState.inputs, rerunLayoutTrigger]);
+  }, [displayLines, transformedData.points, transformedData.polygons, forceParams, fieldParams, layoutState.inputs, rerunLayoutTrigger, layoutAlgorithm]);
 
   // Keep recomputeLayoutRef always pointing to the latest closure.
   // handleGlobalMeasured calls this ref so it never captures a stale version.

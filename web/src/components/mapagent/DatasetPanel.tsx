@@ -8,6 +8,7 @@ import { saveSessionGeojson, saveSessionMapInfo } from '@/lib/api';
 import type { LayoutItemInput, LayoutItemPosition } from '@/app/agent/layout/types';
 
 export type DatasetType = 'origin' | 'layout' | 'groundtruth';
+export type LayoutAlgorithm = 'force' | 'simulatedAnnealing';
 
 interface DatasetPanelProps {
   onDatasetChange?: (type: DatasetType) => void;
@@ -20,6 +21,8 @@ interface DatasetPanelProps {
   currentDataset?: DatasetType;
   geojson?: any;
   mapInfo?: { center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } } | null;
+  layoutAlgorithm?: LayoutAlgorithm;
+  onLayoutAlgorithmChange?: (algorithm: LayoutAlgorithm) => void;
 }
 
 const DATASET_CONFIG: Record<DatasetType, { label: string; suffix: string; description: string }> = {
@@ -51,14 +54,18 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
   currentDataset: externalDataset,
   geojson: externalGeojson,
   mapInfo,
+  layoutAlgorithm: externalAlgorithm,
+  onLayoutAlgorithmChange,
 }) => {
   const { geojson: contextGeojson } = useAgentMap();
   const geojson = externalGeojson ?? contextGeojson;
   const [currentDataset, setCurrentDataset] = useState<DatasetType>('layout');
+  const [currentAlgorithm, setCurrentAlgorithm] = useState<LayoutAlgorithm>('force');
   const [filename, setFilename] = useState<string>('map_data');
   const [isCapturing, setIsCapturing] = useState(false);
 
   const activeDataset = externalDataset ?? currentDataset;
+  const activeAlgorithm = externalAlgorithm ?? currentAlgorithm;
 
   const handleDatasetChange = useCallback((type: DatasetType) => {
     if (!externalDataset) {
@@ -69,6 +76,14 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
       onRerunLayout?.();
     }
   }, [onDatasetChange, onRerunLayout, externalDataset]);
+
+  const handleAlgorithmChange = useCallback((algorithm: LayoutAlgorithm) => {
+    if (!externalAlgorithm) {
+      setCurrentAlgorithm(algorithm);
+    }
+    onLayoutAlgorithmChange?.(algorithm);
+    onRerunLayout?.();
+  }, [onLayoutAlgorithmChange, externalAlgorithm, onRerunLayout]);
 
   const convertMapInfo = (info: typeof mapInfo) => info ? {
     center: {
@@ -223,6 +238,31 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
                 {config.label}
               </button>
             ))}
+          </div>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block">Layout Algorithm</label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleAlgorithmChange('force')}
+              className={`flex-1 text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
+                activeAlgorithm === 'force'
+                  ? 'bg-purple-50 border-purple-300 text-purple-700 font-medium'
+                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Force
+            </button>
+            <button
+              onClick={() => handleAlgorithmChange('simulatedAnnealing')}
+              className={`flex-1 text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
+                activeAlgorithm === 'simulatedAnnealing'
+                  ? 'bg-purple-50 border-purple-300 text-purple-700 font-medium'
+                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              SA
+            </button>
           </div>
         </div>
         <div>
