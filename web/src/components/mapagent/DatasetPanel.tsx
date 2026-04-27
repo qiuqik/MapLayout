@@ -8,7 +8,7 @@ import { saveSessionGeojson, saveSessionMapInfo } from '@/lib/api';
 import type { LayoutItemInput, LayoutItemPosition } from '@/app/agent/layout/types';
 
 export type DatasetType = 'origin' | 'layout' | 'groundtruth';
-export type LayoutAlgorithm = 'force' | 'simulatedAnnealing';
+export type LayoutAlgorithm = 'force' | 'simulatedAnnealing' | 'weightedVoronoi';
 
 interface DatasetPanelProps {
   onDatasetChange?: (type: DatasetType) => void;
@@ -262,6 +262,16 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
               }`}
             >
               SA
+            </button>
+            <button
+              onClick={() => handleAlgorithmChange('weightedVoronoi')}
+              className={`flex-1 text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
+                activeAlgorithm === 'weightedVoronoi'
+                  ? 'bg-purple-50 border-purple-300 text-purple-700 font-medium'
+                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Voronoi
             </button>
           </div>
         </div>
