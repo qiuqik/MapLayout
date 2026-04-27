@@ -1,8 +1,24 @@
-import type { LayoutItemInput, LayoutItemOutput, LeaderLine, CostField, Segment, Rect } from './types';
+import type { LayoutItemInput, LayoutItemOutput, LeaderLine, CostField, Segment, Rect, LngLat, LayoutItemKind } from './types';
 import { sampleCostFieldForce } from '../layout/costField';
 import { forceSimulation, forceX, forceY } from 'd3-force';
 import { rectCollideForce } from '../layout/rectCollide';
 import type { Segment as LayoutSegment } from '../layout/obstacles';
+
+export type VoronoiGroupItem = {
+  id: string;
+  kind: LayoutItemKind;
+  html: string;
+  width: number;
+  height: number;
+  padding?: number;
+};
+
+export type VoronoiGroupInput = {
+  id: string;
+  anchorPx: { x: number; y: number };
+  anchorLngLat: LngLat;
+  items: VoronoiGroupItem[];
+};
 
 export type VoronoiParams = {
   maxIterations: number;
@@ -50,6 +66,36 @@ type Cell = {
   centroidX: number;
   centroidY: number;
   vertices: { x: number; y: number }[];
+};
+
+type VoronoiGroupNode = {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  width: number;
+  height: number;
+  padding: number;
+  anchorX: number;
+  anchorY: number;
+  weight: number;
+  items: VoronoiGroupItem[];
+};
+
+type GroupCell = {
+  node: VoronoiGroupNode;
+  centroidX: number;
+  centroidY: number;
+  vertices: { x: number; y: number }[];
+};
+
+type ItemLayoutResult = {
+  id: string;
+  x: number;
+  y: number;
+  cx: number;
+  cy: number;
 };
 
 function clamp(v: number, lo: number, hi: number): number {
@@ -847,3 +893,533 @@ export const DEFAULT_VORONOI_FORCE: VoronoiForceParams = {
   alphaMin: 0.001,
   iterations: 400,
 };
+
+function buildGroupPowerDiagram(
+  nodes: VoronoiGroupNode[],
+  width: number,
+  height: number
+): GroupCell[] {
+  const cells: GroupCell[] = [];
+  const numNodes = nodes.length;
+
+  if (numNodes === 0) return cells;
+
+  const gridSize = 20;
+  const gridWidth = Math.ceil(width / gridSize);
+  const gridHeight = Math.ceil(height / gridSize);
+
+  for (const node of nodes) {
+    let sumX = 0, sumY = 0, count = 0;
+    const vertices: { x: number; y: number }[] = [];
+
+    for (let gy = 0; gy < gridHeight; gy++) {
+      for (let gx = 0; gx < gridWidth; gx++) {
+        const px = (gx + 0.5) * gridSize;
+        const py = (gy + 0.5) * gridSize;
+
+        let closestNode: VoronoiGroupNode | null = null;
+        let minPower = Infinity;
+
+        for (const other of nodes) {
+          const dx = px - other.x;
+          const dy = py - other.y;
+          const dist2 = dx * dx + dy * dy;
+          const power = dist2 - other.weight * other.weight;
+
+          if (power < minPower) {
+            minPower = power;
+            closestNode = other;
+          }
+        }
+
+        if (closestNode === node) {
+          sumX += px;
+          sumY += py;
+          count++;
+
+          const isEdge = gx === 0 || gx === gridWidth - 1 || gy === 0 || gy === gridHeight - 1;
+          if (isEdge) {
+            vertices.push({ x: px, y: py });
+          }
+        }
+      }
+    }
+
+    if (count > 0) {
+      const centroidX = sumX / count;
+      const centroidY = sumY / count;
+      cells.push({ node, centroidX, centroidY, vertices });
+    } else {
+      cells.push({
+        node,
+        centroidX: node.x,
+        centroidY: node.y,
+        vertices: [],
+      });
+    }
+  }
+
+  return cells;
+}
+
+function computeGroupBoundingBox(items: VoronoiGroupItem[]): { width: number; height: number } {
+  if (items.length === 0) return { width: 0, height: 0 };
+
+  let maxWidth = 0;
+  let maxHeight = 0;
+  for (const item of items) {
+    maxWidth = Math.max(maxWidth, item.width);
+    maxHeight = Math.max(maxHeight, item.height);
+  }
+  return { width: maxWidth, height: maxHeight };
+}
+
+function computeGroupTotalArea(items: VoronoiGroupItem[]): number {
+  return items.reduce((sum, item) => sum + item.width * item.height, 0);
+}
+
+function layoutItemsInCell(
+  items: VoronoiGroupItem[],
+  cellCenterX: number,
+  cellCenterY: number,
+  cellWidth: number,
+  cellHeight: number,
+  anchorX: number,
+  anchorY: number
+): Map<string, ItemLayoutResult> {
+  const results = new Map<string, ItemLayoutResult>();
+
+  if (items.length === 0) return results;
+
+  if (items.length === 1) {
+    const item = items[0];
+    const x = cellCenterX - item.width / 2;
+    const y = cellCenterY - item.height / 2;
+    results.set(item.id, { id: item.id, x, y, cx: cellCenterX, cy: cellCenterY });
+    return results;
+  }
+
+  const sortedItems = [...items].sort((a, b) => (b.width * b.height) - (a.width * a.height));
+
+  const cellHalfW = cellWidth / 2;
+  const cellHalfH = cellHeight / 2;
+
+  const cols = Math.ceil(Math.sqrt(items.length));
+  const rows = Math.ceil(items.length / cols);
+
+  const cellPadding = 4;
+  const totalGridW = cols * (sortedItems[0].width + cellPadding) - cellPadding;
+  const totalGridH = rows * (sortedItems[0].height + cellPadding) - cellPadding;
+
+  const gridStartX = cellCenterX - totalGridW / 2;
+  const gridStartY = cellCenterY - totalGridH / 2;
+
+  let idx = 0;
+  for (let row = 0; row < rows && idx < sortedItems.length; row++) {
+    for (let col = 0; col < cols && idx < sortedItems.length; col++) {
+      const item = sortedItems[idx];
+      const itemX = gridStartX + col * (item.width + cellPadding);
+      const itemY = gridStartY + row * (item.height + cellPadding);
+
+      const itemCx = itemX + item.width / 2;
+      const itemCy = itemY + item.height / 2;
+
+      const toItemX = itemCx - cellCenterX;
+      const toItemY = itemCy - cellCenterY;
+      if (cellHalfW > 0 && cellHalfH > 0 && (Math.abs(toItemX) > cellHalfW || Math.abs(toItemY) > cellHalfH)) {
+        const scaleX = cellHalfW / Math.max(Math.abs(toItemX), 0.001);
+        const scaleY = cellHalfH / Math.max(Math.abs(toItemY), 0.001);
+        const scale = Math.min(scaleX, scaleY) * 0.9;
+        const finalCx = cellCenterX + toItemX * scale;
+        const finalCy = cellCenterY + toItemY * scale;
+        const finalX = finalCx - item.width / 2;
+        const finalY = finalCy - item.height / 2;
+        results.set(item.id, { id: item.id, x: finalX, y: finalY, cx: finalCx, cy: finalCy });
+      } else {
+        results.set(item.id, { id: item.id, x: itemX, y: itemY, cx: itemCx, cy: itemCy });
+      }
+      idx++;
+    }
+  }
+
+  return results;
+}
+
+export function runWeightedGroupedVoronoiLayout(
+  inputs: VoronoiGroupInput[],
+  ctx: VoronoiContext,
+  params: VoronoiParams
+): { outputs: LayoutItemOutput[]; leaderLines: LeaderLine[] } {
+  let groupNodes: VoronoiGroupNode[] = inputs.map((group) => {
+    const targetX = group.anchorPx.x;
+    const targetY = group.anchorPx.y;
+    const start = { x: targetX, y: targetY };
+    const totalArea = computeGroupTotalArea(group.items);
+    const bbox = computeGroupBoundingBox(group.items);
+    const weight = Math.sqrt(totalArea) * params.weightScale;
+
+    const maxPadding = group.items.reduce((max, item) => Math.max(max, item.padding ?? 6), 6);
+
+    return {
+      id: group.id,
+      x: start.x,
+      y: start.y,
+      vx: 0,
+      vy: 0,
+      width: bbox.width + maxPadding * 2,
+      height: bbox.height + maxPadding * 2,
+      padding: maxPadding,
+      anchorX: targetX,
+      anchorY: targetY,
+      weight,
+      items: group.items,
+    };
+  });
+
+  const cells = buildGroupPowerDiagram(groupNodes, ctx.viewport.width, ctx.viewport.height);
+
+  for (let i = 0; i < cells.length; i++) {
+    const cell = cells[i];
+    if (cell.vertices.length > 0) {
+      const pos = findInitialPosition(cell as Cell, groupNodes[i].anchorX, groupNodes[i].anchorY);
+      groupNodes[i].x = clamp(pos.x, params.boundsPadding + groupNodes[i].width / 2, ctx.viewport.width - params.boundsPadding - groupNodes[i].width / 2);
+      groupNodes[i].y = clamp(pos.y, params.boundsPadding + groupNodes[i].height / 2, ctx.viewport.height - params.boundsPadding - groupNodes[i].height / 2);
+    }
+  }
+
+  for (let iter = 0; iter < params.collisionIterations; iter++) {
+    let anyMovement = false;
+
+    for (let i = 0; i < groupNodes.length; i++) {
+      for (let j = i + 1; j < groupNodes.length; j++) {
+        const a = groupNodes[i];
+        const b = groupNodes[j];
+        const { dx, dy } = resolveRectOverlap(a as any, b as any);
+
+        if (dx !== 0 || dy !== 0) {
+          anyMovement = true;
+          const limitedA = limitDisplacement(-dx, -dy, 20);
+          const limitedB = limitDisplacement(dx, dy, 20);
+          a.x += limitedA.dx;
+          a.y += limitedA.dy;
+          b.x += limitedB.dx;
+          b.y += limitedB.dy;
+        }
+      }
+    }
+
+    if (ctx.segments && ctx.segments.length > 0) {
+      for (const n of groupNodes) {
+        for (const seg of ctx.segments) {
+          if (lineSegmentIntersection(n.x, n.y, n.width / 2, n.height / 2, seg, params.segmentPadding)) {
+            const { dx, dy } = resolveSegmentOverlap(n as any, seg, params.segmentPadding);
+            if (dx !== 0 || dy !== 0) {
+              anyMovement = true;
+              const limited = limitDisplacement(dx, dy, 20);
+              n.x += limited.dx;
+              n.y += limited.dy;
+            }
+          }
+        }
+      }
+    }
+
+    if (ctx.globalRects && ctx.globalRects.length > 0) {
+      for (const n of groupNodes) {
+        for (const rect of ctx.globalRects) {
+          const { dx, dy } = resolveGlobalRectOverlap(n as any, rect, params.globalPadding);
+          if (dx !== 0 || dy !== 0) {
+            anyMovement = true;
+            const limited = limitDisplacement(dx, dy, 20);
+            n.x += limited.dx;
+            n.y += limited.dy;
+          }
+        }
+      }
+    }
+
+    if (ctx.costField) {
+      for (const n of groupNodes) {
+        const { dx, dy } = applyFieldForce(n as any, ctx.costField);
+        if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
+          anyMovement = true;
+          const limited = limitDisplacement(dx * 2, dy * 2, 10);
+          n.x += limited.dx;
+          n.y += limited.dy;
+        }
+      }
+    }
+
+    for (const n of groupNodes) {
+      const { dx, dy } = applyAnchorForce(n as any, params.anchorStrength);
+      if (Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1) {
+        anyMovement = true;
+        n.x += dx;
+        n.y += dy;
+      }
+    }
+
+    if (!anyMovement) break;
+  }
+
+  const pad = params.boundsPadding;
+  const vw = ctx.viewport.width;
+  const vh = ctx.viewport.height;
+  for (const n of groupNodes) {
+    n.x = clamp(n.x, pad + n.width / 2, vw - pad - n.width / 2);
+    n.y = clamp(n.y, pad + n.height / 2, vh - pad - n.height / 2);
+  }
+
+  const itemLayouts = new Map<string, ItemLayoutResult>();
+  const groupLeaderLines: LeaderLine[] = [];
+
+  for (const group of inputs) {
+    const n = groupNodes.find((x) => x.id === group.id)!;
+    const cellCenterX = n.x;
+    const cellCenterY = n.y;
+    const bbox = computeGroupBoundingBox(n.items);
+    const cellWidth = Math.max(bbox.width, n.width);
+    const cellHeight = Math.max(bbox.height, n.height);
+
+    const layouts = layoutItemsInCell(
+      n.items,
+      cellCenterX,
+      cellCenterY,
+      cellWidth,
+      cellHeight,
+      n.anchorX,
+      n.anchorY
+    );
+
+    layouts.forEach((layout, itemId) => {
+      itemLayouts.set(itemId, layout);
+    });
+
+    groupLeaderLines.push({
+      id: group.id,
+      x1: n.anchorX,
+      y1: n.anchorY,
+      x2: cellCenterX,
+      y2: cellCenterY,
+    });
+  }
+
+  const outputs: LayoutItemOutput[] = [];
+  for (const group of inputs) {
+    for (const item of group.items) {
+      const layout = itemLayouts.get(item.id)!;
+      outputs.push({
+        id: item.id,
+        kind: item.kind,
+        html: item.html,
+        width: item.width,
+        height: item.height,
+        padding: item.padding,
+        anchorLngLat: group.anchorLngLat,
+        anchorPx: group.anchorPx,
+        x: layout.x,
+        y: layout.y,
+        cx: layout.cx,
+        cy: layout.cy,
+        centerLngLat: group.anchorLngLat,
+      });
+    }
+  }
+
+  return { outputs, leaderLines: groupLeaderLines };
+}
+
+function resolveGroupRectOverlap(
+  a: VoronoiGroupNode,
+  b: VoronoiGroupNode
+): { dx: number; dy: number } {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const overlapX = a.width / 2 + b.width / 2 + a.padding + b.padding - Math.abs(dx);
+  const overlapY = a.height / 2 + b.height / 2 + a.padding + b.padding - Math.abs(dy);
+
+  if (overlapX <= 0 || overlapY <= 0) return { dx: 0, dy: 0 };
+
+  if (overlapX < overlapY) {
+    const push = overlapX * 0.5;
+    const sign = dx >= 0 ? 1 : -1;
+    return { dx: sign * push, dy: 0 };
+  } else {
+    const push = overlapY * 0.5;
+    const sign = dy >= 0 ? 1 : -1;
+    return { dx: 0, dy: sign * push };
+  }
+}
+
+function runGroupForcePhase(
+  nodes: VoronoiGroupNode[],
+  ctx: VoronoiContext,
+  voronoiParams: VoronoiParams,
+  forceParams: VoronoiForceParams,
+  phase: { alpha: number; alphaDecay: number; alphaMin: number; iterations: number; linkStrength: number }
+) {
+  const sim = forceSimulation(nodes as any)
+    .alpha(phase.alpha)
+    .alphaDecay(phase.alphaDecay)
+    .alphaMin(phase.alphaMin)
+    .force('x', forceX<VoronoiGroupNode>((d) => d.anchorX).strength(phase.linkStrength))
+    .force('y', forceY<VoronoiGroupNode>((d) => d.anchorY).strength(phase.linkStrength))
+    .force('collide', rectCollideForce(forceParams.collideStrength))
+    .force('field', voronoiFieldRepulsionForce(ctx, forceParams.fieldStrength))
+    .force('bounds', voronoiBoundingForce(ctx, voronoiParams))
+    .stop();
+
+  const maxIterations = Math.max(phase.iterations, 1);
+  for (let i = 0; i < maxIterations; i++) {
+    sim.tick();
+  }
+}
+
+export function runVoronoiGroupedForceLayout(
+  inputs: VoronoiGroupInput[],
+  ctx: VoronoiContext,
+  voronoiParams: VoronoiParams,
+  forceParams: VoronoiForceParams
+): { outputs: LayoutItemOutput[]; leaderLines: LeaderLine[] } {
+  let groupNodes: VoronoiGroupNode[] = inputs.map((group) => {
+    const targetX = group.anchorPx.x;
+    const targetY = group.anchorPx.y;
+    const start = { x: targetX, y: targetY };
+    const totalArea = computeGroupTotalArea(group.items);
+    const bbox = computeGroupBoundingBox(group.items);
+    const weight = Math.sqrt(totalArea) * voronoiParams.weightScale;
+
+    const maxPadding = group.items.reduce((max, item) => Math.max(max, item.padding ?? 6), 6);
+
+    return {
+      id: group.id,
+      x: start.x,
+      y: start.y,
+      vx: 0,
+      vy: 0,
+      width: bbox.width + maxPadding * 2,
+      height: bbox.height + maxPadding * 2,
+      padding: maxPadding,
+      anchorX: targetX,
+      anchorY: targetY,
+      weight,
+      items: group.items,
+    };
+  });
+
+  const warmupIterations = Math.max(60, Math.min(200, Math.floor(forceParams.iterations * 0.25)));
+  runGroupForcePhase(groupNodes, ctx, voronoiParams, forceParams, {
+    alpha: Math.max(forceParams.alpha, 0.2),
+    alphaDecay: Math.max(forceParams.alphaDecay, 0.015),
+    alphaMin: forceParams.alphaMin,
+    iterations: warmupIterations,
+    linkStrength: Math.max(forceParams.linkStrength, 0.18),
+  });
+
+  const cells = buildGroupPowerDiagram(groupNodes, ctx.viewport.width, ctx.viewport.height);
+
+  for (let i = 0; i < cells.length; i++) {
+    const cell = cells[i];
+    const pos = findInitialPosition(cell as Cell, groupNodes[i].anchorX, groupNodes[i].anchorY);
+    groupNodes[i].x = clamp(pos.x, voronoiParams.boundsPadding + groupNodes[i].width / 2, ctx.viewport.width - voronoiParams.boundsPadding - groupNodes[i].width / 2);
+    groupNodes[i].y = clamp(pos.y, voronoiParams.boundsPadding + groupNodes[i].height / 2, ctx.viewport.height - voronoiParams.boundsPadding - groupNodes[i].height / 2);
+  }
+
+  runGroupForcePhase(groupNodes, ctx, voronoiParams, forceParams, {
+    alpha: forceParams.alpha,
+    alphaDecay: forceParams.alphaDecay,
+    alphaMin: forceParams.alphaMin,
+    iterations: forceParams.iterations,
+    linkStrength: forceParams.linkStrength,
+  });
+
+  for (let pass = 0; pass < 50; pass++) {
+    let anyOverlap = false;
+
+    for (let i = 0; i < groupNodes.length; i++) {
+      for (let j = i + 1; j < groupNodes.length; j++) {
+        const a = groupNodes[i];
+        const b = groupNodes[j];
+        const { dx, dy } = resolveGroupRectOverlap(a, b);
+
+        if (dx !== 0 || dy !== 0) {
+          anyOverlap = true;
+          const limitedA = limitDisplacement(-dx, -dy, 20);
+          const limitedB = limitDisplacement(dx, dy, 20);
+          a.x += limitedA.dx;
+          a.y += limitedA.dy;
+          b.x += limitedB.dx;
+          b.y += limitedB.dy;
+        }
+      }
+    }
+
+    if (!anyOverlap) break;
+  }
+
+  const pad = voronoiParams.boundsPadding;
+  const vw = ctx.viewport.width;
+  const vh = ctx.viewport.height;
+  for (const n of groupNodes) {
+    n.x = clamp(n.x, pad + n.width / 2, vw - pad - n.width / 2);
+    n.y = clamp(n.y, pad + n.height / 2, vh - pad - n.height / 2);
+  }
+
+  const itemLayouts = new Map<string, ItemLayoutResult>();
+  const groupLeaderLines: LeaderLine[] = [];
+
+  for (const group of inputs) {
+    const n = groupNodes.find((x) => x.id === group.id)!;
+    const cellCenterX = n.x;
+    const cellCenterY = n.y;
+    const bbox = computeGroupBoundingBox(n.items);
+    const cellWidth = Math.max(bbox.width, n.width);
+    const cellHeight = Math.max(bbox.height, n.height);
+
+    const layouts = layoutItemsInCell(
+      n.items,
+      cellCenterX,
+      cellCenterY,
+      cellWidth,
+      cellHeight,
+      n.anchorX,
+      n.anchorY
+    );
+
+    layouts.forEach((layout, itemId) => {
+      itemLayouts.set(itemId, layout);
+    });
+
+    groupLeaderLines.push({
+      id: group.id,
+      x1: n.anchorX,
+      y1: n.anchorY,
+      x2: cellCenterX,
+      y2: cellCenterY,
+    });
+  }
+
+  const outputs: LayoutItemOutput[] = [];
+  for (const group of inputs) {
+    for (const item of group.items) {
+      const layout = itemLayouts.get(item.id)!;
+      outputs.push({
+        id: item.id,
+        kind: item.kind,
+        html: item.html,
+        width: item.width,
+        height: item.height,
+        padding: item.padding,
+        anchorLngLat: group.anchorLngLat,
+        anchorPx: group.anchorPx,
+        x: layout.x,
+        y: layout.y,
+        cx: layout.cx,
+        cy: layout.cy,
+        centerLngLat: group.anchorLngLat,
+      });
+    }
+  }
+
+  return { outputs, leaderLines: groupLeaderLines };
+}
