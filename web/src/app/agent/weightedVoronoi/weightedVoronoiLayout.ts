@@ -327,6 +327,63 @@ function limitDisplacement(dx: number, dy: number, maxDist: number): { dx: numbe
   return { dx, dy };
 }
 
+function hasRectOverlapAt(
+  node: VoronoiNode,
+  x: number,
+  y: number,
+  others: VoronoiNode[],
+  selfIndex: number
+): boolean {
+  for (let i = 0; i < others.length; i++) {
+    if (i === selfIndex) continue;
+    const o = others[i];
+    const dx = x - o.x;
+    const dy = y - o.y;
+    const overlapX = node.width / 2 + o.width / 2 + node.padding + o.padding - Math.abs(dx);
+    const overlapY = node.height / 2 + o.height / 2 + node.padding + o.padding - Math.abs(dy);
+    if (overlapX > 0 && overlapY > 0) return true;
+  }
+  return false;
+}
+
+function hasSegmentOverlapAt(
+  node: VoronoiNode,
+  x: number,
+  y: number,
+  segments: Segment[],
+  padding: number
+): boolean {
+  const halfW = node.width / 2;
+  const halfH = node.height / 2;
+  for (const seg of segments) {
+    if (!lineSegmentIntersection(x, y, halfW, halfH, seg, padding)) continue;
+    const dist = pointToSegmentDistance(x, y, seg);
+    if (dist < Math.min(halfW + padding, halfH + padding)) return true;
+  }
+  return false;
+}
+
+function hasGlobalRectOverlapAt(
+  node: VoronoiNode,
+  x: number,
+  y: number,
+  globalRects: Rect[],
+  padding: number
+): boolean {
+  const halfW = node.width / 2;
+  const halfH = node.height / 2;
+  for (const gr of globalRects) {
+    const gCx = gr.x + gr.width / 2;
+    const gCy = gr.y + gr.height / 2;
+    const dx = x - gCx;
+    const dy = y - gCy;
+    const overlapX = halfW + gr.width / 2 + padding - Math.abs(dx);
+    const overlapY = halfH + gr.height / 2 + padding - Math.abs(dy);
+    if (overlapX > 0 && overlapY > 0) return true;
+  }
+  return false;
+}
+
 export function runWeightedVoronoiLayout(
   inputs: Array<
     LayoutItemInput & {
@@ -645,35 +702,13 @@ export function runVoronoiForceLayout(
     if (ctx.segments && ctx.segments.length > 0) {
       const segmentPadding = voronoiParams.segmentPadding;
       for (const n of nodes) {
-        const halfW = n.width / 2;
-        const halfH = n.height / 2;
         for (const seg of ctx.segments) {
-          const segMinX = Math.min(seg.x1, seg.x2);
-          const segMaxX = Math.max(seg.x1, seg.x2);
-          const segMinY = Math.min(seg.y1, seg.y2);
-          const segMaxY = Math.max(seg.y1, seg.y2);
-
-          const nodeMinX = n.x - halfW - segmentPadding;
-          const nodeMaxX = n.x + halfW + segmentPadding;
-          const nodeMinY = n.y - halfH - segmentPadding;
-          const nodeMaxY = n.y + halfH + segmentPadding;
-
-          if (nodeMaxX < segMinX || nodeMinX > segMaxX || nodeMaxY < segMinY || nodeMinY > segMaxY) {
-            continue;
-          }
-
+          if (!lineSegmentIntersection(n.x, n.y, n.width / 2, n.height / 2, seg, segmentPadding)) continue;
+          const { dx, dy } = resolveSegmentOverlap(n, seg, segmentPadding);
+          if (dx === 0 && dy === 0) continue;
           anyOverlap = true;
-          const closestX = Math.max(segMinX, Math.min(n.x, segMaxX));
-          const closestY = Math.max(segMinY, Math.min(n.y, segMaxY));
-          const dx = n.x - closestX;
-          const dy = n.y - closestY;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-
-          if (dist > 0.001) {
-            const pushDist = Math.min(halfW + segmentPadding, halfH + segmentPadding) - dist + 1;
-            n.x += (dx / dist) * pushDist;
-            n.y += (dy / dist) * pushDist;
-          }
+          n.x += dx;
+          n.y += dy;
         }
       }
     }
@@ -703,6 +738,38 @@ export function runVoronoiForceLayout(
     }
 
     if (!anyOverlap) break;
+  }
+
+  // Try to pull nodes back toward anchors while preserving hard constraints.
+  for (let pullPass = 0; pullPass < 20; pullPass++) {
+    let moved = false;
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      const toAnchorX = n.anchorX - n.x;
+      const toAnchorY = n.anchorY - n.y;
+      if (Math.abs(toAnchorX) < 0.01 && Math.abs(toAnchorY) < 0.01) continue;
+
+      const step = limitDisplacement(toAnchorX * 0.35, toAnchorY * 0.35, 8);
+      const candidateX = clamp(
+        n.x + step.dx,
+        voronoiParams.boundsPadding + n.width / 2,
+        ctx.viewport.width - voronoiParams.boundsPadding - n.width / 2
+      );
+      const candidateY = clamp(
+        n.y + step.dy,
+        voronoiParams.boundsPadding + n.height / 2,
+        ctx.viewport.height - voronoiParams.boundsPadding - n.height / 2
+      );
+
+      if (hasRectOverlapAt(n, candidateX, candidateY, nodes, i)) continue;
+      if (ctx.segments && hasSegmentOverlapAt(n, candidateX, candidateY, ctx.segments, voronoiParams.segmentPadding)) continue;
+      if (ctx.globalRects && hasGlobalRectOverlapAt(n, candidateX, candidateY, ctx.globalRects, voronoiParams.globalPadding)) continue;
+
+      n.x = candidateX;
+      n.y = candidateY;
+      moved = true;
+    }
+    if (!moved) break;
   }
 
   {
@@ -752,11 +819,11 @@ export const DEFAULT_VORONOI: VoronoiParams = {
 };
 
 export const DEFAULT_VORONOI_FORCE: VoronoiForceParams = {
-  linkStrength: 5,
+  linkStrength: 0.12,
   collideStrength: 3.0,
   fieldStrength: 0.5,
   alpha: 0.25,
   alphaDecay: 0.025,
   alphaMin: 0.001,
-  iterations: 4000,
+  iterations: 400,
 };
