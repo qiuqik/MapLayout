@@ -263,13 +263,17 @@ function resolveSegmentOverlap(
 
   const closest = getClosestPointOnSegment(node.x, node.y, seg.x1, seg.y1, seg.x2, seg.y2);
   const dist = Math.sqrt((node.x - closest.x) ** 2 + (node.y - closest.y) ** 2);
+  const safeDist = Math.min(halfW + padding, halfH + padding);
 
   if (dist < 0.001) {
-    const pushDist = Math.min(halfW + padding, halfH + padding) + 1;
+    const pushDist = safeDist + 1;
     return { dx: closest.nx * pushDist, dy: closest.ny * pushDist };
   }
 
-  const pushDist = Math.min(halfW + padding, halfH + padding) - dist + 1;
+  // Already outside the safe distance; do not apply any correction.
+  if (dist >= safeDist) return { dx: 0, dy: 0 };
+
+  const pushDist = safeDist - dist + 1;
   return { dx: closest.nx * pushDist, dy: closest.ny * pushDist };
 }
 
@@ -351,14 +355,16 @@ function hasSegmentOverlapAt(
   x: number,
   y: number,
   segments: Segment[],
-  padding: number
+  padding: number,
+  extraBuffer = 0
 ): boolean {
   const halfW = node.width / 2;
   const halfH = node.height / 2;
   for (const seg of segments) {
     if (!lineSegmentIntersection(x, y, halfW, halfH, seg, padding)) continue;
     const dist = pointToSegmentDistance(x, y, seg);
-    if (dist < Math.min(halfW + padding, halfH + padding)) return true;
+    const safeDist = Math.min(halfW + padding, halfH + padding) + extraBuffer;
+    if (dist < safeDist) return true;
   }
   return false;
 }
@@ -589,6 +595,30 @@ function voronoiFieldRepulsionForce(ctx: VoronoiContext, fieldStrength: number) 
   return force as any;
 }
 
+function runForcePhase(
+  nodes: VoronoiNode[],
+  ctx: VoronoiContext,
+  voronoiParams: VoronoiParams,
+  forceParams: VoronoiForceParams,
+  phase: { alpha: number; alphaDecay: number; alphaMin: number; iterations: number; linkStrength: number }
+) {
+  const sim = forceSimulation(nodes as any)
+    .alpha(phase.alpha)
+    .alphaDecay(phase.alphaDecay)
+    .alphaMin(phase.alphaMin)
+    .force('x', forceX<VoronoiNode>((d) => d.anchorX).strength(phase.linkStrength))
+    .force('y', forceY<VoronoiNode>((d) => d.anchorY).strength(phase.linkStrength))
+    .force('collide', rectCollideForce(forceParams.collideStrength))
+    .force('field', voronoiFieldRepulsionForce(ctx, forceParams.fieldStrength))
+    .force('bounds', voronoiBoundingForce(ctx, voronoiParams))
+    .stop();
+
+  const maxIterations = Math.max(phase.iterations, 1);
+  for (let i = 0; i < maxIterations; i++) {
+    sim.tick();
+  }
+}
+
 export function runVoronoiForceLayout(
   inputs: Array<
     LayoutItemInput & {
@@ -622,55 +652,34 @@ export function runVoronoiForceLayout(
     };
   });
 
+  // Phase 1: Force warm start around anchors to quickly form a conflict-aware seed.
+  const warmupIterations = Math.max(60, Math.min(200, Math.floor(forceParams.iterations * 0.25)));
+  runForcePhase(nodes, ctx, voronoiParams, forceParams, {
+    alpha: Math.max(forceParams.alpha, 0.2),
+    alphaDecay: Math.max(forceParams.alphaDecay, 0.015),
+    alphaMin: forceParams.alphaMin,
+    iterations: warmupIterations,
+    linkStrength: Math.max(forceParams.linkStrength, 0.18),
+  });
+
+  // Phase 2: Weighted Voronoi global re-allocation.
   const cells = buildPowerDiagram(nodes, ctx.viewport.width, ctx.viewport.height);
 
   for (let i = 0; i < cells.length; i++) {
     const cell = cells[i];
-    if (cell.vertices.length > 0) {
-      const pos = findInitialPosition(cell, nodes[i].anchorX, nodes[i].anchorY);
-      nodes[i].x = clamp(pos.x, voronoiParams.boundsPadding + nodes[i].width / 2, ctx.viewport.width - voronoiParams.boundsPadding - nodes[i].width / 2);
-      nodes[i].y = clamp(pos.y, voronoiParams.boundsPadding + nodes[i].height / 2, ctx.viewport.height - voronoiParams.boundsPadding - nodes[i].height / 2);
-    }
+    const pos = findInitialPosition(cell, nodes[i].anchorX, nodes[i].anchorY);
+    nodes[i].x = clamp(pos.x, voronoiParams.boundsPadding + nodes[i].width / 2, ctx.viewport.width - voronoiParams.boundsPadding - nodes[i].width / 2);
+    nodes[i].y = clamp(pos.y, voronoiParams.boundsPadding + nodes[i].height / 2, ctx.viewport.height - voronoiParams.boundsPadding - nodes[i].height / 2);
   }
 
-  const linkStrength = forceParams.linkStrength;
-  const collideStrength = forceParams.collideStrength;
-  const fieldStrength = forceParams.fieldStrength;
-  const iterations = forceParams.iterations;
-  const alpha = forceParams.alpha;
-  const alphaDecay = forceParams.alphaDecay;
-  const alphaMin = forceParams.alphaMin;
-
-  const sim = forceSimulation(nodes as any)
-    .alpha(alpha)
-    .alphaDecay(alphaDecay)
-    .alphaMin(alphaMin)
-    .force('x', forceX<VoronoiNode>((d) => d.anchorX).strength(linkStrength))
-    .force('y', forceY<VoronoiNode>((d) => d.anchorY).strength(linkStrength))
-    .force('collide', rectCollideForce(collideStrength))
-    .force('field', voronoiFieldRepulsionForce(ctx, fieldStrength))
-    .force('bounds', voronoiBoundingForce(ctx, voronoiParams))
-    .stop();
-
-  const MAX_SIM_ITERATIONS = 2000;
-  const CONVERGENCE_THRESHOLD = 0.01;
-
-  for (let i = 0; i < MAX_SIM_ITERATIONS; i++) {
-    const prevPositions = nodes.map(n => ({ x: n.x, y: n.y }));
-    sim.tick();
-
-    if (i >= iterations) {
-      let totalMovement = 0;
-      for (let j = 0; j < nodes.length; j++) {
-        totalMovement += Math.abs(nodes[j].x - prevPositions[j].x);
-        totalMovement += Math.abs(nodes[j].y - prevPositions[j].y);
-      }
-      const avgMovement = totalMovement / nodes.length;
-      if (avgMovement < CONVERGENCE_THRESHOLD) {
-        break;
-      }
-    }
-  }
+  // Phase 3: Force refinement after Voronoi global placement.
+  runForcePhase(nodes, ctx, voronoiParams, forceParams, {
+    alpha: forceParams.alpha,
+    alphaDecay: forceParams.alphaDecay,
+    alphaMin: forceParams.alphaMin,
+    iterations: forceParams.iterations,
+    linkStrength: forceParams.linkStrength,
+  });
 
   for (let pass = 0; pass < 50; pass++) {
     let anyOverlap = false;
@@ -743,6 +752,7 @@ export function runVoronoiForceLayout(
   // Try to pull nodes back toward anchors while preserving hard constraints.
   for (let pullPass = 0; pullPass < 20; pullPass++) {
     let moved = false;
+    const PULLBACK_SEGMENT_BUFFER = 6;
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
       const toAnchorX = n.anchorX - n.x;
@@ -762,7 +772,17 @@ export function runVoronoiForceLayout(
       );
 
       if (hasRectOverlapAt(n, candidateX, candidateY, nodes, i)) continue;
-      if (ctx.segments && hasSegmentOverlapAt(n, candidateX, candidateY, ctx.segments, voronoiParams.segmentPadding)) continue;
+      if (
+        ctx.segments &&
+        hasSegmentOverlapAt(
+          n,
+          candidateX,
+          candidateY,
+          ctx.segments,
+          voronoiParams.segmentPadding,
+          PULLBACK_SEGMENT_BUFFER
+        )
+      ) continue;
       if (ctx.globalRects && hasGlobalRectOverlapAt(n, candidateX, candidateY, ctx.globalRects, voronoiParams.globalPadding)) continue;
 
       n.x = candidateX;
