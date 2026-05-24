@@ -331,6 +331,11 @@ async def multimodal_agent(request: MapAgentRequest):
         return {
             "session_id": result.get("session_id"),
             "session_dir": session_dir,
+            "files": {
+                "geojson": geojson_basename,
+                "style": style_basename,
+                "manifest": result.get("manifest_path"),
+            },
             "geofilepath": geojson_basename,
             "specfilepath": style_basename,
             "manifest_path": result.get("manifest_path"),
