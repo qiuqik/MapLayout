@@ -298,6 +298,55 @@ class GeoJSONGenerationNode:
         geojson_data["features"] = valid_points + valid_lines + valid_polygons
         return geojson_data
 
+    def _annotate_feature_metadata(self, geojson_data: dict) -> dict:
+        """Add stable feature ids and machine-readable visual-to-content mappings."""
+        features = geojson_data.get("features", [])
+        counters = {"Point": 0, "LineString": 0, "Polygon": 0}
+        prefixes = {"Point": "poi", "LineString": "route", "Polygon": "area"}
+        used_feature_ids = set()
+        visual_mapping = {}
+
+        for feature in features:
+            geometry = feature.get("geometry") or {}
+            properties = feature.setdefault("properties", {})
+            geom_type = geometry.get("type", "Feature")
+
+            if not properties.get("feature_id"):
+                counters[geom_type] = counters.get(geom_type, 0) + 1
+                prefix = prefixes.get(geom_type, "feature")
+                candidate = f"{prefix}_{counters[geom_type]:03d}"
+                while candidate in used_feature_ids:
+                    counters[geom_type] += 1
+                    candidate = f"{prefix}_{counters[geom_type]:03d}"
+                properties["feature_id"] = candidate
+            used_feature_ids.add(properties["feature_id"])
+
+            if not properties.get("semantic_role"):
+                properties["semantic_role"] = {
+                    "Point": "poi",
+                    "LineString": "route",
+                    "Polygon": "area",
+                }.get(geom_type, "feature")
+
+            for visual_key in ["visual_id", "card_visual_id", "label_visual_id"]:
+                visual_id = properties.get(visual_key)
+                if not visual_id:
+                    continue
+                item = visual_mapping.setdefault(
+                    visual_id,
+                    {
+                        "visual_id": visual_id,
+                        "applied_to": [],
+                        "properties": [],
+                    }
+                )
+                item["applied_to"].append(properties["feature_id"])
+                if visual_key not in item["properties"]:
+                    item["properties"].append(visual_key)
+
+        geojson_data["_visual_content_mapping"] = list(visual_mapping.values())
+        return geojson_data
+
     def execute(self, state: AgentState, max_retries: int = 3) -> AgentState:
         print("📍 [Node 3] 数据结构化与拓扑映射: 正在生成 GeoJSON 数据...")
         
@@ -338,6 +387,7 @@ class GeoJSONGenerationNode:
                 json_str = _extract_first_json_object(content)
                 geojson_data = _robust_json_loads(json_str)
                 geojson_data = self._correct_and_sync_topology(geojson_data)
+                geojson_data = self._annotate_feature_metadata(geojson_data)
                 if "global_properties" not in geojson_data:
                     geojson_data["global_properties"] = [
                         {"title": state.global_title, "visual_id": "global_vis_1"}
