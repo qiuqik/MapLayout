@@ -8,7 +8,7 @@ import { polygonCentroid } from 'd3-polygon';
 import dynamic from 'next/dynamic';
 import { transformSingleCoordinate } from '@/components/mapagent/utils/mapUtils';
 import ForceParamsPanel, { type ForceParamsOverride, type FieldParamsOverride } from '@/components/mapagent/ForceParamsPanel';
-import type { LayoutItemInput, LayoutItemPosition, LayoutItemOutput } from './layout/types';
+import type { LayoutItemInput, LayoutItemPosition, LayoutItemOutput, LayoutRunMetadata } from './layout/types';
 
 import { API_BASE_URL, saveSessionGeojson } from '@/lib/api';
 import type { DatasetType, LayoutAlgorithm } from '@/components/mapagent/DatasetPanel';
@@ -44,6 +44,7 @@ function AgentPageContent() {
   const [fieldParams, setFieldParams] = useState<FieldParamsOverride>({ ...DEFAULT_FIELD_OVERRIDE });
   const [layoutInputs, setLayoutInputs] = useState<LayoutItemInput[]>([]);
   const [computedLayoutOutputs, setComputedLayoutOutputs] = useState<LayoutItemPosition[]>([]);
+  const [layoutRunMetadata, setLayoutRunMetadata] = useState<LayoutRunMetadata | null>(null);
   const [originGeojson, setOriginGeojson] = useState<any>(null);
   const [currentDataset, setCurrentDataset] = useState<DatasetType>('layout');
   const [originPositions, setOriginPositions] = useState<LayoutItemPosition[] | null>(null);
@@ -69,13 +70,14 @@ function AgentPageContent() {
     setRerunLayoutTrigger(prev => prev + 1);
   }, []);
 
-  const handleLayoutOutput = useCallback((outputs: LayoutItemOutput[], inputs: LayoutItemInput[]) => {
+  const handleLayoutOutput = useCallback((outputs: LayoutItemOutput[], inputs: LayoutItemInput[], metadata?: LayoutRunMetadata) => {
     setComputedLayoutOutputs(outputs.map(o => ({
       id: o.id,
       anchorLngLat: o.anchorLngLat,
       centerLngLat: o.centerLngLat,
     })));
     setLayoutInputs(inputs);
+    setLayoutRunMetadata(metadata ?? null);
   }, []);
 
   const { setManifest, manifest } = useAgentMap();
@@ -311,6 +313,7 @@ function AgentPageContent() {
             geojson={originGeojson}
             mapInfo={mapInfo}
             layoutAlgorithm={layoutAlgorithm}
+            layoutRunMetadata={layoutRunMetadata}
             onLayoutAlgorithmChange={setLayoutAlgorithm}
           />
         </div>

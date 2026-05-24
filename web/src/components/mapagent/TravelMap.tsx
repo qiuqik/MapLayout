@@ -19,7 +19,7 @@ import CardRenderer from './renderers/CardRenderer';
 import LabelRenderer from './renderers/LabelRenderer';
 import DraggableOutput from './DraggableOutput';
 
-import type { LayoutItemInput, LayoutItemOutput, LayoutItemPosition, LeaderLine, Rect } from '@/app/agent/layout/types';
+import type { LayoutItemInput, LayoutItemOutput, LayoutItemPosition, LayoutRunMetadata, LeaderLine, Rect } from '@/app/agent/layout/types';
 import { buildObstacleRects, buildObstacleSegments } from '@/app/agent/layout/obstacles';
 import { buildCostFieldFromRects, type CostField } from '@/app/agent/layout/costField';
 import { runForceLayout, type LayoutParams } from '@/app/agent/layout/forceLayout';
@@ -58,7 +58,7 @@ interface TravelMapProps {
   originPositions?: LayoutItemPosition[] | null;
   layoutPositions?: LayoutItemPosition[] | null;
   groundtruthPositions?: LayoutItemPosition[] | null;
-  onLayoutOutput?: (outputs: LayoutItemOutput[], inputs: LayoutItemInput[]) => void;
+  onLayoutOutput?: (outputs: LayoutItemOutput[], inputs: LayoutItemInput[], metadata?: LayoutRunMetadata) => void;
   onGroundtruthChange?: (positions: Record<string, { lng: number; lat: number }>) => void;
   onMapInfoChange?: (mapInfo: { center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } }) => void;
   rerunLayoutTrigger?: number;
@@ -76,6 +76,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     inputs: LayoutItemInput[];
     outputs: LayoutItemOutput[];
     leaderLines: LeaderLine[];
+    metadata?: LayoutRunMetadata;
     viewport: { width: number; height: number } | null;
   }>({ inputs: [], outputs: [], leaderLines: [], viewport: null });
   const measureRootRef = useRef<HTMLDivElement | null>(null);
@@ -192,16 +193,17 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         : 'mapbox://styles/mapbox/streets-v12';
 
   const processLayoutInput = (id: string, feature: any, globalProps: any, cardVisualId: string, styles: any[]) => {
-    var positions = originPositions;
+    let positions = originPositions;
     if(currentDataset === 'layout'){
       positions = layoutPositions;
     }else if(currentDataset === 'groundtruth'){
       positions = groundtruthPositions;
       if(!positions) positions = layoutPositions;
     }
-    var input = [];
-    for(let i = 0; i < positions.length; i++){
-      const position = positions[i];
+    const selectedPositions = positions ?? [];
+    const input = [];
+    for(let i = 0; i < selectedPositions.length; i++){
+      const position = selectedPositions[i];
       if(position.id !== id) continue;
       const style = styles.find((l: any) => l.visual_id === cardVisualId);
       if(style) {
@@ -245,7 +247,18 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     }
     console.log("inputs:", inputs);
     return inputs;
-  }, [transformedData.points, transformedData.polygons, transformedData.globalProps, labelStyles, cardStyles]);
+  }, [
+    transformedData.points,
+    transformedData.lines,
+    transformedData.polygons,
+    transformedData.globalProps,
+    currentDataset,
+    originPositions,
+    layoutPositions,
+    groundtruthPositions,
+    labelStyles,
+    cardStyles,
+  ]);
 
   // Called by GlobalRenderer after it measures its rendered children.
   // Converts viewport-space bounding rects to map-container-space and stores them.
@@ -408,6 +421,8 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
       };
     });
 
+    const layoutStartedAt = new Date().toISOString();
+    const layoutStart = performance.now();
     const { outputs, leaderLines } = layoutAlgorithm === 'simulatedAnnealing'
       ? runSimulatedAnnealingLayout(
           ready,
@@ -426,6 +441,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
           { viewport, costField: field, segments, globalRects: globalRectsRef.current },
           { ...DEFAULT_FORCE, ...forceParams }
         );
+    const runtimeMs = performance.now() - layoutStart;
     
     const outputsWithLngLat = outputs.map(o => {
       const lngLat = map.unproject([o.cx, o.cy]);
@@ -434,9 +450,19 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         centerLngLat: { lng: lngLat.lng, lat: lngLat.lat },
       };
     });
+
+    const metadata: LayoutRunMetadata = {
+      algorithm: layoutAlgorithm,
+      runtimeMs: Number(runtimeMs.toFixed(2)),
+      itemCount: ready.length,
+      viewport,
+      generatedAt: layoutStartedAt,
+      layoutParams: layoutAlgorithm === 'force' ? { ...DEFAULT_FORCE, ...forceParams } : layoutAlgorithm === 'weightedVoronoi' ? { ...DEFAULT_VORONOI_FORCE } : { ...DEFAULT_SIM_ANNEALING },
+      fieldParams: mergedField,
+    };
     
     console.log("after layout outputs:", outputsWithLngLat);
-    setLayoutState((s) => ({ ...s, viewport, outputs: outputsWithLngLat, leaderLines }));
+    setLayoutState((s) => ({ ...s, viewport, outputs: outputsWithLngLat, leaderLines, metadata }));
   }, [displayLines, transformedData.points, transformedData.polygons, forceParams, fieldParams, layoutState.inputs, rerunLayoutTrigger, layoutAlgorithm]);
 
   // Keep recomputeLayoutRef always pointing to the latest closure.
@@ -505,9 +531,9 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
   useEffect(() => {
     if (layoutState.outputs.length > 0 && onLayoutOutput) {
-      onLayoutOutput(layoutState.outputs, layoutState.inputs);
+      onLayoutOutput(layoutState.outputs, layoutState.inputs, layoutState.metadata);
     }
-  }, [layoutState.outputs, layoutState.inputs, onLayoutOutput]);
+  }, [layoutState.outputs, layoutState.inputs, layoutState.metadata, onLayoutOutput]);
 
   const onMapLoad = useCallback(() => {
     const raw = mapRef.current as any;

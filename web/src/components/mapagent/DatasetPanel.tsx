@@ -5,7 +5,7 @@ import { useAgentMap } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { saveSessionGeojson, saveSessionMapInfo } from '@/lib/api';
-import type { LayoutItemInput, LayoutItemPosition } from '@/app/agent/layout/types';
+import type { LayoutItemInput, LayoutItemPosition, LayoutRunMetadata } from '@/app/agent/layout/types';
 
 export type DatasetType = 'origin' | 'layout' | 'groundtruth';
 export type LayoutAlgorithm = 'force' | 'simulatedAnnealing' | 'weightedVoronoi';
@@ -22,6 +22,7 @@ interface DatasetPanelProps {
   geojson?: any;
   mapInfo?: { center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } } | null;
   layoutAlgorithm?: LayoutAlgorithm;
+  layoutRunMetadata?: LayoutRunMetadata | null;
   onLayoutAlgorithmChange?: (algorithm: LayoutAlgorithm) => void;
 }
 
@@ -55,6 +56,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
   geojson: externalGeojson,
   mapInfo,
   layoutAlgorithm: externalAlgorithm,
+  layoutRunMetadata,
   onLayoutAlgorithmChange,
 }) => {
   const { geojson: contextGeojson } = useAgentMap();
@@ -192,6 +194,20 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         baseGeojson.features = transformFeatures(baseGeojson.features, positionMap, useOriginCoords);
       }
 
+      if (activeDataset === 'layout' || activeDataset === 'groundtruth') {
+        const metadata = layoutRunMetadata ?? null;
+        baseGeojson._layout = {
+          dataset: activeDataset,
+          algorithm: activeAlgorithm,
+          generated_at: new Date().toISOString(),
+          source_layout: metadata,
+          item_count: metadata?.itemCount ?? layoutOutputs.length,
+        };
+        if (metadata?.runtimeMs !== undefined) {
+          baseGeojson._layout_runtime_ms = metadata.runtimeMs;
+        }
+      }
+
       const [geojsonResult, mapInfoResult] = await Promise.all([
         saveSessionGeojson({
           sessionId,
@@ -215,7 +231,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
     } finally {
       setIsCapturing(false);
     }
-  }, [activeDataset, sessionId, geojson, layoutOutputs, layoutInputs, groundtruthPositions, mapInfo, filename]);
+  }, [activeDataset, activeAlgorithm, sessionId, geojson, layoutOutputs, layoutInputs, originPositions, groundtruthPositions, mapInfo, filename, layoutRunMetadata]);
 
   return (
     <div className="flex flex-col h-full">

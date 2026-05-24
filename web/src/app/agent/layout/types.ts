@@ -41,6 +41,16 @@ export type LayoutItemPosition = {
   centerLngLat: LngLat;
 };
 
+export type LayoutRunMetadata = {
+  algorithm: string;
+  runtimeMs: number;
+  itemCount: number;
+  viewport: { width: number; height: number };
+  generatedAt: string;
+  layoutParams?: Record<string, unknown>;
+  fieldParams?: Record<string, unknown>;
+};
+
 export type LeaderLine = {
   id: string;
   x1: number;
@@ -48,4 +58,3 @@ export type LeaderLine = {
   x2: number;
   y2: number;
 };
-
