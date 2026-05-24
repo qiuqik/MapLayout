@@ -2,6 +2,7 @@ import time
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from ..utils.agent_utils import AgentState, _escape_prompt_braces, _extract_first_json_object, _robust_json_loads
+from ..validators.schema_validators import validate_geojson
 
 from ..amap_service import AMapService
 from shapely.geometry import MultiPoint, Polygon as ShapelyPolygon
@@ -372,6 +373,12 @@ JSON顶部输出`"_city"` 字段，表示涵盖所有地点的城市或国家名
                     geojson_data["global_properties"] = [
                         {"title": state.global_title, "visual_id": "global_vis_1"}
                     ]
+
+                schema_report = validate_geojson(geojson_data)
+                if schema_report["valid"]:
+                    print("✅ [Node 3] GeoJSON schema 校验通过")
+                else:
+                    print(f"⚠️ [Node 3] GeoJSON schema 校验失败: {schema_report['errors']}")
                 
                 state.geojson_data = geojson_data
                 print(f"✅ [Node 3] GeoJSON 生成与拓扑修正完成，共 {len(geojson_data['features'])} 个 Feature")

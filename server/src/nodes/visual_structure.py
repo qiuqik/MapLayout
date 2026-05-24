@@ -3,6 +3,7 @@ import base64
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from ..utils.agent_utils import AgentState, _escape_prompt_braces, _extract_first_json_object, _robust_json_loads
+from ..validators.schema_validators import validate_visual_structure
 
 
 class VisualStructureNode:
@@ -195,5 +196,14 @@ class VisualStructureNode:
             }
             state.error = None
             print(f"⚠️ [Node 2] 视觉结构解析失败，已降级为默认结构: {e}")
+
+        schema_report = validate_visual_structure(state.visual_structure)
+        if schema_report["valid"]:
+            if schema_report["warnings"]:
+                print(f"⚠️ [Node 2] Visual schema warnings: {schema_report['warnings']}")
+            else:
+                print("✅ [Node 2] Visual schema 校验通过")
+        else:
+            print(f"⚠️ [Node 2] Visual schema 校验失败: {schema_report['errors']}")
         
         return state

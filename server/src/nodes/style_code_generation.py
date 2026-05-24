@@ -1,6 +1,7 @@
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from ..utils.agent_utils import AgentState, _escape_prompt_braces, _extract_first_json_object, _robust_json_loads
+from ..validators.schema_validators import validate_style_spec
 import re
 
 
@@ -252,5 +253,11 @@ class StyleCodeGenerationNode:
             }
             state.error = f"Style Code 生成失败: {str(e)}"
             print(f"⚠️ [Node 4] Style Code 生成失败，已降级为默认样式: {e}")
+
+        schema_report = validate_style_spec(state.style_code)
+        if schema_report["valid"]:
+            print("✅ [Node 4] Style schema 校验通过")
+        else:
+            print(f"⚠️ [Node 4] Style schema 校验失败: {schema_report['errors']}")
         
         return state
