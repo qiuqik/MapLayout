@@ -3,6 +3,7 @@ import base64
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from ..utils.agent_utils import AgentState, _escape_prompt_braces, _extract_first_json_object, _robust_json_loads
+from ..utils.prompt_loader import load_prompt
 from ..validators.schema_validators import validate_visual_structure
 
 
@@ -94,41 +95,9 @@ class VisualStructureNode:
 }'''
 
         safe_visual_example = _escape_prompt_braces(visual_example)
-        
-        system_prompt = f"""你是一个专业的地图数据可视化架构师（偏向前端 UI 组件库设计）。你的任务是分析用户上传的旅游路线参考图，提取出高度抽象的前端渲染组件库（UI Classes）。
-
-## 分类体系：
-必须严格使用以下 8 种分类体系，所有分类的输出都必须是数组（即使只有一个元素）：
-1. BaseMap: 底图基底（必须包含 type 属性，值为 standard/satellite/blank，并描述背景颜色、渐变或插画风格）
-2. Point: 标记具体位置的图形（描述形状、颜色、内部图标图案）
-3. Area: 划分“区域/范围/行政区”等**地理区域**的多边形背景色块（描述颜色、透明度、边框等特征）
-4. Route: 实际的导航主线或支线（描述颜色和连接逻辑）
-5. Label: 依附于其他元素的文本标签
-6. Card: 包含详细信息的悬浮卡片背景（描述颜色和内容排版）
-7. Edge: 纯视觉牵引线（如从卡片指向地标或区域的连线、箭头）
-8. Global: 非地图地理实质元素的全局装饰（如顶部大标题、角落总结条幅等）
-
-## 核心输出规则（重要）：
-1. **绝对分离“样式”与“内容” (无视具体文字)**：
-   - 你只能看到“颜色、形状、粗细、排版”，绝对不要被图上的具体地名、景点名干扰！
-   - 错误做法：看到图上有 9 个橙色卡片分别写着不同景点，就输出 9 个 Card 对象。
-   - 正确做法：发现它们都是“橙色背景+文字”的排版，**直接合并为 1 个 Card 对象**（统称为“橙色信息卡片”）。
-
-2. **严格的 1:N 样式提取逻辑 (类提取)**：
-   - 所有分类数组代表的是“样式大类（Class）”，绝不是“图上的个数（Instance）”。
-   - **只有当视觉样式（如背景颜色、形状、边框）真的不一致时，才允许在数组中拆分为多个对象**。比如：图上既有浅蓝色卡片，又有浅绿色卡片，才输出 2 个 Card 对象。
-   - **`description` 字段中严禁出现任何具体的地理名称或文本内容！**（只能描述颜色、形状、透明度等 UI 属性）。
-
-**输出要求：**
-1. 严格输出 JSON 格式。
-2. 确保每个对象都有唯一的 `visual_id`。
-4. 分析依附关系：使用 `anchored_from`（起点）和 `anchored_to`（终点）。注意，`anchored_to` 可以是字符串或字符串数组。
-5. **如果某类元素在图中没有出现，则省略该数组。**
-6. 为了确保你真正做到了“按样式去重”，**你必须在 JSON 的最顶部首先输出一个 `"_style_extraction_thought"` 字段**，简要分析你观察到的各类元素及其数量，以及你是如何把它们按颜色/形状进行合并归类的。
-
-**JSON 模板示例：**
-{safe_visual_example}
-"""
+        system_prompt = load_prompt("visual_structure.md").format(
+            visual_example=safe_visual_example
+        )
         
         self.system_prompt = system_prompt
     
