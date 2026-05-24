@@ -3,17 +3,13 @@ import sys
 import json
 import time
 import argparse
-import numpy as np
+import csv
+import math
 from pathlib import Path
-from shapely.geometry import box, shape, Polygon, LineString, Point
-from PIL import Image, ImageDraw
-import cv2
-import itertools
-
-from vllm import calc_judge_win_rate 
 
 EVALUATE_DIR = Path(__file__).parent
 RESULT_DIR = EVALUATE_DIR / "result"
+DEFAULT_SESSION = "20260413_130909_session_1776056949"
 
 IMG_WIDTH = 1500
 IMG_HEIGHT = 900
@@ -45,11 +41,20 @@ METRIC_CONFIGS = {
     },
     "MeanTime": {
         "description": "算法平均耗时，多次运行结果的平均时间，越小越好",
-        "direction": "higher",
+        "direction": "lower",
     },
 }
 
-from shapely.ops import unary_union
+def _mean(values):
+    return sum(values) / len(values) if values else None
+
+
+def _std(values):
+    if not values:
+        return None
+    mean_value = _mean(values)
+    return math.sqrt(sum((v - mean_value) ** 2 for v in values) / len(values))
+
 
 def calc_overlap(bbox_elements, geometries) -> dict:
     """
@@ -65,6 +70,8 @@ def calc_overlap(bbox_elements, geometries) -> dict:
     total_label_area = sum([b.area for b in bboxes])
     if total_label_area == 0:
         return {"value": 0.0, "description": "布局重叠度，越小越好"}
+
+    from shapely.ops import unary_union
 
     total_covered_area = 0.0
     
@@ -109,6 +116,8 @@ def calc_utility(bbox_elements, mask):
     指标 2: 空间利用率 (Uti ↑) 
     基于显著性图计算，分解区域，每个区域是否有内容占用，占用率为空间利用率
     """
+    import numpy as np
+
     img_height = IMG_HEIGHT
     img_width = IMG_WIDTH
     
@@ -146,6 +155,8 @@ def calc_balance(bbox_elements, mask):
     大面积留白或小区域过度密集会降低空间平衡性
     基于显著性图计算，分解区域，每个网格内占用像素比例，计算这些网格密度的标准差
     """
+    import numpy as np
+
     img_height = IMG_HEIGHT
     img_width = IMG_WIDTH
     
@@ -173,9 +184,8 @@ def calc_balance(bbox_elements, mask):
             density = occupied_pixels / cell_pixels
             
             densities.append(density)
-    densities = np.array(densities)
     # 计算网格密度的标准差
-    std_dev = float(np.std(densities))
+    std_dev = float(_std(densities) or 0.0)
     
     # 将标准差转换为平衡性分数（标准差越小，分数越高）
     # 使用公式：balance = 1 / (1 + std_dev)
@@ -189,8 +199,6 @@ def calc_balance(bbox_elements, mask):
         "description": METRIC_CONFIGS["Balance"]["description"]
     }
     return result
-import math
-
 def calc_mean_iou(a_bbox, b_bbox):
     """
     指标 4: 与 GT 的平均空间相似性 (Mean Spatial Sim ↑)
@@ -260,6 +268,8 @@ def calc_aesthetics(a_pth, b_pth):
     """
     指标 5: 计算美观性（Judge Win Rate）
     """
+    from vllm import calc_judge_win_rate
+
     value = calc_judge_win_rate(a_pth, b_pth)
     result = {
         "value": value,
@@ -270,24 +280,32 @@ def calc_stability(bbox_elements_list):
     """
     指标 6: layout 算法稳定性
     """
+    if len(bbox_elements_list) < 2:
+        return {
+            "value": None,
+            "description": METRIC_CONFIGS["Stability"]["description"]
+        }
+
     ious = []
     for i in range(len(bbox_elements_list)):
         for j in range(i + 1, len(bbox_elements_list)):
             mean_iou = calc_mean_iou(bbox_elements_list[i], bbox_elements_list[j])
             ious.append(mean_iou["value"])
     
-    value = np.mean(ious) if ious else None
+    value = float(_mean(ious)) if ious else None
     result = {
-        "value": float(round(value, 4)),
+        "value": float(round(value, 4)) if value is not None else None,
         "description": METRIC_CONFIGS["Stability"]["description"]
     }
     return result
-def calc_mean_time():
+def calc_mean_time(runtime_values=None):
     """
     指标 7: layout 算法平均耗时
     """
+    runtime_values = [v for v in (runtime_values or []) if isinstance(v, (int, float))]
+    value = float(_mean(runtime_values)) if runtime_values else None
     result = {
-        "value": float(round(0, 4)),
+        "value": float(round(value, 4)) if value is not None else None,
         "description": METRIC_CONFIGS["MeanTime"]["description"]
     }
     return result
@@ -302,11 +320,12 @@ class Session:
         self.session_name = session_name
         self.session_path = EVALUATE_DIR / self.session_name
         if not self.session_path.exists():
-            print(f"❌ Session 不存在: {self.session_name}")
-            return None
+            raise FileNotFoundError(f"Session 不存在: {self.session_name}")
         
         #  解析地图边界
         map_info_path = self.session_path / "mapInfo.json"
+        if not map_info_path.exists():
+            raise FileNotFoundError(f"缺少 mapInfo.json: {self.session_name}")
         with open(map_info_path, 'r', encoding='utf-8') as f:
             map_info = json.load(f)
             self.bounds = map_info['bounds']
@@ -316,9 +335,17 @@ class Session:
 
         # 解析 geojson
         node3_dir = self.session_path / "node3"
+        if not node3_dir.exists():
+            raise FileNotFoundError(f"缺少 node3 目录: {self.session_name}")
         origin_candidates = list(node3_dir.glob(f"*origin*.json"))
         self.layout_candidates = list(node3_dir.glob(f"*layout*.json"))
         gt_candidates = list(node3_dir.glob(f"*groundtruth*.json"))
+        if not origin_candidates:
+            raise FileNotFoundError(f"缺少 origin GeoJSON: {self.session_name}")
+        if not self.layout_candidates:
+            raise FileNotFoundError(f"缺少 layout GeoJSON: {self.session_name}")
+        if not gt_candidates:
+            raise FileNotFoundError(f"缺少 groundtruth GeoJSON: {self.session_name}")
         # 按照创建时间排序
         origin_candidates.sort(key=lambda x: x.stat().st_ctime, reverse=True)
         gt_candidates.sort(key=lambda x: x.stat().st_ctime, reverse=True)
@@ -352,6 +379,8 @@ class Session:
     
     def parse_geojson(self, geojson_path):
         """解析单个 Geojson，提取 Point/LineString/Polygon/Card/Label"""
+        from shapely.geometry import box, Polygon, LineString, Point
+
         with open(geojson_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         bbox_elements = {} # 存储 card 和 label 的 bbox
@@ -388,11 +417,35 @@ class Session:
                 w, h = props['label_size']
                 bbox_elements[lid] = box(cx - w/2, cy - h/2, cx + w/2, cy + h/2)
         return bbox_elements, geometries
+
+    def extract_layout_runtimes(self):
+        """从 layout GeoJSON 或旁路 manifest 中提取已记录的耗时，暂未记录则返回空列表。"""
+        runtimes = []
+        for path in self.layout_candidates:
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                candidates = [
+                    data.get("_layout_runtime_ms"),
+                    data.get("_runtime_ms"),
+                    data.get("_layout", {}).get("runtime_ms") if isinstance(data.get("_layout"), dict) else None,
+                ]
+                for value in candidates:
+                    if isinstance(value, (int, float)):
+                        runtimes.append(value)
+                        break
+            except Exception:
+                continue
+        return runtimes
+
     def render_mask_img(self, geojson_path):
         """
         根据 GeoJSON 绘制: 黑白 mask
         返回 tuple: (mask图路径, 黑白mask numpy数组)
         """
+        import cv2
+        import numpy as np
+
         with open(geojson_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         mask_bw = np.zeros((self.img_height, self.img_width), dtype=np.uint8)
@@ -448,7 +501,7 @@ class Session:
         print(f"✅ mask 已渲染并保存至: {mask_output_path}")
         return mask_bw
         
-    def calc_session_metrics(self) -> dict:
+    def calc_session_metrics(self, include_aesthetics=True) -> dict:
         results = {
             "session": self.session_name,
             "gt": {},
@@ -482,40 +535,241 @@ class Session:
         layout_img_path = self.session_path / "image" / "layout.jpg"
         origin_img_path = self.session_path / "image" / "origin.jpg"
         gt_img_path = self.session_path / "image" / "gt.jpg"
-        results["origin"]["Aesthetics"] = calc_aesthetics(origin_img_path, gt_img_path)
-        results["layout"]["Aesthetics"] = calc_aesthetics(layout_img_path, gt_img_path)
+        if include_aesthetics:
+            results["origin"]["Aesthetics"] = calc_aesthetics(origin_img_path, gt_img_path)
+            results["layout"]["Aesthetics"] = calc_aesthetics(layout_img_path, gt_img_path)
+        else:
+            results["origin"]["Aesthetics"] = {
+                "value": None,
+                "description": METRIC_CONFIGS["Aesthetics"]["description"]
+            }
+            results["layout"]["Aesthetics"] = {
+                "value": None,
+                "description": METRIC_CONFIGS["Aesthetics"]["description"]
+            }
         # 6. 计算算法稳定性
-        if len(self.layout_candidates) > 2:
-            bbox_elements_list = []
-            for path in self.layout_candidates:
-                bbox_elements, _ = self.parse_geojson(str(path))
-                bbox_elements_list.append(bbox_elements)
+        bbox_elements_list = []
+        for path in self.layout_candidates:
+            bbox_elements, _ = self.parse_geojson(str(path))
+            bbox_elements_list.append(bbox_elements)
         results["layout"]["Stability"] = calc_stability(bbox_elements_list)
+        # 7. 计算算法平均耗时（只有 session 中已有 runtime 记录时才有值）
+        results["layout"]["MeanTime"] = calc_mean_time(self.extract_layout_runtimes())
         # print(results)
         return results
 
-def save_results(results: list):
+def _metric_value(result, variant, metric):
+    return result.get(variant, {}).get(metric, {}).get("value")
+
+
+def _summarize_results(results):
+    """按 variant/metric 汇总 count、mean、std，并计算 layout 相对 origin 的平均变化。"""
+    summary = {
+        "by_variant": {},
+        "layout_vs_origin": {}
+    }
+
+    for variant in ["gt", "origin", "layout"]:
+        summary["by_variant"][variant] = {}
+        metrics = sorted({
+            metric
+            for result in results
+            for metric in result.get(variant, {}).keys()
+        })
+        for metric in metrics:
+            values = [
+                _metric_value(result, variant, metric)
+                for result in results
+            ]
+            values = [v for v in values if isinstance(v, (int, float))]
+            if not values:
+                summary["by_variant"][variant][metric] = {
+                    "count": 0,
+                    "mean": None,
+                    "std": None,
+                    "direction": METRIC_CONFIGS.get(metric, {}).get("direction")
+                }
+                continue
+            summary["by_variant"][variant][metric] = {
+                "count": len(values),
+                "mean": float(round(float(_mean(values)), 4)),
+                "std": float(round(float(_std(values)), 4)),
+                "direction": METRIC_CONFIGS.get(metric, {}).get("direction")
+            }
+
+    comparable_metrics = sorted(set(summary["by_variant"]["origin"]).intersection(summary["by_variant"]["layout"]))
+    for metric in comparable_metrics:
+        paired_deltas = []
+        paired_relative = []
+        for result in results:
+            origin_value = _metric_value(result, "origin", metric)
+            layout_value = _metric_value(result, "layout", metric)
+            if not isinstance(origin_value, (int, float)) or not isinstance(layout_value, (int, float)):
+                continue
+            delta = layout_value - origin_value
+            paired_deltas.append(delta)
+            if origin_value != 0:
+                paired_relative.append(delta / abs(origin_value))
+
+        if not paired_deltas:
+            continue
+        summary["layout_vs_origin"][metric] = {
+            "count": len(paired_deltas),
+            "mean_delta": float(round(float(_mean(paired_deltas)), 4)),
+            "mean_relative_delta": float(round(float(_mean(paired_relative)), 4)) if paired_relative else None,
+            "direction": METRIC_CONFIGS.get(metric, {}).get("direction")
+        }
+
+    return summary
+
+
+def _flatten_result_rows(results):
+    rows = []
+    for result in results:
+        session_name = result.get("session")
+        for variant in ["gt", "origin", "layout"]:
+            for metric, payload in result.get(variant, {}).items():
+                rows.append({
+                    "session": session_name,
+                    "variant": variant,
+                    "metric": metric,
+                    "value": payload.get("value"),
+                    "direction": METRIC_CONFIGS.get(metric, {}).get("direction", ""),
+                    "description": payload.get("description", "")
+                })
+    return rows
+
+
+def save_csv(results, csv_path):
+    csv_path = Path(csv_path)
+    csv_path.parent.mkdir(exist_ok=True, parents=True)
+    rows = _flatten_result_rows(results)
+    with open(csv_path, "w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=["session", "variant", "metric", "value", "direction", "description"]
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+    print(f"✅ CSV 结果已保存到: {csv_path}")
+    return csv_path
+
+
+def save_results(results: list, json_path=None, csv_path=None):
     """保存评估结果到 result 文件夹"""
     RESULT_DIR.mkdir(exist_ok=True)
 
     timestamp = time.strftime("%Y%m%d_%H%M%S")
+    if isinstance(results, dict):
+        results = [results]
     summary = {
         "evaluation_time": timestamp,
-        "total_sessions": 0,
-        "sessions": [results]
+        "total_sessions": len(results),
+        "sessions": results,
+        "summary": _summarize_results(results)
     }
-    summary["total_sessions"] = len(summary["sessions"])
-    result_path = RESULT_DIR / f"evaluation_result_{timestamp}.json"
+    result_path = Path(json_path) if json_path else RESULT_DIR / f"evaluation_result_{timestamp}.json"
+    result_path.parent.mkdir(exist_ok=True, parents=True)
     with open(result_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=4)
     print(f"\n✅ 结果已保存到: {result_path}")
+
+    if csv_path:
+        save_csv(results, csv_path)
+
     return result_path
 
+
+def discover_sessions():
+    """发现 evaluate/ 下具备基础评估文件结构的 session。"""
+    sessions = []
+    for path in sorted(EVALUATE_DIR.iterdir()):
+        if not path.is_dir() or path.name == "result" or path.name == "__pycache__":
+            continue
+        node3_dir = path / "node3"
+        map_info = path / "mapInfo.json"
+        if not map_info.exists() or not node3_dir.exists():
+            continue
+        has_origin = any(node3_dir.glob("*origin*.json"))
+        has_layout = any(node3_dir.glob("*layout*.json"))
+        has_gt = any(node3_dir.glob("*groundtruth*.json"))
+        if has_origin and has_layout and has_gt:
+            sessions.append(path.name)
+    return sessions
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="批量评估 MapLayout session。")
+    parser.add_argument(
+        "--sessions",
+        nargs="+",
+        default=[DEFAULT_SESSION],
+        help="要评估的 session 名称；传入 all 自动评估所有可用 session。默认保持旧行为，只评估默认 session。"
+    )
+    parser.add_argument(
+        "--skip-aesthetics",
+        action="store_true",
+        help="跳过 VLM aesthetics 评估，适合离线测试和批量 smoke test。"
+    )
+    parser.add_argument(
+        "--json-out",
+        default=None,
+        help="指定 JSON 输出路径；默认写入 evaluate/result/evaluation_result_<timestamp>.json。"
+    )
+    parser.add_argument(
+        "--csv-out",
+        default=None,
+        help="指定 CSV 输出路径；未指定则只输出 JSON。"
+    )
+    parser.add_argument(
+        "--list-sessions",
+        action="store_true",
+        help="列出所有可批量评估的 session 后退出。"
+    )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="遇到缺失文件或解析错误时立即失败；默认跳过坏 session。"
+    )
+    return parser.parse_args()
+
+
 def main():
-    test_session = "20260413_130909_session_1776056949"
-    session = Session(test_session)
-    results = session.calc_session_metrics()
-    save_results(results)
+    args = parse_args()
+
+    if args.list_sessions:
+        for session_name in discover_sessions():
+            print(session_name)
+        return
+
+    session_names = discover_sessions() if args.sessions == ["all"] else args.sessions
+    if not session_names:
+        raise RuntimeError("没有找到可评估的 session")
+
+    all_results = []
+    failures = []
+    for session_name in session_names:
+        try:
+            print(f"\n▶️ 评估 session: {session_name}")
+            session = Session(session_name)
+            results = session.calc_session_metrics(include_aesthetics=not args.skip_aesthetics)
+            all_results.append(results)
+        except Exception as e:
+            message = f"{session_name}: {e}"
+            failures.append(message)
+            print(f"⚠️ 跳过 session: {message}")
+            if args.strict:
+                raise
+
+    if not all_results:
+        raise RuntimeError(f"没有成功评估任何 session。失败信息: {failures}")
+
+    result_path = save_results(all_results, json_path=args.json_out, csv_path=args.csv_out)
+    if failures:
+        print("\n⚠️ 以下 session 未完成评估：")
+        for failure in failures:
+            print(f"  - {failure}")
+    print(f"\n📊 共完成 {len(all_results)} 个 session 的评估。JSON: {result_path}")
 
 
 if __name__ == "__main__":
