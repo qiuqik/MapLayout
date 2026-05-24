@@ -58,6 +58,9 @@ class StyleCodeGenerationNode:
     逻辑: 观察原图提取视觉样式（Design Tokens），结合 GeoJSON 中的数据实例，输出结构化的前端渲染样式代码
     输出: 结构化的前端渲染样式代码
     """
+
+    PROMPT_NAME = "style_code_generation"
+    PROMPT_VERSION = "v0.1"
     
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm

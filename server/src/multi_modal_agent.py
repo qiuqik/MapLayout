@@ -301,6 +301,22 @@ class MultiModalMapAgent:
             "http_proxy_configured": bool(self.http_proxy),
         }
 
+    def _get_prompt_versions(self) -> Dict[str, str]:
+        """Return stable prompt versions used by this agent run."""
+        nodes = [
+            self.intent_node,
+            self.visual_node,
+            self.geojson_node,
+            self.validation_node,
+            self.style_node,
+        ]
+        versions = {}
+        for node in nodes:
+            name = getattr(node, "PROMPT_NAME", node.__class__.__name__)
+            version = getattr(node, "PROMPT_VERSION", "unversioned")
+            versions[name] = version
+        return versions
+
     def _save_session_manifest(
         self,
         state: AgentState,
@@ -326,6 +342,7 @@ class MultiModalMapAgent:
                 "image_filename": os.path.basename(state.image_path) if state.image_path else None,
             },
             "model_config": self._get_model_config(),
+            "prompt_versions": self._get_prompt_versions(),
             "workflow": {
                 "node_timings_ms": dict(self._active_node_timings),
                 "validation_retry_count": state.validation_retry_count,

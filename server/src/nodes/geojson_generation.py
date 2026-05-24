@@ -15,6 +15,9 @@ class GeoJSONGenerationNode:
     逻辑: 将用户的旅行规划提取为标准的 GeoJSON 格式，并将规划中的元素与 visual.json 中的视觉分类 `visual_id` 一一对应
     输出: 标准的 GeoJSON FeatureCollection
     """
+
+    PROMPT_NAME = "geojson_generation"
+    PROMPT_VERSION = "v0.1"
     
     def __init__(self, llm: ChatOpenAI, amap_service: AMapService = None):
         self.llm = llm

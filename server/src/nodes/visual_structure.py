@@ -13,6 +13,9 @@ class VisualStructureNode:
     逻辑: 分析图片，将其拆解为高度抽象的前端渲染组件集，关注"有什么类型的视觉元素"以及"元素之间的关联"
     输出: 结构化的视觉元素字典
     """
+
+    PROMPT_NAME = "visual_structure"
+    PROMPT_VERSION = "v0.1"
     
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm

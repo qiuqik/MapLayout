@@ -11,6 +11,9 @@ class ValidationNode:
     输出: 验证结果 JSON，包含是否通过以及具体的修改建议。
     """
 
+    PROMPT_NAME = "validation"
+    PROMPT_VERSION = "v0.1"
+
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm
 

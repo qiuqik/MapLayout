@@ -10,6 +10,9 @@ class IntentEnrichmentNode:
     逻辑: 进行意图丰富 (Intent Enrichment)，识别任务目标，主动识别并合理推测缺失的关键信息
     输出: 丰富后的完整意图描述、全局标题与说明、具体行程安排
     """
+
+    PROMPT_NAME = "intent_enrichment"
+    PROMPT_VERSION = "v0.1"
     
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm
