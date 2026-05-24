@@ -46,6 +46,7 @@ class SessionManager:
     def __init__(self, base_output_dir: str = "output"):
         self.base_output_dir = base_output_dir
         self.current_session_dir: Optional[str] = None
+        self.saved_files: List[str] = []
     
     def create_session(self, session_id: Optional[str] = None) -> str:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -54,6 +55,7 @@ class SessionManager:
             self.base_output_dir, 
             f"{timestamp}_{session_id}"
         )
+        self.saved_files = []
         os.makedirs(self.current_session_dir, exist_ok=True)
         
         os.makedirs(os.path.join(self.current_session_dir, "node1"), exist_ok=True)
@@ -86,6 +88,11 @@ class SessionManager:
         else:
             with open(filepath, "w", encoding="utf-8") as f:
                 f.write(str(content))
+
+        try:
+            self.saved_files.append(os.path.relpath(filepath, session_dir))
+        except ValueError:
+            self.saved_files.append(filepath)
         
         return filepath
     
@@ -148,6 +155,7 @@ class MultiModalMapAgent:
         self.geojson_node = GeoJSONGenerationNode(self.llm_for_text, self.amap_service)
         self.style_node = StyleCodeGenerationNode(self.llm_for_vlm)
         self.validation_node = ValidationNode(self.llm_for_text)
+        self._active_node_timings: Dict[str, float] = {}
 
         self.workflow = self._build_graph()
     
@@ -159,11 +167,20 @@ class MultiModalMapAgent:
         def node_init_parallel(data: GraphState):
             """parallel node1 and node2"""
             state = data["agent_state"]
+            init_start = time.perf_counter()
+
+            def timed_execute(node_name: str, fn, node_state: AgentState) -> AgentState:
+                start = time.perf_counter()
+                result = fn(node_state)
+                self._active_node_timings[node_name] = round((time.perf_counter() - start) * 1000, 2)
+                return result
+
             with ThreadPoolExecutor(max_workers=2) as executor:
-                future_intent = executor.submit(self.intent_node.execute, state)
-                future_visual = executor.submit(self.visual_node.execute, state)
+                future_intent = executor.submit(timed_execute, "node1_intent", self.intent_node.execute, state)
+                future_visual = executor.submit(timed_execute, "node2_visual", self.visual_node.execute, state)
                 state = future_intent.result()
                 state = future_visual.result()
+            self._active_node_timings["init_parallel"] = round((time.perf_counter() - init_start) * 1000, 2)
             self.session_manager.save_file(
                 {"intent_enriched": state.intent_enriched}, f"intent_{state.session_id}.json", "node1"
             )
@@ -173,7 +190,9 @@ class MultiModalMapAgent:
         def node_geojson(data: GraphState):
             """execute Node 3"""
             state = data["agent_state"]
+            start = time.perf_counter()
             state = self.geojson_node.execute(state)
+            self._active_node_timings["node3_geojson"] = round((time.perf_counter() - start) * 1000, 2)
             self.session_manager.save_file(
                 state.geojson_data, f"geojson_{state.validation_retry_count}.json", "node3"
             )
@@ -182,13 +201,17 @@ class MultiModalMapAgent:
         def node_validate(data: GraphState):
             """execute Node 5 validate"""
             state = data["agent_state"]
+            start = time.perf_counter()
             state = self.validation_node.execute(state)
+            self._active_node_timings["node5_validate"] = round((time.perf_counter() - start) * 1000, 2)
             return {"agent_state": state}
 
         def node_style(data: GraphState):
             """execute Node 4 style generate"""
             state = data["agent_state"]
+            start = time.perf_counter()
             state = self.style_node.execute(state)
+            self._active_node_timings["node4_style"] = round((time.perf_counter() - start) * 1000, 2)
             self.session_manager.save_file(state.style_code, f"style_{state.session_id}.json", "node4")
             return {"agent_state": state}
 
@@ -265,12 +288,70 @@ class MultiModalMapAgent:
                 base_url=self.http_proxy,
                 temperature=0.7
             )
+
+    def _get_model_config(self) -> Dict[str, Any]:
+        """Return non-secret model/runtime config for experiment manifests."""
+        vlm_model = "qwen-vl-max" if self.vlm_model_type == "qwen" else "gemini-3-pro-preview"
+        return {
+            "llm_model": self.llm_model,
+            "vlm_model_type": self.vlm_model_type,
+            "vlm_model": vlm_model,
+            "llm_temperature": 0.7,
+            "vlm_temperature": 0.7,
+            "http_proxy_configured": bool(self.http_proxy),
+        }
+
+    def _save_session_manifest(
+        self,
+        state: AgentState,
+        *,
+        session_dir: str,
+        started_at: str,
+        finished_at: str,
+        total_runtime_ms: float,
+        status: str,
+    ) -> str:
+        """Persist a compact manifest for reproducibility and batch experiments."""
+        manifest = {
+            "schema_version": "0.1",
+            "session_id": state.session_id,
+            "session_dir": session_dir,
+            "status": status,
+            "started_at": started_at,
+            "finished_at": finished_at,
+            "total_runtime_ms": round(total_runtime_ms, 2),
+            "input": {
+                "user_text": state.user_text,
+                "image_path": state.image_path,
+                "image_filename": os.path.basename(state.image_path) if state.image_path else None,
+            },
+            "model_config": self._get_model_config(),
+            "workflow": {
+                "node_timings_ms": dict(self._active_node_timings),
+                "validation_retry_count": state.validation_retry_count,
+                "retry_count": state.retry_count,
+                "is_valid": state.is_valid,
+                "failed_node": state.failed_node,
+                "validation_feedback": state.validation_feedback,
+            },
+            "outputs": {
+                "global_title": state.global_title,
+                "feature_count": len(state.geojson_data.get("features", [])) if isinstance(state.geojson_data, dict) else 0,
+                "style_sections": sorted([k for k in state.style_code.keys() if not k.startswith("_")]) if isinstance(state.style_code, dict) else [],
+                "files": list(self.session_manager.saved_files),
+            },
+            "error": state.error,
+        }
+        return self.session_manager.save_file(manifest, "session_manifest.json")
     
     def run(self, user_text: str, image_path: Optional[str] = None, session_id: Optional[str] = None) -> Dict[str, Any]:
         """执行完整的多模态地图生成流程 (LangGraph)"""
         
         session_dir = self.session_manager.create_session(session_id)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        started_at = datetime.now().isoformat()
+        run_start = time.perf_counter()
+        self._active_node_timings = {}
         
         # 1. 初始化状态对象
         state = AgentState(
@@ -289,13 +370,37 @@ class MultiModalMapAgent:
         initial_graph_state: GraphState = {"agent_state": state}
         
         # invoke 会自动按照你定义的拓扑结构执行，直至抵达 END 节点
-        final_result_state = self.workflow.invoke(initial_graph_state)
+        try:
+            final_result_state = self.workflow.invoke(initial_graph_state)
+        except Exception as e:
+            state.error = str(e)
+            finished_at = datetime.now().isoformat()
+            manifest_path = self._save_session_manifest(
+                state,
+                session_dir=session_dir,
+                started_at=started_at,
+                finished_at=finished_at,
+                total_runtime_ms=(time.perf_counter() - run_start) * 1000,
+                status="error",
+            )
+            return self._handle_error(state, manifest_path=manifest_path)
         
         # 3. 剥离并获取最终状态
         final_state: AgentState = final_result_state["agent_state"]
+        finished_at = datetime.now().isoformat()
+        total_runtime_ms = (time.perf_counter() - run_start) * 1000
+        status = "error" if final_state.error else "success"
+        manifest_path = self._save_session_manifest(
+            final_state,
+            session_dir=session_dir,
+            started_at=started_at,
+            finished_at=finished_at,
+            total_runtime_ms=total_runtime_ms,
+            status=status,
+        )
         
         if final_state.error:
-            return self._handle_error(final_state)
+            return self._handle_error(final_state, manifest_path=manifest_path)
             
         print("=" * 60)
         print(f"✅ 流程完成! 共经历 {final_state.validation_retry_count} 次自我纠错。")
@@ -309,17 +414,21 @@ class MultiModalMapAgent:
             "global_title": final_state.global_title,
             "visual_structure": final_state.visual_structure,
             "geojson": final_state.geojson_data,
-            "style_code": final_state.style_code
+            "style_code": final_state.style_code,
+            "manifest_path": manifest_path,
+            "runtime_ms": round(total_runtime_ms, 2),
+            "node_timings_ms": dict(self._active_node_timings),
         }
     
-    def _handle_error(self, state: AgentState) -> Dict[str, Any]:
+    def _handle_error(self, state: AgentState, manifest_path: Optional[str] = None) -> Dict[str, Any]:
         print(f"❌ 流程执行失败: {state.error}")
         
         return {
             "session_id": state.session_id,
             "session_dir": self.session_manager.get_session_dir(),
             "error": state.error,
-            "retry_count": state.retry_count
+            "retry_count": state.retry_count,
+            "manifest_path": manifest_path,
         }
     
     def get_session_history(self, session_id: str) -> Optional[Dict[str, Any]]:

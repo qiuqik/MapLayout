@@ -333,6 +333,9 @@ async def multimodal_agent(request: MapAgentRequest):
             "session_dir": session_dir,
             "geofilepath": geojson_basename,
             "specfilepath": style_basename,
+            "manifest_path": result.get("manifest_path"),
+            "runtime_ms": result.get("runtime_ms"),
+            "node_timings_ms": result.get("node_timings_ms"),
             "intent": result.get("intent"),
             "validation": result.get("validation")
         }
