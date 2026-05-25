@@ -42,3 +42,8 @@ MapLayout/
 - 需要配置相关 API 密钥
 - 确保网络连接正常
 - 详细文档请参考各目录下的 README 文件
+
+## 研究与开发文档
+
+- [CHI 改进路线与完成记录](docs/CHI_ROADMAP.md)：记录已完成改动、当前效果修复与后续实验/投稿路线。
+- [Codex 调试与验证方法](docs/CODEX_DEBUGGING_WORKFLOW.md)：记录后端、前端、布局评估与分步提交的调试流程。
