@@ -56,6 +56,7 @@ function AgentPageContent() {
   const [rerunLayoutTrigger, setRerunLayoutTrigger] = useState(0);
   const [mapInfo, setMapInfo] = useState<{ center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } } | null>(null);
   const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('force');
+  const [layoutSeed, setLayoutSeed] = useState(1);
 
   const handleDatasetChange = useCallback((type: DatasetType) => {
     if (type === 'groundtruth' && !hasGroundtruthFile) {
@@ -313,8 +314,10 @@ function AgentPageContent() {
             geojson={originGeojson}
             mapInfo={mapInfo}
             layoutAlgorithm={layoutAlgorithm}
+            layoutSeed={layoutSeed}
             layoutRunMetadata={layoutRunMetadata}
             onLayoutAlgorithmChange={setLayoutAlgorithm}
+            onLayoutSeedChange={setLayoutSeed}
           />
         </div>
       </div>
@@ -360,6 +363,7 @@ function AgentPageContent() {
           onMapInfoChange={setMapInfo}
           rerunLayoutTrigger={rerunLayoutTrigger}
           layoutAlgorithm={layoutAlgorithm}
+          layoutSeed={layoutSeed}
         />
       </div>
     </div>

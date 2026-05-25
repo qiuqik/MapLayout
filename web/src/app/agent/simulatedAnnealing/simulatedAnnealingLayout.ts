@@ -1,7 +1,9 @@
 import type { LayoutItemInput, LayoutItemOutput, LeaderLine, CostField, Segment, Rect } from './types';
 import { sampleCostFieldForce } from '../layout/costField';
+import { createSeededRandom, type RandomSource } from '../layout/random';
 
 export type SimAnnealingParams = {
+  seed: number;
   initialTemp: number;
   finalTemp: number;
   coolingRate: number;
@@ -157,9 +159,9 @@ function calculateTotalEnergy(nodes: SimNode[], costField?: CostField, segments?
   return energy;
 }
 
-function randomNeighbor(node: SimNode, stepSize: number, viewport: { width: number; height: number }, padding: number): SimNode {
-  const angle = Math.random() * 2 * Math.PI;
-  const dist = Math.random() * stepSize;
+function randomNeighbor(node: SimNode, stepSize: number, viewport: { width: number; height: number }, padding: number, random: RandomSource): SimNode {
+  const angle = random() * 2 * Math.PI;
+  const dist = random() * stepSize;
 
   const dx = Math.cos(angle) * dist;
   const dy = Math.sin(angle) * dist;
@@ -180,6 +182,7 @@ export function runSimulatedAnnealingLayout(
   ctx: SimAnnealingContext,
   params: SimAnnealingParams
 ): { outputs: LayoutItemOutput[]; leaderLines: LeaderLine[] } {
+  const random = createSeededRandom(params.seed);
   let nodes: SimNode[] = inputs.map((it) => {
     const targetX = it.anchorPx.x;
     const targetY = it.anchorPx.y - it.height / 2;
@@ -204,16 +207,16 @@ export function runSimulatedAnnealingLayout(
 
   while (temperature > params.finalTemp) {
     for (let iter = 0; iter < params.iterationsPerTemp; iter++) {
-      const nodeIndex = Math.floor(Math.random() * nodes.length);
+      const nodeIndex = Math.floor(random() * nodes.length);
       const originalNode = { ...nodes[nodeIndex] };
-      const neighborNode = randomNeighbor(originalNode, params.maxStepSize, ctx.viewport, params.boundsPadding);
+      const neighborNode = randomNeighbor(originalNode, params.maxStepSize, ctx.viewport, params.boundsPadding, random);
 
       const testNodes = nodes.map((n, i) => i === nodeIndex ? neighborNode : { ...n });
       const neighborEnergy = calculateTotalEnergy(testNodes, ctx.costField, ctx.segments, ctx.globalRects);
 
       const deltaE = neighborEnergy - currentEnergy;
 
-      if (deltaE < 0 || Math.random() < Math.exp(-deltaE / temperature)) {
+      if (deltaE < 0 || random() < Math.exp(-deltaE / temperature)) {
         nodes = testNodes;
         currentEnergy = neighborEnergy;
 
@@ -356,6 +359,7 @@ export function runSimulatedAnnealingLayout(
 }
 
 export const DEFAULT_SIM_ANNEALING: SimAnnealingParams = {
+  seed: 1,
   initialTemp: 1000,
   finalTemp: 0.01,
   coolingRate: 0.99,

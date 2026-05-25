@@ -3,6 +3,7 @@ import { sampleCostFieldForce } from '../layout/costField';
 import { forceSimulation, forceX, forceY } from 'd3-force';
 import { rectCollideForce } from '../layout/rectCollide';
 import type { Segment as LayoutSegment } from '../layout/obstacles';
+import { createSeededRandom } from '../layout/random';
 
 export type VoronoiGroupItem = {
   id: string;
@@ -31,6 +32,7 @@ export type VoronoiParams = {
 };
 
 export type VoronoiForceParams = {
+  seed: number;
   linkStrength: number;
   collideStrength: number;
   fieldStrength: number;
@@ -649,6 +651,7 @@ function runForcePhase(
   phase: { alpha: number; alphaDecay: number; alphaMin: number; iterations: number; linkStrength: number }
 ) {
   const sim = forceSimulation(nodes as any)
+    .randomSource(createSeededRandom(forceParams.seed))
     .alpha(phase.alpha)
     .alphaDecay(phase.alphaDecay)
     .alphaMin(phase.alphaMin)
@@ -885,6 +888,7 @@ export const DEFAULT_VORONOI: VoronoiParams = {
 };
 
 export const DEFAULT_VORONOI_FORCE: VoronoiForceParams = {
+  seed: 1,
   linkStrength: 0.12,
   collideStrength: 3.0,
   fieldStrength: 0.5,
@@ -1259,6 +1263,7 @@ function runGroupForcePhase(
   phase: { alpha: number; alphaDecay: number; alphaMin: number; iterations: number; linkStrength: number }
 ) {
   const sim = forceSimulation(nodes as any)
+    .randomSource(createSeededRandom(forceParams.seed))
     .alpha(phase.alpha)
     .alphaDecay(phase.alphaDecay)
     .alphaMin(phase.alphaMin)

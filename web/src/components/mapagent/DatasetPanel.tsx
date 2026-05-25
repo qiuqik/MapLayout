@@ -22,8 +22,10 @@ interface DatasetPanelProps {
   geojson?: any;
   mapInfo?: { center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } } | null;
   layoutAlgorithm?: LayoutAlgorithm;
+  layoutSeed?: number;
   layoutRunMetadata?: LayoutRunMetadata | null;
   onLayoutAlgorithmChange?: (algorithm: LayoutAlgorithm) => void;
+  onLayoutSeedChange?: (seed: number) => void;
 }
 
 const DATASET_CONFIG: Record<DatasetType, { label: string; suffix: string; description: string }> = {
@@ -56,8 +58,10 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
   geojson: externalGeojson,
   mapInfo,
   layoutAlgorithm: externalAlgorithm,
+  layoutSeed = 1,
   layoutRunMetadata,
   onLayoutAlgorithmChange,
+  onLayoutSeedChange,
 }) => {
   const { geojson: contextGeojson } = useAgentMap();
   const geojson = externalGeojson ?? contextGeojson;
@@ -86,6 +90,12 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
     onLayoutAlgorithmChange?.(algorithm);
     onRerunLayout?.();
   }, [onLayoutAlgorithmChange, externalAlgorithm, onRerunLayout]);
+
+  const handleSeedChange = useCallback((value: string) => {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed)) return;
+    onLayoutSeedChange?.(Math.min(4294967295, Math.max(1, parsed)));
+  }, [onLayoutSeedChange]);
 
   const convertMapInfo = (info: typeof mapInfo) => info ? {
     center: {
@@ -206,6 +216,9 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         if (metadata?.runtimeMs !== undefined) {
           baseGeojson._layout_runtime_ms = metadata.runtimeMs;
         }
+        if (metadata?.seed !== undefined) {
+          baseGeojson._layout_seed = metadata.seed;
+        }
       }
 
       const [geojsonResult, mapInfoResult] = await Promise.all([
@@ -290,6 +303,19 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
               Voronoi
             </button>
           </div>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 mb-1 block" htmlFor="layout-seed">Random Seed</label>
+          <input
+            id="layout-seed"
+            type="number"
+            min={1}
+            max={4294967295}
+            step={1}
+            value={layoutSeed}
+            onChange={(event) => handleSeedChange(event.target.value)}
+            className="w-full h-8 px-2 text-[11px] border rounded-md focus:outline-none focus:ring-2 focus:ring-gray-800/50"
+          />
         </div>
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Filename</label>

@@ -29,6 +29,7 @@ import DebugOverlay from './DebugOverlay';
 import type { ForceParamsOverride, FieldParamsOverride } from './ForceParamsPanel';
 
 const DEFAULT_FORCE: LayoutParams = {
+  seed: 1,
   linkStrength: 0.16,
   collideStrength: 3.5,
   fieldStrength: 1.8,
@@ -63,9 +64,10 @@ interface TravelMapProps {
   onMapInfoChange?: (mapInfo: { center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } }) => void;
   rerunLayoutTrigger?: number;
   layoutAlgorithm?: 'force' | 'simulatedAnnealing' | 'weightedVoronoi';
+  layoutSeed?: number;
 }
 
-export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, rerunLayoutTrigger = 0, layoutAlgorithm = 'force' }: TravelMapProps) {
+export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, rerunLayoutTrigger = 0, layoutAlgorithm = 'force', layoutSeed = 1 }: TravelMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
   // Bounding rects of global items in map-container px space (set via onMeasured callback).
@@ -406,7 +408,6 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     }, segments);
 
     setDebugCostField(field);
-    const prevById = new Map(layoutState.outputs.map((o) => [o.id, { x: o.cx, y: o.cy }]));
     const ready = layoutState.inputs.map((it) => {
       // Use measured dimensions, fallback to conservative defaults if not yet measured
       const width = it.width > 0 ? it.width : 80;
@@ -417,29 +418,31 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         width,
         height,
         anchorPx: { x: p.x, y: p.y },
-        prevCenter: prevById.get(it.id),
       };
     });
 
+    const activeForceParams = { ...DEFAULT_FORCE, ...forceParams, seed: layoutSeed };
+    const activeVoronoiForceParams = { ...DEFAULT_VORONOI_FORCE, seed: layoutSeed };
+    const activeSimAnnealingParams = { ...DEFAULT_SIM_ANNEALING, seed: layoutSeed };
     const layoutStartedAt = new Date().toISOString();
     const layoutStart = performance.now();
     const { outputs, leaderLines } = layoutAlgorithm === 'simulatedAnnealing'
       ? runSimulatedAnnealingLayout(
           ready,
           { viewport, costField: field, segments, globalRects: globalRectsRef.current },
-          DEFAULT_SIM_ANNEALING
+          activeSimAnnealingParams
         )
       : layoutAlgorithm === 'weightedVoronoi'
       ? runVoronoiForceLayout(
           ready,
           { viewport, costField: field, segments, globalRects: globalRectsRef.current },
           DEFAULT_VORONOI,
-          DEFAULT_VORONOI_FORCE
+          activeVoronoiForceParams
         )
       : runForceLayout(
           ready,
           { viewport, costField: field, segments, globalRects: globalRectsRef.current },
-          { ...DEFAULT_FORCE, ...forceParams }
+          activeForceParams
         );
     const runtimeMs = performance.now() - layoutStart;
     
@@ -453,17 +456,19 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
     const metadata: LayoutRunMetadata = {
       algorithm: layoutAlgorithm,
+      seed: layoutSeed,
+      initialization: 'anchor',
       runtimeMs: Number(runtimeMs.toFixed(2)),
       itemCount: ready.length,
       viewport,
       generatedAt: layoutStartedAt,
-      layoutParams: layoutAlgorithm === 'force' ? { ...DEFAULT_FORCE, ...forceParams } : layoutAlgorithm === 'weightedVoronoi' ? { ...DEFAULT_VORONOI_FORCE } : { ...DEFAULT_SIM_ANNEALING },
+      layoutParams: layoutAlgorithm === 'force' ? activeForceParams : layoutAlgorithm === 'weightedVoronoi' ? activeVoronoiForceParams : activeSimAnnealingParams,
       fieldParams: mergedField,
     };
     
     console.log("after layout outputs:", outputsWithLngLat);
     setLayoutState((s) => ({ ...s, viewport, outputs: outputsWithLngLat, leaderLines, metadata }));
-  }, [displayLines, transformedData.points, transformedData.polygons, forceParams, fieldParams, layoutState.inputs, rerunLayoutTrigger, layoutAlgorithm]);
+  }, [displayLines, transformedData.points, transformedData.polygons, forceParams, fieldParams, layoutState.inputs, rerunLayoutTrigger, layoutAlgorithm, layoutSeed]);
 
   // Keep recomputeLayoutRef always pointing to the latest closure.
   // handleGlobalMeasured calls this ref so it never captures a stale version.
@@ -527,7 +532,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
   useEffect(() => {
     if (layoutState.inputs.length === 0) return;
     recomputeLayout();
-  }, [forceParams, fieldParams, rerunLayoutTrigger]);
+  }, [forceParams, fieldParams, rerunLayoutTrigger, layoutAlgorithm, layoutSeed]);
 
   useEffect(() => {
     if (layoutState.outputs.length > 0 && onLayoutOutput) {

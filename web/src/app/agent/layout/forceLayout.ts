@@ -4,8 +4,11 @@ import { sampleCostFieldForce } from './costField';
 import type { LayoutItemInput, LayoutItemOutput, LeaderLine, Rect } from './types';
 import { rectCollideForce } from './rectCollide';
 import type { Segment } from './obstacles';
+import { createSeededRandom } from './random';
 
 export type LayoutParams = {
+  /** Seed for deterministic simulation tie-breaking. */
+  seed: number;
   /** Pull label/card center towards anchorPx */
   linkStrength: number;
   /** Rectangle collision strength */
@@ -272,6 +275,7 @@ export function runForceLayout(
   });
 
   const sim = forceSimulation(nodes as any)
+    .randomSource(createSeededRandom(params.seed))
     .alpha(params.alpha)
     .alphaDecay(params.alphaDecay)
     .alphaMin(params.alphaMin)
@@ -419,4 +423,3 @@ export function runForceLayout(
 
   return { outputs, leaderLines };
 }
-
