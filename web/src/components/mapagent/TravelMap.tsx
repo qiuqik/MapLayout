@@ -63,7 +63,7 @@ interface TravelMapProps {
   onGroundtruthChange?: (positions: Record<string, { lng: number; lat: number }>) => void;
   onMapInfoChange?: (mapInfo: { center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } }) => void;
   rerunLayoutTrigger?: number;
-  layoutAlgorithm?: 'force' | 'simulatedAnnealing' | 'weightedVoronoi';
+  layoutAlgorithm?: 'force' | 'simulatedAnnealing' | 'weightedVoronoiDirect' | 'weightedVoronoi';
   layoutSeed?: number;
 }
 
@@ -424,26 +424,56 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     const activeForceParams = { ...DEFAULT_FORCE, ...forceParams, seed: layoutSeed };
     const activeVoronoiForceParams = { ...DEFAULT_VORONOI_FORCE, seed: layoutSeed };
     const activeSimAnnealingParams = { ...DEFAULT_SIM_ANNEALING, seed: layoutSeed };
+    const layoutContext = { viewport, costField: field, segments, globalRects: globalRectsRef.current };
     const layoutStartedAt = new Date().toISOString();
     const layoutStart = performance.now();
-    const { outputs, leaderLines } = layoutAlgorithm === 'simulatedAnnealing'
-      ? runSimulatedAnnealingLayout(
-          ready,
-          { viewport, costField: field, segments, globalRects: globalRectsRef.current },
-          activeSimAnnealingParams
-        )
-      : layoutAlgorithm === 'weightedVoronoi'
-      ? runVoronoiForceLayout(
-          ready,
-          { viewport, costField: field, segments, globalRects: globalRectsRef.current },
-          DEFAULT_VORONOI,
-          activeVoronoiForceParams
-        )
-      : runForceLayout(
-          ready,
-          { viewport, costField: field, segments, globalRects: globalRectsRef.current },
-          activeForceParams
-        );
+    let layoutResult: { outputs: LayoutItemOutput[]; leaderLines: LeaderLine[] };
+    let initialization: LayoutRunMetadata['initialization'] = 'anchor';
+    let pipeline: string[];
+    let layoutParams: Record<string, unknown>;
+
+    if (layoutAlgorithm === 'simulatedAnnealing') {
+      layoutResult = runSimulatedAnnealingLayout(ready, layoutContext, activeSimAnnealingParams);
+      pipeline = ['simulatedAnnealing'];
+      layoutParams = activeSimAnnealingParams;
+    } else if (layoutAlgorithm === 'weightedVoronoiDirect') {
+      layoutResult = runVoronoiForceLayout(
+        ready,
+        layoutContext,
+        DEFAULT_VORONOI,
+        activeVoronoiForceParams
+      );
+      pipeline = ['weightedVoronoi', 'forceRefinement'];
+      layoutParams = {
+        voronoi: DEFAULT_VORONOI,
+        forceRefinement: activeVoronoiForceParams,
+      };
+    } else if (layoutAlgorithm === 'weightedVoronoi') {
+      const forceInitialization = runForceLayout(ready, layoutContext, activeForceParams);
+      const forceInitializedInputs = forceInitialization.outputs.map((output) => ({
+        ...output,
+        prevCenter: { x: output.cx, y: output.cy },
+      }));
+      layoutResult = runVoronoiForceLayout(
+        forceInitializedInputs,
+        layoutContext,
+        DEFAULT_VORONOI,
+        activeVoronoiForceParams
+      );
+      initialization = 'force';
+      pipeline = ['forceInitialization', 'weightedVoronoi', 'forceRefinement'];
+      layoutParams = {
+        forceInitializer: activeForceParams,
+        voronoi: DEFAULT_VORONOI,
+        forceRefinement: activeVoronoiForceParams,
+      };
+    } else {
+      layoutResult = runForceLayout(ready, layoutContext, activeForceParams);
+      pipeline = ['force'];
+      layoutParams = activeForceParams;
+    }
+
+    const { outputs, leaderLines } = layoutResult;
     const runtimeMs = performance.now() - layoutStart;
     
     const outputsWithLngLat = outputs.map(o => {
@@ -457,12 +487,13 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     const metadata: LayoutRunMetadata = {
       algorithm: layoutAlgorithm,
       seed: layoutSeed,
-      initialization: 'anchor',
+      initialization,
+      pipeline,
       runtimeMs: Number(runtimeMs.toFixed(2)),
       itemCount: ready.length,
       viewport,
       generatedAt: layoutStartedAt,
-      layoutParams: layoutAlgorithm === 'force' ? activeForceParams : layoutAlgorithm === 'weightedVoronoi' ? activeVoronoiForceParams : activeSimAnnealingParams,
+      layoutParams,
       fieldParams: mergedField,
     };
     

@@ -8,7 +8,7 @@ import { saveSessionGeojson, saveSessionMapInfo } from '@/lib/api';
 import type { LayoutItemInput, LayoutItemPosition, LayoutRunMetadata } from '@/app/agent/layout/types';
 
 export type DatasetType = 'origin' | 'layout' | 'groundtruth';
-export type LayoutAlgorithm = 'force' | 'simulatedAnnealing' | 'weightedVoronoi';
+export type LayoutAlgorithm = 'force' | 'simulatedAnnealing' | 'weightedVoronoiDirect' | 'weightedVoronoi';
 
 interface DatasetPanelProps {
   onDatasetChange?: (type: DatasetType) => void;
@@ -209,6 +209,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         baseGeojson._layout = {
           dataset: activeDataset,
           algorithm: activeAlgorithm,
+          pipeline: metadata?.pipeline ?? [activeAlgorithm],
           generated_at: new Date().toISOString(),
           source_layout: metadata,
           item_count: metadata?.itemCount ?? layoutOutputs.length,
@@ -271,7 +272,7 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         </div>
         <div>
           <label className="text-xs text-gray-500 mb-1 block">Layout Algorithm</label>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => handleAlgorithmChange('force')}
               className={`flex-1 text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
@@ -293,14 +294,24 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
               SA
             </button>
             <button
+              onClick={() => handleAlgorithmChange('weightedVoronoiDirect')}
+              className={`text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
+                activeAlgorithm === 'weightedVoronoiDirect'
+                  ? 'bg-purple-50 border-purple-300 text-purple-700 font-medium'
+                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              Voronoi Base
+            </button>
+            <button
               onClick={() => handleAlgorithmChange('weightedVoronoi')}
-              className={`flex-1 text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
+              className={`text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
                 activeAlgorithm === 'weightedVoronoi'
                   ? 'bg-purple-50 border-purple-300 text-purple-700 font-medium'
                   : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
               }`}
             >
-              Voronoi
+              Force + Voronoi
             </button>
           </div>
         </div>

@@ -143,7 +143,7 @@ session + viewport + algorithm/pipeline + parameters + seed + source commit
 | --- | --- |
 | 直接 Voronoi 从 anchor 启动 | 当前可复现基线 |
 | 用户手动先 Force 再 Voronoi | 观察到的效果参考 |
-| 显式确定性 `Force -> Voronoi` pipeline | 待验证的修复方法 |
+| 显式确定性 `Force -> Voronoi` pipeline | 已验收的提出方法；后续在 P2 扩展多案例报告 |
 
 只有第三种同时接近第二种效果、并保持重复运行一致，才应作为论文方法与正式实现提交。
 
@@ -221,7 +221,7 @@ Add layout benchmark reporting
 
 | 项目 | 状态 | 后续动作 |
 | --- | --- | --- |
-| Voronoi 直接初始化效果低于先 Force 后 Voronoi | 已观察，修复代码正在试验且未提交 | 按固定 session/seed 对比后决定提交 |
+| Voronoi 直接初始化效果低于先 Force 后 Voronoi | P0 已以显式 `Force + Voronoi` pipeline 修复并完成单案例验收 | P2 扩展多 session 固定协议与统计报告 |
 | 前端 lint 无法运行 | `eslint` 未安装或未纳入依赖 | 单独补齐 lint 工具链并建立检查 |
 | 命令行对用户运行中的 3000 端口不可达 | 已知环境限制 | 使用 Codex 浏览器或 Chrome 进行实际界面验证 |
 | 在线 VLM/LLM 调用可能影响调试稳定性 | 持续存在 | 基础回归优先使用已有 session 与离线指标 |

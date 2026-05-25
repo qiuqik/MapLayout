@@ -44,7 +44,8 @@ export type LayoutItemPosition = {
 export type LayoutRunMetadata = {
   algorithm: string;
   seed: number;
-  initialization: 'anchor';
+  initialization: 'anchor' | 'force';
+  pipeline: string[];
   runtimeMs: number;
   itemCount: number;
   viewport: { width: number; height: number };

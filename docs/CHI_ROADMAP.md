@@ -39,20 +39,15 @@
 | 完成 | `f6785b7` | GeoJSON 特征增加稳定 `feature_id`、语义角色与视觉内容映射 | 为“视觉结构如何作用于地图对象”提供追踪依据 | 合成 FeatureCollection 映射检查 |
 | 完成 | `7dd65ef` | Agent API 返回结构化输出文件字段 | 前端/实验脚本更易消费生成工件 | 后端编译检查 |
 | 完成 | `03488bd` | 三种布局路径加入可控 seed；保存 seed 与初始化策略 | 为布局稳定性和多次重复实验建立基础 | TypeScript、Next 构建、浏览器控件交互检查 |
+| 完成 | 本次提交：`Restore deterministic Force-initialized Voronoi layout` | 将直接 Voronoi 暴露为实验基线，并将提出方法固定为显式 `Force -> Voronoi -> refinement` pipeline | 恢复低遮挡布局质量，同时保留可重复对照条件 | 固定重庆 session、`seed=1` 重跑/保存/指标比较；TypeScript、Next 构建、Chrome 检查 |
 
-## 3. 正在验证的修复
+## 3. 已验收的 P0 修复
 
 ### P0：恢复 Voronoi 的布局质量，同时保留可复现性
 
 用户观察：在界面中先运行 Force，再切换到 Voronoi 时，布局视觉效果优于直接从锚点启动 Voronoi。上一轮为了去掉历史状态依赖，将这个有效初始化也去掉了，造成可见效果退化。
 
-本文档生成时的本地工作区中存在尚未提交的候选实现；它不属于上述代码基线，其他 clone 不应假定已具备这一行为：
-
-- `web/src/components/mapagent/TravelMap.tsx`
-- `web/src/app/agent/layout/types.ts`
-- `web/src/app/agent/weightedVoronoi/weightedVoronoiLayout.ts`
-
-候选方向是将隐含的用户操作序列显式化为确定性 pipeline：
+修复将隐含的用户操作序列显式化为确定性 pipeline，并保留可直接选择的对照基线：
 
 `Force(seed, params) -> Weighted Voronoi(seed, params) -> Force refinement`
 
@@ -65,7 +60,18 @@
 3. 保存的 metadata 明确记录 pipeline、Force 初始化参数、Voronoi 参数与 seed。
 4. 类型检查、生产构建、浏览器切换/保存流程通过后，才提交独立 commit。
 
-建议 commit：`Restore deterministic Force-initialized Voronoi layout`
+验收记录：
+
+| 条件 | Overlap（越低越好） | MeanIoU（越高越好） | 同 seed 重跑 |
+| --- | ---: | ---: | --- |
+| `Voronoi Base`：anchor 初始化，对应 `03488bd` 直启行为 | 0.0406 | 0.5504 | 渲染框坐标差 `0px` |
+| `Force + Voronoi`：显式三阶段 pipeline | 0.0276 | 0.4470 | 渲染框坐标差 `0px`；保存经纬度差 `0` |
+
+实验条件：`20260327_220636_session_1774620396`、Chrome 相同稳定视口、`seed=1`，以保存的 layout GeoJSON 对同一 Ground Truth 运行 `evaluate/index.py` 的 `calc_overlap` 与 `calc_mean_iou`。
+
+结论：pipeline 的 Overlap 相比直接基线降低约 32%，且重复输出一致，因此满足 P0 的低遮挡和可复现验收条件。MeanIoU 出现下降，表明当前方法在降低线路/对象遮挡与贴近人工位置之间存在取舍；后续 P2 应在固定多 session 协议中报告这一取舍，而非只报告有利指标。
+
+保存 metadata 已明确写出 `pipeline`、`initialization`、`seed`、`forceInitializer`、`voronoi` 与 `forceRefinement` 参数。
 
 ## 4. 后续实施路线
 
@@ -165,7 +171,7 @@
 1. 在改动前记录基线结果、截图或失败复现步骤。
 2. 只实现当前目标需要的最小代码改动。
 3. 运行与改动范围对应的自动验证。
-4. 若涉及界面，在 `http://localhost:3000/agent` 上验证关键交互与控制台错误。
+4. 若涉及界面，使用 chrome 浏览器在 `http://localhost:3000/agent` 上验证关键交互与控制台错误。
 5. 若涉及布局质量，用固定 session 和 seed 与基线比较，而不是只凭单次目测判断。
 6. 在结果满足验收标准后提交一条内容明确的 commit。
 7. 在本文件的完成表中补充 commit、测试命令与结论。
@@ -177,7 +183,7 @@
 | 证据 | 当前状态 | 对应计划 |
 | --- | --- | --- |
 | 结构化生成管线、prompt 版本、session manifest | 已具备基础 | 已完成 |
-| 可复现且效果不退化的提出布局方法 | 正在修复 | P0 |
+| 可复现且降低重叠的提出布局方法 | 已完成 P0 单案例验收，待 P2 扩展固定基准 | P0 / P2 |
 | 多算法多 seed 的自动批量结果 | 缺失 | P1 |
 | 固定协议的指标表、方差/置信区间、案例图 | 缺失 | P2 |
 | 中间表示作用的消融结果 | 缺失 | P3 |

@@ -701,7 +701,7 @@ export function runVoronoiForceLayout(
     };
   });
 
-  // Phase 1: Force warm start around anchors to quickly form a conflict-aware seed.
+  // Phase 1: Deterministic force warmup from the supplied positions before global allocation.
   const warmupIterations = Math.max(60, Math.min(200, Math.floor(forceParams.iterations * 0.25)));
   runForcePhase(nodes, ctx, voronoiParams, forceParams, {
     alpha: Math.max(forceParams.alpha, 0.2),
