@@ -1,6 +1,6 @@
 # MapLayout CHI 改进路线与完成记录
 
-更新日期：2026-05-25
+更新日期：2026-05-31
 
 代码基线：`03488bd Add reproducible layout seeds`
 
@@ -40,6 +40,7 @@
 | 完成 | `7dd65ef` | Agent API 返回结构化输出文件字段 | 前端/实验脚本更易消费生成工件 | 后端编译检查 |
 | 完成 | `03488bd` | 三种布局路径加入可控 seed；保存 seed 与初始化策略 | 为布局稳定性和多次重复实验建立基础 | TypeScript、Next 构建、浏览器控件交互检查 |
 | 完成 | 本次提交：`Restore deterministic Force-initialized Voronoi layout` | 将直接 Voronoi 暴露为实验基线，并将提出方法固定为显式 `Force -> Voronoi -> refinement` pipeline | 恢复低遮挡布局质量，同时保留可重复对照条件 | 固定重庆 session、`seed=1` 重跑/保存/指标比较；TypeScript、Next 构建、Chrome 检查 |
+| 完成 | 本次提交：`Add backend agent run event stream` | 增加 AgentEvent、内存 run store、Agent 节点事件回调，以及异步 run/SSE/result API | 为后续前端过程面板、调试复盘和生成工件追踪建立事件基础 | 后端编译检查；事件模型与 run store smoke test |
 
 ## 3. 已验收的 P0 修复
 
@@ -69,7 +70,7 @@
 
 实验条件：`20260327_220636_session_1774620396`、Chrome 相同稳定视口、`seed=1`，以保存的 layout GeoJSON 对同一 Ground Truth 运行 `evaluate/index.py` 的 `calc_overlap` 与 `calc_mean_iou`。
 
-结论：pipeline 的 Overlap 相比直接基线降低约 32%，且重复输出一致，因此满足 P0 的低遮挡和可复现验收条件。MeanIoU 出现下降，表明当前方法在降低线路/对象遮挡与贴近人工位置之间存在取舍；后续 P2 应在固定多 session 协议中报告这一取舍，而非只报告有利指标。
+结论：pipeline 的 Overlap 相比直接基线降低约 32%，且重复输出一致，因此满足 P0 的低遮挡和可复现验收条件。MeanIoU 出现下降，表明当前方法在降低线路/对象遮挡与贴近人工位置之间存在取舍；后续 P2/P3 应在固定多 session 协议中报告这一取舍，而非只报告有利指标。
 
 保存 metadata 已明确写出 `pipeline`、`initialization`、`seed`、`forceInitializer`、`voronoi` 与 `forceRefinement` 参数。
 
@@ -77,7 +78,28 @@
 
 优先顺序按“先恢复结果质量，再形成证据链，再准备研究评估”排列。每一步都应单独完成测试与 commit。
 
-### P1：可复现布局批处理器
+### P1：Agent 运行事件流与可调试生成过程
+
+目标：在不替换现有后端 Agent、不破坏 `/api/multimodal/agent` 旧接口的前提下，为生成流程增加可流式观察的 run/event 基础设施，让前端和调试工具能看到每个节点的开始、完成、校验、重试与工件保存状态。
+
+代码工作：
+
+- 增加统一事件模型，固定事件类型：`workflow_started`、`node_started`、`node_completed`、`node_validation`、`node_retry`、`artifact_saved`、`workflow_completed`、`workflow_error`。
+- 固定节点标识：`intent`、`visual`、`geojson`、`validation`、`style`，避免前端依赖后端实现类名。
+- 增加内存 run store，保存每次运行的事件队列、完成状态、结果和错误。
+- 为 `MultiModalMapAgent.run(...)` 增加可选事件回调，节点内部只发事件，不改变原有生成结果。
+- 新增 run API：创建运行、订阅 SSE 事件、查询运行结果；保留旧的一站式接口作为兼容路径。
+
+评估与测试：
+
+- 后端编译检查必须覆盖新增事件模型、run store、agent 和 API。
+- 使用合成 run 验证 SSE 输出格式，不触发在线模型调用。
+- 验证未知 run 返回 404。
+- 确认旧 `/api/multimodal/agent` 调用路径仍能导入和保留原返回结构。
+
+建议 commit：`Add backend agent run event stream`
+
+### P2：可复现布局批处理器
 
 目标：自动生成同一 session 在不同算法、参数和 seed 下的布局结果，不依赖手动操作前端。
 
@@ -96,7 +118,7 @@
 
 建议 commit：`Add reproducible layout experiment runner`
 
-### P2：布局指标与对照协议
+### P3：布局指标与对照协议
 
 目标：使论文中的布局结论可以由固定协议重跑。
 
@@ -114,7 +136,7 @@
 
 建议 commit：`Add layout benchmark reporting`
 
-### P3：中间表示的可解释映射与消融支持
+### P4：中间表示的可解释映射与消融支持
 
 目标：支撑“结构化中间表示为何有效”的方法贡献。
 
@@ -134,7 +156,7 @@
 - `Report intermediate representation coverage`
 - `Add ablation experiment configurations`
 
-### P4：交互过程与用户研究支持
+### P5：交互过程与用户研究支持
 
 目标：将“人工可编辑”从界面能力转成 HCI 可评估过程。
 
@@ -152,7 +174,7 @@
 
 建议 commit：`Record layout editing study events`
 
-### P5：投稿复现包与演示稳定性
+### P6：投稿复现包与演示稳定性
 
 目标：让审稿人和研究团队可重复复核系统结果。
 
@@ -183,9 +205,10 @@
 | 证据 | 当前状态 | 对应计划 |
 | --- | --- | --- |
 | 结构化生成管线、prompt 版本、session manifest | 已具备基础 | 已完成 |
-| 可复现且降低重叠的提出布局方法 | 已完成 P0 单案例验收，待 P2 扩展固定基准 | P0 / P2 |
-| 多算法多 seed 的自动批量结果 | 缺失 | P1 |
-| 固定协议的指标表、方差/置信区间、案例图 | 缺失 | P2 |
-| 中间表示作用的消融结果 | 缺失 | P3 |
-| 用户修订过程数据与主观评价 | 缺失 | P4 |
-| 可供复核的 artifact package | 缺失 | P5 |
+| 可复现且降低重叠的提出布局方法 | 已完成 P0 单案例验收，待 P2/P3 扩展固定基准 | P0 / P2 / P3 |
+| Agent 节点运行事件与工件保存事件 | 已具备后端基础，待前端过程面板消费 | P1 |
+| 多算法多 seed 的自动批量结果 | 缺失 | P2 |
+| 固定协议的指标表、方差/置信区间、案例图 | 缺失 | P3 |
+| 中间表示作用的消融结果 | 缺失 | P4 |
+| 用户修订过程数据与主观评价 | 缺失 | P5 |
+| 可供复核的 artifact package | 缺失 | P6 |

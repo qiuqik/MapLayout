@@ -1,16 +1,19 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, StreamingResponse
 import os
 import json
 import asyncio
 import re
 import requests
+import uuid
 
 from fastapi import UploadFile, File, Body
 from datetime import datetime
+from src.agent_events import AgentEvent
 from src.multi_modal_agent import MultiModalMapAgent
+from src.run_store import run_store
 from src.utils.coord_transform import gcj02_to_wgs84
 
 app = FastAPI()
@@ -31,6 +34,12 @@ app.add_middleware(
 class MapAgentRequest(BaseModel):
     message: str
     imageFilename: str
+    geojsonFilename: str | None = None
+
+
+class CreateRunRequest(BaseModel):
+    message: str
+    imageFilename: str = ""
     geojsonFilename: str | None = None
 
 
@@ -251,6 +260,129 @@ async def upload_image(file: UploadFile = File(...)):
             status_code=500, 
             content={"error": f"图片上传失败: {str(e)}"}
         )
+
+
+@app.post("/api/multimodal/runs")
+async def create_multimodal_run(request: CreateRunRequest):
+    """Create an observable multi-modal Agent run and stream progress via SSE."""
+    image_path = None
+    if request.imageFilename:
+        image_path = os.path.join(os.path.dirname(__file__), 'images', request.imageFilename)
+        if not os.path.exists(image_path):
+            return JSONResponse(status_code=404, content={"error": f"图片文件不存在：{image_path}"})
+
+    run_id = f"run_{uuid.uuid4().hex[:12]}"
+    record = run_store.create(run_id)
+    loop = asyncio.get_running_loop()
+
+    def enqueue_event(event_type: str, event_data: dict | None = None) -> None:
+        event_data = event_data or {}
+        event_model = AgentEvent(
+            type=event_type,
+            run_id=run_id,
+            session_id=event_data.get("session_id"),
+            node_id=event_data.get("node_id"),
+            label=event_data.get("label"),
+            status=event_data.get("status"),
+            payload=event_data.get("payload") or {},
+        )
+        event = event_model.model_dump() if hasattr(event_model, "model_dump") else event_model.dict()
+        record.queue.put_nowait(event)
+
+    def enqueue_from_worker(event_type: str, event_data: dict | None = None) -> None:
+        loop.call_soon_threadsafe(enqueue_event, event_type, event_data)
+
+    async def run_agent_worker() -> None:
+        enqueue_event(
+            "workflow_started",
+            {
+                "session_id": run_id,
+                "status": "running",
+                "payload": {
+                    "message": request.message,
+                    "imageFilename": request.imageFilename,
+                    "geojsonFilename": request.geojsonFilename,
+                },
+            },
+        )
+
+        def run_multimodal_agent():
+            output_dir = os.path.join(os.path.dirname(__file__), 'output')
+            agent = MultiModalMapAgent(output_dir)
+            return agent.run(
+                user_text=request.message,
+                image_path=image_path,
+                session_id=run_id,
+                emit_event=enqueue_from_worker,
+            )
+
+        try:
+            result = await asyncio.to_thread(run_multimodal_agent)
+            record.result = result
+            if result.get("error"):
+                record.error = result["error"]
+                enqueue_event(
+                    "workflow_error",
+                    {
+                        "session_id": result.get("session_id", run_id),
+                        "status": "error",
+                        "payload": {"error": result["error"], "result": result},
+                    },
+                )
+            else:
+                enqueue_event(
+                    "workflow_completed",
+                    {
+                        "session_id": result.get("session_id", run_id),
+                        "status": "completed",
+                        "payload": result,
+                    },
+                )
+        except Exception as exc:
+            record.error = str(exc)
+            enqueue_event(
+                "workflow_error",
+                {
+                    "session_id": run_id,
+                    "status": "error",
+                    "payload": {"error": str(exc)},
+                },
+            )
+        finally:
+            record.done = True
+            record.queue.put_nowait(None)
+
+    asyncio.create_task(run_agent_worker())
+    return {"run_id": run_id, "session_id": run_id}
+
+
+@app.get("/api/multimodal/runs/{run_id}/events")
+async def stream_multimodal_run_events(run_id: str):
+    record = run_store.get(run_id)
+    if not record:
+        return JSONResponse(status_code=404, content={"error": "run 不存在"})
+
+    async def event_generator():
+        while True:
+            event = await record.queue.get()
+            if event is None:
+                break
+            yield f"event: {event['type']}\ndata: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@app.get("/api/multimodal/runs/{run_id}")
+async def get_multimodal_run(run_id: str):
+    record = run_store.get(run_id)
+    if not record:
+        return JSONResponse(status_code=404, content={"error": "run 不存在"})
+    return {
+        "run_id": record.run_id,
+        "done": record.done,
+        "result": record.result,
+        "error": record.error,
+    }
 
 
 @app.post('/api/multimodal/agent')

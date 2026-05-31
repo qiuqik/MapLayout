@@ -16,7 +16,7 @@ import json
 import base64
 import time
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import Callable, List, Optional, Dict, Any
 from pathlib import Path
 from pydantic import BaseModel, Field
 from concurrent.futures import ThreadPoolExecutor
@@ -156,8 +156,18 @@ class MultiModalMapAgent:
         self.style_node = StyleCodeGenerationNode(self.llm_for_vlm)
         self.validation_node = ValidationNode(self.llm_for_text)
         self._active_node_timings: Dict[str, float] = {}
+        self._event_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None
 
         self.workflow = self._build_graph()
+
+    def _emit_event(self, event_type: str, **event_data: Any) -> None:
+        """Best-effort event hook for API streaming; generation must not depend on it."""
+        if not self._event_callback:
+            return
+        try:
+            self._event_callback(event_type, event_data)
+        except Exception as exc:
+            print(f"⚠️ Agent event callback failed: {exc}")
     
     def _build_graph(self):
         """构建核心的状态机有向图"""
@@ -168,6 +178,20 @@ class MultiModalMapAgent:
             """parallel node1 and node2"""
             state = data["agent_state"]
             init_start = time.perf_counter()
+            self._emit_event(
+                "node_started",
+                session_id=state.session_id,
+                node_id="intent",
+                label="Intent enrichment",
+                status="running",
+            )
+            self._emit_event(
+                "node_started",
+                session_id=state.session_id,
+                node_id="visual",
+                label="Visual structure extraction",
+                status="running",
+            )
 
             def timed_execute(node_name: str, fn, node_state: AgentState) -> AgentState:
                 start = time.perf_counter()
@@ -179,40 +203,159 @@ class MultiModalMapAgent:
                 future_intent = executor.submit(timed_execute, "node1_intent", self.intent_node.execute, state)
                 future_visual = executor.submit(timed_execute, "node2_visual", self.visual_node.execute, state)
                 state = future_intent.result()
+                self._emit_event(
+                    "node_completed",
+                    session_id=state.session_id,
+                    node_id="intent",
+                    label="Intent enrichment",
+                    status="completed",
+                    payload={
+                        "intent_enriched": state.intent_enriched,
+                        "global_title": state.global_title,
+                        "global_description": state.global_description,
+                    },
+                )
                 state = future_visual.result()
+                self._emit_event(
+                    "node_completed",
+                    session_id=state.session_id,
+                    node_id="visual",
+                    label="Visual structure extraction",
+                    status="completed",
+                    payload={"visual_structure": state.visual_structure},
+                )
             self._active_node_timings["init_parallel"] = round((time.perf_counter() - init_start) * 1000, 2)
-            self.session_manager.save_file(
+            intent_path = self.session_manager.save_file(
                 {"intent_enriched": state.intent_enriched}, f"intent_{state.session_id}.json", "node1"
             )
-            self.session_manager.save_file(state.visual_structure, f"visual_{state.session_id}.json", "node2")
+            self._emit_event(
+                "artifact_saved",
+                session_id=state.session_id,
+                node_id="intent",
+                label="Intent artifact saved",
+                status="completed",
+                payload={"path": intent_path, "subdir": "node1"},
+            )
+            visual_path = self.session_manager.save_file(state.visual_structure, f"visual_{state.session_id}.json", "node2")
+            self._emit_event(
+                "artifact_saved",
+                session_id=state.session_id,
+                node_id="visual",
+                label="Visual artifact saved",
+                status="completed",
+                payload={"path": visual_path, "subdir": "node2"},
+            )
             return {"agent_state": state}
         
         def node_geojson(data: GraphState):
             """execute Node 3"""
             state = data["agent_state"]
+            self._emit_event(
+                "node_started",
+                session_id=state.session_id,
+                node_id="geojson",
+                label="GeoJSON generation",
+                status="running",
+                payload={"validation_retry_count": state.validation_retry_count},
+            )
             start = time.perf_counter()
             state = self.geojson_node.execute(state)
             self._active_node_timings["node3_geojson"] = round((time.perf_counter() - start) * 1000, 2)
-            self.session_manager.save_file(
+            feature_count = len(state.geojson_data.get("features", [])) if isinstance(state.geojson_data, dict) else 0
+            self._emit_event(
+                "node_completed",
+                session_id=state.session_id,
+                node_id="geojson",
+                label="GeoJSON generation",
+                status="completed",
+                payload={
+                    "feature_count": feature_count,
+                    "validation_retry_count": state.validation_retry_count,
+                    "geojson": state.geojson_data,
+                },
+            )
+            geojson_path = self.session_manager.save_file(
                 state.geojson_data, f"geojson_{state.validation_retry_count}.json", "node3"
+            )
+            self._emit_event(
+                "artifact_saved",
+                session_id=state.session_id,
+                node_id="geojson",
+                label="GeoJSON artifact saved",
+                status="completed",
+                payload={"path": geojson_path, "subdir": "node3", "feature_count": feature_count},
             )
             return {"agent_state": state}
         
         def node_validate(data: GraphState):
             """execute Node 5 validate"""
             state = data["agent_state"]
+            self._emit_event(
+                "node_started",
+                session_id=state.session_id,
+                node_id="validation",
+                label="Validation",
+                status="running",
+            )
             start = time.perf_counter()
             state = self.validation_node.execute(state)
             self._active_node_timings["node5_validate"] = round((time.perf_counter() - start) * 1000, 2)
+            validation_payload = {
+                "is_valid": state.is_valid,
+                "failed_node": state.failed_node,
+                "validation_feedback": state.validation_feedback,
+                "validation_retry_count": state.validation_retry_count,
+            }
+            self._emit_event(
+                "node_validation",
+                session_id=state.session_id,
+                node_id="validation",
+                label="Validation",
+                status="passed" if state.is_valid else "failed",
+                payload=validation_payload,
+            )
+            if not state.is_valid and state.failed_node == "node3":
+                self._emit_event(
+                    "node_retry",
+                    session_id=state.session_id,
+                    node_id="geojson",
+                    label="GeoJSON retry requested",
+                    status="retrying",
+                    payload=validation_payload,
+                )
             return {"agent_state": state}
 
         def node_style(data: GraphState):
             """execute Node 4 style generate"""
             state = data["agent_state"]
+            self._emit_event(
+                "node_started",
+                session_id=state.session_id,
+                node_id="style",
+                label="Style generation",
+                status="running",
+            )
             start = time.perf_counter()
             state = self.style_node.execute(state)
             self._active_node_timings["node4_style"] = round((time.perf_counter() - start) * 1000, 2)
-            self.session_manager.save_file(state.style_code, f"style_{state.session_id}.json", "node4")
+            style_sections = sorted([k for k in state.style_code.keys() if not k.startswith("_")]) if isinstance(state.style_code, dict) else []
+            self._emit_event(
+                "node_completed",
+                session_id=state.session_id,
+                node_id="style",
+                label="Style generation",
+                status="completed",
+                payload={"style_sections": style_sections, "style_code": state.style_code},
+            )
+            style_path = self.session_manager.save_file(state.style_code, f"style_{state.session_id}.json", "node4")
+            self._emit_event(
+                "artifact_saved",
+                session_id=state.session_id,
+                node_id="style",
+                label="Style artifact saved",
+                status="completed",
+                payload={"path": style_path, "subdir": "node4", "style_sections": style_sections},
+            )
             return {"agent_state": state}
 
         def router(data: GraphState) -> str:
@@ -361,7 +504,13 @@ class MultiModalMapAgent:
         }
         return self.session_manager.save_file(manifest, "session_manifest.json")
     
-    def run(self, user_text: str, image_path: Optional[str] = None, session_id: Optional[str] = None) -> Dict[str, Any]:
+    def run(
+        self,
+        user_text: str,
+        image_path: Optional[str] = None,
+        session_id: Optional[str] = None,
+        emit_event: Optional[Callable[[str, Dict[str, Any]], None]] = None,
+    ) -> Dict[str, Any]:
         """执行完整的多模态地图生成流程 (LangGraph)"""
         
         session_dir = self.session_manager.create_session(session_id)
@@ -369,6 +518,7 @@ class MultiModalMapAgent:
         started_at = datetime.now().isoformat()
         run_start = time.perf_counter()
         self._active_node_timings = {}
+        self._event_callback = emit_event
         
         # 1. 初始化状态对象
         state = AgentState(
@@ -401,6 +551,8 @@ class MultiModalMapAgent:
                 status="error",
             )
             return self._handle_error(state, manifest_path=manifest_path)
+        finally:
+            self._event_callback = None
         
         # 3. 剥离并获取最终状态
         final_state: AgentState = final_result_state["agent_state"]

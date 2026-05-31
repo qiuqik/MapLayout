@@ -1,6 +1,6 @@
 # MapLayout 在 Codex 中的调试与验证方法
 
-更新日期：2026-05-25
+更新日期：2026-05-31
 
 适用环境：前端 `http://localhost:3000`，后端 `http://0.0.0.0:8000`，后端 Conda 环境 `aiagent`。
 
@@ -85,6 +85,37 @@ node4/
 
 结构、解析或序列化改动，应先使用已有 session 文件或合成小样例验证。只有当变更涉及真实生成效果时，才运行需要模型调用的新请求；这样可以避免将网络/模型随机波动混入代码回归判断。
 
+### 3.4 Agent run/event 流调试
+
+新增的 run/event API 用于观察后端 Agent 每个节点的执行过程，同时保留旧 `/api/multimodal/agent` 作为兼容路径。
+
+| 接口 | 用途 | 快速检查 |
+| --- | --- | --- |
+| `POST /api/multimodal/runs` | 创建异步 Agent run | 返回 `run_id` 和 `session_id`，不等待完整生成结束 |
+| `GET /api/multimodal/runs/{run_id}/events` | 订阅 SSE 事件 | 每条事件包含固定 `type`、`run_id`、可选 `node_id` 和 `payload` |
+| `GET /api/multimodal/runs/{run_id}` | 查询完成状态、结果或错误 | 未知 run 必须返回 404 |
+
+基础回归不要直接触发在线模型，可用合成 run 检查事件序列化：
+
+```bash
+cd server
+conda run -n aiagent python -c "from fastapi.testclient import TestClient; from app import app; from src.run_store import run_store; r=run_store.create('run_smoke'); r.queue.put_nowait({'type':'workflow_started','run_id':'run_smoke','payload':{}}); r.queue.put_nowait(None); c=TestClient(app); assert c.get('/api/multimodal/runs/missing').status_code == 404; assert 'event: workflow_started' in c.get('/api/multimodal/runs/run_smoke/events').text"
+```
+
+真实生成调试时，事件顺序至少应能看到：
+
+```text
+workflow_started
+node_started / node_completed: intent
+node_started / node_completed: visual
+node_started / node_completed: geojson
+node_validation: validation
+node_started / node_completed: style
+workflow_completed
+```
+
+若 validation 打回 GeoJSON，应额外出现 `node_retry`，并能在后续看到新的 `geojson` 节点事件。事件回调异常不应中断原 Agent 生成流程。
+
 ## 4. 前端与布局调试
 
 ### 4.1 静态检查和生产构建
@@ -143,7 +174,7 @@ session + viewport + algorithm/pipeline + parameters + seed + source commit
 | --- | --- |
 | 直接 Voronoi 从 anchor 启动 | 当前可复现基线 |
 | 用户手动先 Force 再 Voronoi | 观察到的效果参考 |
-| 显式确定性 `Force -> Voronoi` pipeline | 已验收的提出方法；后续在 P2 扩展多案例报告 |
+| 显式确定性 `Force -> Voronoi` pipeline | 已验收的提出方法；后续在 P2/P3 扩展多案例报告 |
 
 只有第三种同时接近第二种效果、并保持重复运行一致，才应作为论文方法与正式实现提交。
 
@@ -221,7 +252,7 @@ Add layout benchmark reporting
 
 | 项目 | 状态 | 后续动作 |
 | --- | --- | --- |
-| Voronoi 直接初始化效果低于先 Force 后 Voronoi | P0 已以显式 `Force + Voronoi` pipeline 修复并完成单案例验收 | P2 扩展多 session 固定协议与统计报告 |
+| Voronoi 直接初始化效果低于先 Force 后 Voronoi | P0 已以显式 `Force + Voronoi` pipeline 修复并完成单案例验收 | P2/P3 扩展多 session 固定协议与统计报告 |
 | 前端 lint 无法运行 | `eslint` 未安装或未纳入依赖 | 单独补齐 lint 工具链并建立检查 |
 | 命令行对用户运行中的 3000 端口不可达 | 已知环境限制 | 使用 Codex 浏览器或 Chrome 进行实际界面验证 |
 | 在线 VLM/LLM 调用可能影响调试稳定性 | 持续存在 | 基础回归优先使用已有 session 与离线指标 |
