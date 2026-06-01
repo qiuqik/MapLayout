@@ -540,6 +540,7 @@ async def get_multimodal_session(session_id: str):
 
     node3_path = os.path.join(base, 'node3')
     node4_path = os.path.join(base, 'node4')
+    node2_path = os.path.join(base, 'node2')
 
     layout_files, groundtruth_files, origin_files = [], [], []
 
@@ -575,6 +576,16 @@ async def get_multimodal_session(session_id: str):
             except Exception as e:
                 print(f"⚠️ 读取 node4 失败: {e}")
 
+    visual_structure = None
+    if os.path.exists(node2_path):
+        files = sorted([f for f in os.listdir(node2_path) if f.endswith('.json')])
+        if files:
+            try:
+                with open(os.path.join(node2_path, files[-1]), "r", encoding="utf-8") as f:
+                    visual_structure = json.load(f)
+            except Exception as e:
+                print(f"⚠️ 读取 node2 失败: {e}")
+
     # 处理 GeoJSON 数据：转换坐标并根据 style_code 判断是否获取步行路线
     origin_processed = None
     if origin_files:
@@ -591,6 +602,7 @@ async def get_multimodal_session(session_id: str):
     return {
         "session_id": session_id,
         "style_code": style_code,
+        "visual_structure": visual_structure,
         "origin_file": {"filename": origin_files[-1]['filename'], "data": origin_processed} if origin_files else None,
         "has_origin": len(origin_files) > 0,
         "layout_file": {"filename": layout_files[-1]['filename'], "data": layout_processed} if layout_files else ({"filename": origin_files[-1]['filename'], "data": origin_processed} if origin_files else None),

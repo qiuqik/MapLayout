@@ -1,21 +1,19 @@
 'use client';
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import MapGL, { MapRef } from 'react-map-gl/mapbox';
-import { StyleSpecification } from 'mapbox-gl';
 // @ts-ignore
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
   transformAllCoordinates,
   calculateMapViewState,
   TransformedMapData,
-  populateTemplate
+  buildLabelHtml,
+  getFeatureLabelId,
+  selectLabelStyleForFeature,
 } from './utils/mapUtils';
-import BaseMapRenderer from './renderers/BaseMapRenderer';
 import GlobalRenderer from './renderers/GlobalRenderer';
-import AreaRenderer from './renderers/AreaRenderer';
 import RouteRenderer from './renderers/RouteRenderer';
 import PointRenderer from './renderers/PointRenderer';
-import CardRenderer from './renderers/CardRenderer';
 import LabelRenderer from './renderers/LabelRenderer';
 import DraggableOutput from './DraggableOutput';
 
@@ -79,11 +77,11 @@ function normalizeContentType(value: unknown, fallback: LayoutItemContentType = 
 
 function getOverlayMeta(feature: any, style: any, fallbackHierarchy: LayoutItemHierarchy = 'secondary') {
   const hierarchy = normalizeHierarchy(
-    feature?.properties?.label_hierarchy ?? feature?.properties?.hierarchy ?? style?.hierarchy ?? style?.label_hierarchy,
+    feature?.properties?.label_level ?? feature?.properties?.hierarchy ?? style?.hierarchy,
     fallbackHierarchy,
   );
   const contentType = normalizeContentType(
-    feature?.properties?.label_content_type ?? feature?.properties?.content_type ?? style?.content_type ?? style?.label_content_type,
+    feature?.properties?.label_content_type ?? feature?.properties?.content_type ?? style?.content_type,
     hierarchy === 'detail' ? 'title_script_extra' : 'title_script',
   );
   return { hierarchy, contentType };
@@ -112,9 +110,66 @@ function shouldHideOverlay(
   return false;
 }
 
+const MAPBOX_LAYER_TARGETS: Record<string, string[]> = {
+  background: ['background'],
+  land: ['land'],
+  water: ['water'],
+  landuse_park: ['landuse-park', 'national-park', 'park'],
+  park: ['landuse-park', 'national-park', 'park'],
+  road_primary: ['road-primary', 'road-motorway-trunk'],
+  road_secondary: ['road-secondary-tertiary', 'road-street', 'road-minor'],
+  road: ['road-primary', 'road-secondary-tertiary', 'road-street', 'road-minor'],
+  poi_label: ['poi-label'],
+  place_label: ['settlement-major-label', 'settlement-minor-label', 'place-label'],
+  label: ['poi-label', 'settlement-major-label', 'settlement-minor-label'],
+};
+
+function getVisualStylesheet(visualStructure: any) {
+  return visualStructure?.Stylesheet || visualStructure?.stylesheet || null;
+}
+
+function resolveMapStyle(visualStructure: any, showHeatmap: boolean) {
+  if (showHeatmap) return 'mapbox://styles/mapbox/light-v11';
+  const stylesheet = getVisualStylesheet(visualStructure);
+  const globalMode = stylesheet?.global || visualStructure?.['Theme&Design']?.global || 'light';
+  return stylesheet?.mapboxStyle || (globalMode === 'dark'
+    ? 'mapbox://styles/mapbox/dark-v11'
+    : 'mapbox://styles/mapbox/light-v11');
+}
+
+function applyMapboxStylesheet(map: any, visualStructure: any) {
+  const stylesheet = getVisualStylesheet(visualStructure);
+  if (!map || !stylesheet?.layers?.length) return;
+
+  stylesheet.layers.forEach((entry: any) => {
+    if (!entry?.target || !entry.paint || typeof entry.paint !== 'object') return;
+    const layerIds = MAPBOX_LAYER_TARGETS[entry.target] || [entry.target];
+    layerIds.forEach((layerId) => {
+      if (!map.getLayer(layerId)) return;
+      Object.entries(entry.paint).forEach(([paintKey, value]) => {
+        try {
+          map.setPaintProperty(layerId, paintKey, value);
+        } catch {
+          // Mapbox silently lacks some paint properties on some layer types; skip those.
+        }
+      });
+      if (entry.layout && typeof entry.layout === 'object') {
+        Object.entries(entry.layout).forEach(([layoutKey, value]) => {
+          try {
+            map.setLayoutProperty(layerId, layoutKey, value);
+          } catch {
+            // Same reason as paint properties.
+          }
+        });
+      }
+    });
+  });
+}
+
 interface TravelMapProps {
   geojson: any;
   styleCode: any;
+  visualStructure?: any;
   showHeatmap?: boolean;
   forceParams?: Partial<ForceParamsOverride>;
   fieldParams?: Partial<FieldParamsOverride>;
@@ -131,11 +186,12 @@ interface TravelMapProps {
   layoutSeed?: number;
 }
 
-export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, rerunLayoutTrigger = 0, layoutAlgorithm = 'force', layoutSeed = 1 }: TravelMapProps) {
+export default function TravelMap({ geojson, styleCode, visualStructure, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, rerunLayoutTrigger = 0, layoutAlgorithm = 'force', layoutSeed = 1 }: TravelMapProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapRef>(null);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
   const [viewportSize, setViewportSize] = useState<{ width: number; height: number } | null>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
   // Bounding rects of global items in map-container px space (set via onMeasured callback).
   const globalRectsRef = useRef<Rect[]>([]);
   // Always points to the latest recomputeLayout closure so handleGlobalMeasured can call it.
@@ -154,11 +210,8 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
   }, [geojson]);
 
   const globalElements = styleCode?.Global || [];
-  const baseMapStyle = styleCode?.BaseMap?.[0];
   const routeStyles = styleCode?.Route || [];
-  const areaStyles = styleCode?.Area || [];
   const pointStyles = styleCode?.Point || [];
-  const cardStyles = styleCode?.Card || [];
   const labelStyles = styleCode?.Label || [];
 
   // 后端已返回处理好的步行路线，直接使用
@@ -174,7 +227,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
   useEffect(() => {
     // Fit map view to data
-    if (mapRef.current && (transformedData.points.length > 0 || displayLines.length > 0 || transformedData.polygons.length > 0)) {
+    if (mapRef.current && (transformedData.points.length > 0 || displayLines.length > 0)) {
       const coords: number[][] = [];
       
       transformedData.points.forEach((feature: any) => {
@@ -184,14 +237,6 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
       displayLines.forEach((feature: any) => {
         feature.geometry.coordinates.forEach((coord: number[]) => {
           coords.push(coord);
-        });
-      });
-      
-      transformedData.polygons.forEach((feature: any) => {
-        feature.geometry.coordinates.forEach((ring: number[][]) => {
-          ring.forEach((coord: number[]) => {
-            coords.push(coord);
-          });
         });
       });
       
@@ -231,41 +276,18 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
 
   const transformedLayers = {
     type: 'FeatureCollection',
-    features: [...displayLines, ...transformedData.polygons]
+    features: displayLines
   };
 
-  const blankMapStyle: StyleSpecification = {
-    version: 8,
-    name: 'Blank',
-    sources: {},
-    layers: [
-      {
-        id: 'background',
-        type: 'background',
-        paint: {
-          'background-color': 'transparent'
-        }
-      }
-    ],
-    glyphs: 'mapbox://fonts/mapbox/{fontstack}/{range}.pbf',
-    sprite: 'mapbox://sprites/mapbox/streets-v12'
-  };
-
-  const mapStyle = showHeatmap
-    ? 'mapbox://sprites/mapbox/streets-v12'
-    // ? 'mapbox://styles/mapbox/light-v11'
-    : baseMapStyle?.type === 'blank'
-      ? blankMapStyle
-      : baseMapStyle?.type === 'satellite'
-        ? 'mapbox://styles/mapbox/satellite-v9'
-        : 'mapbox://styles/mapbox/streets-v12';
+  const mapStyle = useMemo(
+    () => resolveMapStyle(visualStructure, showHeatmap),
+    [visualStructure, showHeatmap],
+  );
 
   const processLayoutInput = (
     id: string,
     feature: any,
-    globalProps: any,
-    visualId: string,
-    styles: any[],
+    labelStyle: any,
     fallbackHierarchy: LayoutItemHierarchy = 'secondary',
     itemCount: number = 0,
   ) => {
@@ -277,73 +299,53 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
       if(!positions) positions = layoutPositions;
     }
     const selectedPositions = positions ?? [];
-    const input = [];
-    for(let i = 0; i < selectedPositions.length; i++){
-      const position = selectedPositions[i];
-      if(position.id !== id) continue;
-      const style = styles.find((l: any) => l.visual_id === visualId);
-      if(style) {
-        const html = populateTemplate(style.template, feature.properties, globalProps);
-        const meta = getOverlayMeta(feature, style, fallbackHierarchy);
-        const scale = getResponsiveOverlayScale(meta.hierarchy, viewportSize, itemCount || selectedPositions.length);
-        input.push({
-          ...position,
-          kind: 'label',
-          html,
-          width: 0,
-          height: 0,
-          padding: meta.hierarchy === 'detail' ? 18 : 14,
-          hierarchy: meta.hierarchy,
-          contentType: meta.contentType,
-          scale,
-          hidden: shouldHideOverlay(meta.hierarchy, viewportSize, itemCount || selectedPositions.length),
-        })
-      }
-    }
-    if(input.length === 0) return null;
-    return input;
+    const [anchorLng, anchorLat] = feature.geometry.coordinates;
+    const coord = feature.properties?.label_coord || feature.geometry.coordinates;
+    const position = selectedPositions.find((item) => item.id === id) || {
+      id,
+      anchorLngLat: { lng: anchorLng, lat: anchorLat },
+      centerLngLat: { lng: coord[0], lat: coord[1] },
+    };
+    const meta = getOverlayMeta(feature, labelStyle, fallbackHierarchy);
+    const scale = getResponsiveOverlayScale(meta.hierarchy, viewportSize, itemCount || selectedPositions.length);
+    return {
+      ...position,
+      kind: 'label',
+      html: buildLabelHtml(feature, labelStyle),
+      width: 0,
+      height: 0,
+      padding: meta.hierarchy === 'detail' ? 18 : 14,
+      hierarchy: meta.hierarchy,
+      contentType: meta.contentType,
+      scale,
+      hidden: shouldHideOverlay(meta.hierarchy, viewportSize, itemCount || selectedPositions.length),
+    } as LayoutItemInput;
   }
 
   const buildLayoutInputs = useCallback((): LayoutItemInput[] => {
     const inputs: LayoutItemInput[] = [];
-    const globalProps = transformedData.globalProps;
-    const allTransformedFeatures = [...transformedData.points,...transformedData.lines, ...transformedData.polygons];
-    const overlayCount = allTransformedFeatures.reduce((count: number, feature: any) => {
-      return count + (feature.properties?.card_coord ? 1 : 0) + (feature.properties?.label_coord ? 1 : 0);
-    }, 0);
+    const overlayCount = transformedData.points.filter((feature: any) => (
+      feature.properties?.label_title || feature.properties?.name
+    )).length;
 
-    for (let i = 0; i < allTransformedFeatures.length; i++) {
-      const feature: any = allTransformedFeatures[i];
-      const name = feature.properties?.name;
-      const type = feature.geometry.type;
-      if(feature.properties?.card_coord){
-        const cardVisualId = feature.properties?.card_visual_id;
-        const id = `card-${type}-${name}-${cardVisualId}`;
-        // console.log("card id:", id);
-        const input = processLayoutInput(id, feature, globalProps, cardVisualId, cardStyles, 'detail', overlayCount);
-        if(input) inputs.push(...input);
-      }
-      if(feature.properties?.label_coord){
-        const labelVisualId = feature.properties?.label_visual_id;
-        const id = `label-${type}-${name}-${labelVisualId}`;
-        // console.log("label id:", id);
-        const input = processLayoutInput(id, feature, globalProps, labelVisualId, labelStyles, 'secondary', overlayCount);
-        if(input) inputs.push(...input);
-      }
+    for (let i = 0; i < transformedData.points.length; i++) {
+      const feature: any = transformedData.points[i];
+      const labelStyle = selectLabelStyleForFeature(feature, labelStyles);
+      if (!labelStyle) continue;
+      if (!feature.properties?.label_title && !feature.properties?.name) continue;
+      const id = getFeatureLabelId(feature, labelStyle);
+      const input = processLayoutInput(id, feature, labelStyle, 'secondary', overlayCount);
+      if(input) inputs.push(input);
     }
     console.log("inputs:", inputs);
     return inputs;
   }, [
     transformedData.points,
-    transformedData.lines,
-    transformedData.polygons,
-    transformedData.globalProps,
     currentDataset,
     originPositions,
     layoutPositions,
     groundtruthPositions,
     labelStyles,
-    cardStyles,
     viewportSize,
   ]);
 
@@ -472,21 +474,12 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
       })
     );
 
-    const polygonsPx = transformedData.polygons.map((f: any) =>
-      (f.geometry.coordinates as number[][][]).map((ring) =>
-        ring.map(([lng, lat]) => {
-          const p = project(lng, lat);
-          return { x: p.x, y: p.y };
-        })
-      )
-    );
-
-    // Point obstacles remain rect-based; lines/polygons use exact segment distances.
+    // Point obstacles remain rect-based; lines use exact segment distances.
     const obstacles = buildObstacleRects(
       { pointsPx, linesPx: [], polygonsPx: [] },
-      { pointRadius: 10, lineHalfWidth: 6, polygonHalfWidth: 6, lineSampleStep: 24 }
+      { pointRadius: 10, lineHalfWidth: 6, polygonHalfWidth: 0, lineSampleStep: 24 }
     );
-    const segments = buildObstacleSegments({ linesPx, polygonsPx });
+    const segments = buildObstacleSegments({ linesPx, polygonsPx: [] });
 
     // Include global item rects in the cost field so the Gaussian repulsion field
     // pushes labels/cards away from them during the simulation.
@@ -592,7 +585,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     
     console.log("after layout outputs:", outputsWithLngLat);
     setLayoutState((s) => ({ ...s, viewport, outputs: outputsWithLngLat, leaderLines, metadata }));
-  }, [displayLines, transformedData.points, transformedData.polygons, forceParams, fieldParams, layoutState.inputs, rerunLayoutTrigger, layoutAlgorithm, layoutSeed]);
+  }, [displayLines, transformedData.points, forceParams, fieldParams, layoutState.inputs, rerunLayoutTrigger, layoutAlgorithm, layoutSeed]);
 
   // Keep recomputeLayoutRef always pointing to the latest closure.
   // handleGlobalMeasured calls this ref so it never captures a stale version.
@@ -697,6 +690,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
   const onMapLoad = useCallback(() => {
     const raw = mapRef.current as any;
     const map = raw?.getMap ? raw.getMap() : raw;
+    setMapLoaded(true);
     if (map && onMapInfoChange) {
       const center = map.getCenter();
       const bounds = map.getBounds();
@@ -705,8 +699,25 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         bounds: { north: bounds.getNorth(), south: bounds.getSouth(), east: bounds.getEast(), west: bounds.getWest() },
       });
     }
+    applyMapboxStylesheet(map, visualStructure);
     recomputeLayout();
-  }, [recomputeLayout, onMapInfoChange]);
+  }, [recomputeLayout, onMapInfoChange, visualStructure]);
+
+  const onStyleData = useCallback(() => {
+    const raw = mapRef.current as any;
+    const map = raw?.getMap ? raw.getMap() : raw;
+    applyMapboxStylesheet(map, visualStructure);
+  }, [visualStructure]);
+
+  useEffect(() => {
+    if (!mapLoaded) return;
+    const timer = setTimeout(() => {
+      const raw = mapRef.current as any;
+      const map = raw?.getMap ? raw.getMap() : raw;
+      applyMapboxStylesheet(map, visualStructure);
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [mapLoaded, mapStyle, visualStructure]);
 
   const onMoveEnd = useCallback(() => {
     const raw = mapRef.current as any;
@@ -775,14 +786,12 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
   const displayLeaderLines = currentDataset === 'groundtruth' && groundtruthLeaderLines.length > 0
     ? groundtruthLeaderLines
     : layoutState.leaderLines;
-  const fallbackOverlayCount = transformedData.points.length + transformedData.polygons.length;
+  const fallbackOverlayCount = transformedData.points.length;
   const fallbackLabelScale = getResponsiveOverlayScale('secondary', viewportSize, fallbackOverlayCount);
   const hideDetailLabels = shouldHideOverlay('detail', viewportSize, fallbackOverlayCount);
 
   return (
     <div ref={rootRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
-      {!hideOverlays && <BaseMapRenderer baseMapStyle={baseMapStyle} />}
-
       <MapGL
         ref={mapRef}
         initialViewState={getMapViewState}
@@ -790,6 +799,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
         style={{ width: '100%', height: '100%', zIndex: 1 }}
         onLoad={onMapLoad}
+        onStyleData={onStyleData}
         onMoveEnd={onMoveEnd}
         scrollZoom={draggable}
         dragPan={draggable}
@@ -797,27 +807,16 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         keyboard={draggable}
         doubleClickZoom={draggable}
       >
-        <AreaRenderer areaStyles={areaStyles} transformedLayers={transformedLayers} />
         <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} />
         <PointRenderer points={transformedData.points} pointStyles={pointStyles} globalProps={transformedData.globalProps} />
         {!hideOverlays && layoutState.outputs.length === 0 && (
-          <>
-            <CardRenderer
-              points={transformedData.points}
-              polygons={transformedData.polygons}
-              cardStyles={cardStyles}
-              globalProps={transformedData.globalProps}
-              labelScale={fallbackLabelScale}
-              hideDetailLabels={hideDetailLabels}
-            />
-            <LabelRenderer
-              points={transformedData.points}
-              labelStyles={labelStyles}
-              globalProps={transformedData.globalProps}
-              labelScale={fallbackLabelScale}
-              hideDetailLabels={hideDetailLabels}
-            />
-          </>
+          <LabelRenderer
+            points={transformedData.points}
+            labelStyles={labelStyles}
+            globalProps={transformedData.globalProps}
+            labelScale={fallbackLabelScale}
+            hideDetailLabels={hideDetailLabels}
+          />
         )}
       </MapGL>
 

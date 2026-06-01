@@ -1,7 +1,7 @@
 'use client';
 
 import { Marker } from 'react-map-gl/mapbox';
-import { populateTemplate } from '../utils/mapUtils';
+import { API_BASE_URL } from '@/lib/api';
 
 interface PointRendererProps {
   points: any[];
@@ -9,19 +9,26 @@ interface PointRendererProps {
   globalProps?: any;
 }
 
-const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, globalProps = {} }) => {
+const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles }) => {
   const renderPointIcon = (pointStyle: any, feature: any) => {
-    const iconSrc = pointStyle.iconDataUrl || pointStyle.iconUrl;
-    const fallbackColor = pointStyle.iconFallbackColor || pointStyle.color || '#E4572E';
+    const rawIconSrc = pointStyle.url;
+    const iconSrc = rawIconSrc
+      ? String(rawIconSrc).startsWith('http')
+        ? rawIconSrc
+        : `${API_BASE_URL}${rawIconSrc}`
+      : '';
+    const visualStyle = pointStyle.style && typeof pointStyle.style === 'object' ? pointStyle.style : {};
+    const size = Number(visualStyle.size || pointStyle.size || 28);
+    const fallbackColor = visualStyle.color || pointStyle.color || '#E4572E';
 
     if (iconSrc) {
       return (
         <img
           src={iconSrc}
-          alt={feature.properties?.name || pointStyle.iconDescription || 'POI'}
+          alt={feature.properties?.name || pointStyle['icon描述'] || 'POI'}
           style={{
-            width: 28,
-            height: 28,
+            width: size,
+            height: size,
             objectFit: 'contain',
             display: 'block',
             filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.25))',
@@ -30,16 +37,11 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, glob
       );
     }
 
-    if (pointStyle.template || pointStyle.iconSvg) {
-      const htmlStr = populateTemplate(pointStyle.template || pointStyle.iconSvg, feature.properties, globalProps);
-      return <div dangerouslySetInnerHTML={{ __html: htmlStr }} />;
-    }
-
     return (
       <span
         style={{
-          width: 16,
-          height: 16,
+          width: Math.max(12, size * 0.58),
+          height: Math.max(12, size * 0.58),
           borderRadius: '999px',
           background: fallbackColor,
           border: '2px solid #fff',
@@ -68,9 +70,9 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, glob
             anchor="bottom"
           >
             <div
-              style={{
-                width: 28,
-                height: 28,
+            style={{
+                width: Number(pointStyle.style?.size || pointStyle.size || 28),
+                height: Number(pointStyle.style?.size || pointStyle.size || 28),
                 pointerEvents: 'none',
               }}
             >

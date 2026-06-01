@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { populateTemplate } from '../utils/mapUtils';
+import { CSSProperties, useEffect, useRef } from 'react';
 
 interface GlobalRendererProps {
   globalElements: any[];
@@ -9,21 +8,6 @@ interface GlobalRendererProps {
   onMeasured?: (rects: Array<{ x: number; y: number; width: number; height: number }>) => void;
 }
 
-/**
- * Get the visual bounding rect of a global item element.
- *
- * Strategy (avoids capturing full-screen background overlays):
- * 1. Try getBoundingClientRect() on the element itself.
- *    - This correctly handles CSS transforms (scale/translate/rotate) on the element.
- * 2. If the element has zero layout size (all children are position:absolute so the
- *    parent collapses), look at its IMMEDIATE children only — one level deep.
- *    Taking the union of immediate children avoids diving into deeply nested background
- *    overlays that may span the full viewport.
- *
- * We intentionally do NOT recurse into all descendants, because global HTML often
- * contains background panels (width:100%; height:100%) alongside small content cards.
- * Recursing would capture the background rect and create a full-screen obstacle.
- */
 function getVisualBoundingRect(
   el: Element
 ): { x: number; y: number; width: number; height: number } | null {
@@ -32,57 +16,52 @@ function getVisualBoundingRect(
     return { x: self.left, y: self.top, width: self.width, height: self.height };
   }
 
-  // Element has no intrinsic size (abs-positioned children) — union immediate children.
   let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
   let hasAny = false;
   for (const child of el.children) {
     const r = child.getBoundingClientRect();
     if (r.width === 0 && r.height === 0) continue;
     hasAny = true;
-    if (r.left   < left)   left   = r.left;
-    if (r.top    < top)    top    = r.top;
-    if (r.right  > right)  right  = r.right;
+    if (r.left < left) left = r.left;
+    if (r.top < top) top = r.top;
+    if (r.right > right) right = r.right;
     if (r.bottom > bottom) bottom = r.bottom;
   }
   if (!hasAny) return null;
   return { x: left, y: top, width: right - left, height: bottom - top };
 }
 
+const globalContent = (globalProps: any, index: number) => {
+  if (Array.isArray(globalProps)) return globalProps[index] || {};
+  return globalProps || {};
+};
+
+const placementStyle = (element: any, index: number): CSSProperties => {
+  const placement = element?.placement || {};
+  const isTop = index === 0;
+  return {
+    position: 'absolute',
+    top: placement.top ?? (isTop ? '15%' : undefined),
+    bottom: placement.bottom ?? (!isTop ? '10%' : undefined),
+    left: placement.left ?? 0,
+    width: placement.width ?? '100%',
+    display: 'flex',
+    justifyContent: 'center',
+    pointerEvents: 'none',
+    zIndex: 6,
+  };
+};
+
+const panelStyle = (element: any, index: number): CSSProperties => ({
+  maxWidth: index === 0 ? 'min(86%, 760px)' : 'min(82%, 620px)',
+  textAlign: 'center',
+  pointerEvents: 'none',
+  ...((element?.style && typeof element.style === 'object') ? element.style : {}),
+});
+
 const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalProps, onMeasured }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const replaceFontSizeInString = (htmlStr: string, index: number) => {
-    const fontSizeRegex = /font-size:\s*\d+px/gi;
-    const fontSizeMatches = htmlStr.match(fontSizeRegex) || [];
-    const layerCount = fontSizeMatches.length;
-
-    let replaceRules: string[] = [];
-    if (index === 0) {
-      if (layerCount === 1) {
-        replaceRules = ['32px'];
-      } else if (layerCount === 2) {
-        replaceRules = ['28px', '12px'];
-      } else {
-        replaceRules = ['32px', '16px', '10px'];
-      }
-    } else {
-      if (layerCount === 1) {
-        replaceRules = ['16px'];
-      } else {
-        replaceRules = ['16px', '10px'];
-      }
-    }
-
-    let ruleIndex = 0;
-    return htmlStr.replace(fontSizeRegex, () => {
-      const size = replaceRules[ruleIndex] || replaceRules[replaceRules.length - 1];
-      ruleIndex++;
-      return `font-size: ${size}`;
-    });
-  };
-
-  // Measure after the browser has committed the render and applied transforms.
-  // 300 ms matches the measurement sandbox delay used for layout inputs.
   useEffect(() => {
     if (!containerRef.current || !onMeasured) return;
 
@@ -100,25 +79,30 @@ const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalP
   }, [globalElements, globalProps, onMeasured]);
 
   return (
-    <div ref={containerRef}>
-      {globalElements.map((dec: any, index) => {
-        if (dec.iconSvg) {
-          return (
-            <div
-              key={dec.visual_id}
-              style={{ pointerEvents: 'none' }}
-              dangerouslySetInnerHTML={{ __html: dec.iconSvg }}
-            />
-          );
-        }
-        const htmlStr = populateTemplate(dec.template, {}, globalProps);
-        console.log("global-htmlStr", htmlStr);
+    <div ref={containerRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
+      {globalElements.slice(0, 2).map((element: any, index) => {
+        const content = globalContent(globalProps, index);
+        const contentType = element.content_type || (index === 0 ? 'title_script_extra' : 'title_script');
         return (
-          <div
-            key={dec.visual_id}
-            style={{ pointerEvents: 'none' }}
-            dangerouslySetInnerHTML={{ __html: replaceFontSizeInString(htmlStr, index) }}
-          />
+          <div key={element.visual_id || `global-${index}`} style={placementStyle(element, index)}>
+            <div style={panelStyle(element, index)}>
+              {content.title && (
+                <div style={{ fontSize: index === 0 ? 28 : 16, fontWeight: index === 0 ? 800 : 700, lineHeight: 1.15 }}>
+                  {content.title}
+                </div>
+              )}
+              {contentType !== 'title' && content.script && (
+                <div style={{ marginTop: 6, fontSize: index === 0 ? 14 : 12, lineHeight: 1.35, opacity: 0.82 }}>
+                  {content.script}
+                </div>
+              )}
+              {contentType === 'title_script_extra' && content.extra_info && (
+                <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.35, opacity: 0.72 }}>
+                  {content.extra_info}
+                </div>
+              )}
+            </div>
+          </div>
         );
       })}
     </div>

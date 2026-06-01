@@ -4,9 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import AgentDialog from '@/components/mapagent/AgentDialog';
 import { AgentMapProvider, useAgentMap } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
-import { polygonCentroid } from 'd3-polygon';
 import dynamic from 'next/dynamic';
-import { transformSingleCoordinate } from '@/components/mapagent/utils/mapUtils';
+import { getFeatureLabelId, transformSingleCoordinate } from '@/components/mapagent/utils/mapUtils';
 import ForceParamsPanel, { type ForceParamsOverride, type FieldParamsOverride } from '@/components/mapagent/ForceParamsPanel';
 import type { LayoutItemInput, LayoutItemPosition, LayoutItemOutput, LayoutRunMetadata } from './layout/types';
 
@@ -57,6 +56,7 @@ function AgentPageContent() {
   const [mapInfo, setMapInfo] = useState<{ center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } } | null>(null);
   const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('force');
   const [layoutSeed, setLayoutSeed] = useState(1);
+  const [visualStructure, setVisualStructure] = useState<any>(null);
 
   const handleDatasetChange = useCallback((type: DatasetType) => {
     if (type === 'groundtruth' && !hasGroundtruthFile) {
@@ -84,56 +84,16 @@ function AgentPageContent() {
   const { setManifest, manifest } = useAgentMap();
 
   const processFeature = (feature: any) => {
-    const name = feature.properties?.name;
     const type = feature.geometry.type;
-    var transforLngLat = [];
-    var anchorLngLat = {};
-    if (type === 'Point') {
-      transforLngLat = transformSingleCoordinate(feature.geometry.coordinates);
-      anchorLngLat = { lng: transforLngLat[0], lat: transforLngLat[1] };
-      // console.log("transforLngLat Point",transforLngLat)
-    } else if (type === 'LineString') {
-      transforLngLat = transformSingleCoordinate(feature.geometry.coordinates[Math.floor(feature.geometry.coordinates.length/2)]);
-      anchorLngLat = {
-        lng: transforLngLat[0],
-        lat: transforLngLat[1],
-      }
-      // console.log("transforLngLat LineString",transforLngLat)
-    } else if (type === 'Polygon') {
-      transforLngLat = transformSingleCoordinate(polygonCentroid(feature.geometry.coordinates[0]));
-      anchorLngLat = {
-        lng: transforLngLat[0],
-        lat: transforLngLat[1],
-      }
-      // console.log("transforLngLat Polygon",transforLngLat)
-    }
-    const position = [];
-    if (feature.properties?.card_coord) {
-      const cardVisualId = feature.properties?.card_visual_id;
-      const transforCardCenterLngLat = transformSingleCoordinate(feature.properties.card_coord);
-      position.push({
-        id: `card-${type}-${name}-${cardVisualId}`,
-        anchorLngLat,
-        centerLngLat: {
-          lng: transforCardCenterLngLat[0],
-          lat: transforCardCenterLngLat[1]
-        },
-      });
-    }
-    if (feature.properties?.label_coord) {
-      const labelVisualId = feature.properties?.label_visual_id;
-      const transforLabelCenterLngLat = transformSingleCoordinate(feature.properties.label_coord);
-      position.push({
-        id: `label-${type}-${name}-${labelVisualId}`,
-        anchorLngLat,
-        centerLngLat: {
-          lng: transforLabelCenterLngLat[0],
-          lat: transforLabelCenterLngLat[1]
-        },
-      });
-    }
-    if(position.length > 0) return position;
-    return null;
+    if (type !== 'Point') return null;
+    if (!feature.properties?.label_title && !feature.properties?.name) return null;
+    const anchor = transformSingleCoordinate(feature.geometry.coordinates);
+    const center = transformSingleCoordinate(feature.properties?.label_coord || feature.geometry.coordinates);
+    return [{
+      id: getFeatureLabelId(feature),
+      anchorLngLat: { lng: anchor[0], lat: anchor[1] },
+      centerLngLat: { lng: center[0], lat: center[1] },
+    }];
   }
 
   const loadSession = async (sessionId: string) => {
@@ -148,6 +108,7 @@ function AgentPageContent() {
       setHasOriginFile(data.has_origin || false);
       setHasLayoutFile(data.has_layout || false);
       setHasGroundtruthFile(data.has_groundtruth || false);
+      setVisualStructure(data.visual_structure || null);
 
       if (data.origin_file?.data?.features) {
         setOriginGeojson(data.origin_file.data);
@@ -207,7 +168,7 @@ function AgentPageContent() {
         setSessions(sessionList);
         console.log("sessionList:",sessionList);
         if (sessionList.length > 0) {
-          loadSession(sessionList[1].session_id);
+          loadSession(sessionList[0].session_id);
         }
       })
       .catch(err => console.error('Error fetching historical sessions:', err));
@@ -327,6 +288,7 @@ function AgentPageContent() {
         <TravelMapWithNoSSR
           geojson={originGeojson}
           styleCode={manifest}
+          visualStructure={visualStructure}
           showHeatmap={showHeatmap}
           forceParams={forceParams}
           fieldParams={fieldParams}

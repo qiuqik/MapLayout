@@ -6,6 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { saveSessionGeojson, saveSessionMapInfo } from '@/lib/api';
 import type { LayoutItemInput, LayoutItemPosition, LayoutRunMetadata } from '@/app/agent/layout/types';
+import { getFeatureLabelId } from './utils/mapUtils';
 
 export type DatasetType = 'origin' | 'layout' | 'groundtruth';
 export type LayoutAlgorithm = 'force' | 'simulatedAnnealing' | 'weightedVoronoiDirect' | 'weightedVoronoi';
@@ -32,7 +33,7 @@ const DATASET_CONFIG: Record<DatasetType, { label: string; suffix: string; descr
   origin: {
     label: 'Original',
     suffix: 'geojson_origin.json',
-    description: 'Card/label positions at anchor points (no offset)',
+    description: 'Label positions at anchor points (no offset)',
   },
   layout: {
     label: 'Layout',
@@ -113,48 +114,22 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
 
   const transformFeatures = (
     features: any[],
-    positionMap: Map<string, LayoutItemPosition> | null,
-    useOriginCoords: boolean = false
+    positionMap: Map<string, LayoutItemPosition> | null
   ) => {
     const inputById = new Map(layoutInputs.map(i => [i.id, i]));
 
     return features.map((feature: any) => {
       const featureType = feature.geometry?.type;
-      const featureName = feature.properties?.name;
-      const cardVisualId = feature.properties?.card_visual_id;
-      const labelVisualId = feature.properties?.label_visual_id;
 
-      if (!featureName) return feature;
+      if (featureType !== 'Point') return feature;
+      if (!feature.properties?.label_title && !feature.properties?.name) return feature;
 
       feature.properties = { ...feature.properties };
 
-      const cardId = cardVisualId !== undefined
-        ? `card-${featureType}-${featureName}-${cardVisualId}`
-        : `card-${featureType}-${featureName}`;
-      const labelId = labelVisualId !== undefined
-        ? `label-${featureType}-${featureName}-${labelVisualId}`
-        : `label-${featureType}-${featureName}`;
-
-      // if (useOriginCoords) {
-      //   feature.properties.card_coord = [...feature.geometry.coordinates];
-      //   feature.properties.label_coord = [...feature.geometry.coordinates];
-      // } else {
-      const cardPos = positionMap?.get(cardId);
+      const labelId = getFeatureLabelId(feature);
       const labelPos = positionMap?.get(labelId);
-
-      const cardInput = inputById.get(cardId);
       const labelInput = inputById.get(labelId);
-        
-        
-      if (cardPos) {
-        feature.properties.card_coord = [cardPos.centerLngLat.lng, cardPos.centerLngLat.lat];
-        if (cardInput) {
-          feature.properties.card_size = [cardInput.width, cardInput.height];
-          console.log("card_size", feature.properties.card_size);
-        }
-        console.log("cardPos", cardPos);
-        console.log("card_coord", feature.properties.card_coord);
-      }
+
       if (labelPos) {
         feature.properties.label_coord = [labelPos.centerLngLat.lng, labelPos.centerLngLat.lat];
         if (labelInput) {
@@ -164,9 +139,6 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         console.log("labelPos", labelPos);
         console.log("label_coord", feature.properties.label_coord);
       }
-      // }
-
-     
 
       return feature;
     });
@@ -184,14 +156,11 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
 
     setIsCapturing(true);
     try {
-      // 直接使用前端当前的 geojson（包含完整的 LineString 和 Polygon）
+      // 直接使用前端当前的 geojson（包含完整的 LineString）
       const baseGeojson = JSON.parse(JSON.stringify(geojson));
 
       let positionMap: Map<string, LayoutItemPosition> | null = null;
-      let useOriginCoords = false;
-
       if (activeDataset === 'origin') {
-        // useOriginCoords = true;
         positionMap = new Map(originPositions.map(p => [p.id, p]));
       } else if (activeDataset === 'layout' && layoutOutputs.length > 0) {
         positionMap = new Map(layoutOutputs.map(o => [o.id, o]));
@@ -199,9 +168,9 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
         positionMap = new Map(groundtruthPositions.map(p => [p.id, p]));
       }
 
-      // 只更新 card_coord 和 label_coord，LineString 和 Polygon 保持不变
-      if (useOriginCoords || positionMap) {
-        baseGeojson.features = transformFeatures(baseGeojson.features, positionMap, useOriginCoords);
+      // 只更新 label_coord，LineString 保持不变
+      if (positionMap) {
+        baseGeojson.features = transformFeatures(baseGeojson.features, positionMap);
       }
 
       if (activeDataset === 'layout' || activeDataset === 'groundtruth') {

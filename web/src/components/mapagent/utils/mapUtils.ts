@@ -1,7 +1,6 @@
 export interface TransformedMapData {
   points: any[];
   lines: any[];
-  polygons: any[];
   globalProps: any;
 }
 
@@ -12,21 +11,17 @@ export const transformSingleCoordinate = (coord: number[]) => {
 
 export const transformAllCoordinates = (geojson: any): TransformedMapData => {
   if (!geojson?.features) {
-    return { points: [], lines: [], polygons: [], globalProps: geojson?.global_properties };
+    return { points: [], lines: [], globalProps: geojson?.global_properties };
   }
 
   const points: any[] = [];
   const lines: any[] = [];
-  const polygons: any[] = [];
   for (const feature of geojson.features) {
     const transformedFeature = JSON.parse(JSON.stringify(feature));
     if (feature.geometry?.type === 'Point') {
       transformedFeature.properties = transformedFeature.properties || {};
       transformedFeature.properties.coordinates = feature.geometry.coordinates;
 
-      if (feature.properties?.card_coord) {
-        transformedFeature.properties.card_coord = feature.properties.card_coord;
-      }
       if (feature.properties?.label_coord) {
         transformedFeature.properties.label_coord = feature.properties.label_coord;
       }
@@ -34,60 +29,162 @@ export const transformAllCoordinates = (geojson: any): TransformedMapData => {
       points.push(transformedFeature);
     } else if (feature.geometry?.type === 'LineString') {
       lines.push(transformedFeature);
-    } else if (feature.geometry?.type === 'Polygon') {
-      polygons.push(transformedFeature);
     }
   }
   return {
     points,
     lines,
-    polygons,
     globalProps: geojson.global_properties
   };
 };
 
-export const populateTemplate = (template: string, properties: any, globalProperties?: any) => {
-  let html = template;
-  
-  const doubleBraceRegex = /\{\{(?:properties|global_properties\[\d+\])\.([^}]+)\}\}/g;
-  html = html.replace(doubleBraceRegex, (match, key) => {
-    if (match.includes('global_properties')) {
-      const indexMatch = match.match(/global_properties\[(\d+)\]/);
-      if (indexMatch) {
-        const index = parseInt(indexMatch[1]);
-        if (globalProperties && Array.isArray(globalProperties) && index < globalProperties.length) {
-          return globalProperties[index]?.[key] || '';
-        }
-      }
-      return '';
-    }
-    return properties?.[key] || '';
-  });
-  
-  const singleBraceRegex = /\{(?:properties|global_properties\[\d+\])\.([^}]+)\}/g;
-  html = html.replace(singleBraceRegex, (match, key) => {
-    if (match.includes('global_properties')) {
-      const indexMatch = match.match(/global_properties\[(\d+)\]/);
-      if (indexMatch) {
-        const index = parseInt(indexMatch[1]);
-        if (globalProperties && Array.isArray(globalProperties) && index < globalProperties.length) {
-          return globalProperties[index]?.[key] || '';
-        }
-      }
-      return '';
-    }
-    return properties?.[key] || '';
-  });
+export const normalizeLabelHierarchy = (value: unknown, fallback: 'core' | 'secondary' | 'detail' = 'secondary') => {
+  const aliases: Record<string, 'core' | 'secondary' | 'detail'> = {
+    core: 'core',
+    '核心标签': 'core',
+    secondary: 'secondary',
+    '次要标签': 'secondary',
+    detail: 'detail',
+    '详细标签': 'detail',
+  };
+  return aliases[String(value ?? '').trim()] ?? fallback;
+};
 
-  // html = html.replace(/\s*transform:[^;]+;?/gi, '');
-  // console.log(html);
-  return html;
+export const normalizeLabelContentType = (
+  value: unknown,
+  fallback: 'title' | 'title_script' | 'title_script_extra' = 'title_script',
+) => {
+  const aliases: Record<string, 'title' | 'title_script' | 'title_script_extra'> = {
+    title: 'title',
+    '只包含title': 'title',
+    '只包含 title': 'title',
+    title_script: 'title_script',
+    'title+script': 'title_script',
+    '包含title+script': 'title_script',
+    '包含 title+script': 'title_script',
+    title_script_extra: 'title_script_extra',
+    'title+script+extra info': 'title_script_extra',
+  };
+  return aliases[String(value ?? '').trim()] ?? fallback;
+};
+
+export const selectLabelStyleForFeature = (feature: any, labelStyles: any[]) => {
+  const props = feature?.properties || {};
+  const hierarchy = normalizeLabelHierarchy(props.label_level ?? props.hierarchy);
+  const contentType = normalizeLabelContentType(
+    props.label_content_type ?? props.content_type,
+    hierarchy === 'detail' ? 'title_script_extra' : 'title_script',
+  );
+
+  return (
+    labelStyles.find((style: any) =>
+      normalizeLabelHierarchy(style?.hierarchy) === hierarchy &&
+      normalizeLabelContentType(style?.content_type, contentType) === contentType
+    ) ||
+    labelStyles.find((style: any) => normalizeLabelHierarchy(style?.hierarchy) === hierarchy) ||
+    labelStyles[0]
+  );
+};
+
+export const getFeatureLabelId = (feature: any, labelStyle?: any) => {
+  const props = feature?.properties || {};
+  const base = props.feature_id || [feature?.geometry?.type, props.day, props.order, props.name || props.label_title]
+    .filter(Boolean)
+    .join('-');
+  const hierarchy = normalizeLabelHierarchy(props.label_level ?? props.hierarchy ?? labelStyle?.hierarchy);
+  const contentType = normalizeLabelContentType(
+    props.label_content_type ?? props.content_type ?? labelStyle?.content_type,
+    hierarchy === 'detail' ? 'title_script_extra' : 'title_script',
+  );
+  return `label-${base || 'poi'}-${hierarchy}-${contentType}`;
+};
+
+const escapeHtml = (value: unknown) => String(value ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;');
+
+const toKebab = (value: string) => value.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
+
+const unitlessCss = new Set(['opacity', 'zIndex', 'fontWeight', 'lineHeight', 'flex', 'order']);
+
+const scalePx = (value: string) => value.replace(
+  /(-?\d+(?:\.\d+)?)px/g,
+  (_, amount) => `calc(var(--map-label-scale, 1) * ${amount}px)`,
+);
+
+const cssValue = (key: string, value: any, scaleNumeric = false) => {
+  if (value === undefined || value === null || value === '') return '';
+  if (typeof value === 'number') {
+    if (unitlessCss.has(key)) return String(value);
+    return scaleNumeric ? `calc(var(--map-label-scale, 1) * ${value}px)` : `${value}px`;
+  }
+  const text = String(value);
+  return scaleNumeric ? scalePx(text) : text;
+};
+
+export const styleObjectToCss = (style: Record<string, any> = {}, scaleNumeric = false) => {
+  return Object.entries(style)
+    .filter(([, value]) => value !== undefined && value !== null && value !== '')
+    .map(([key, value]) => `${toKebab(key)}:${cssValue(key, value, scaleNumeric)}`)
+    .join(';');
+};
+
+export const buildLabelHtml = (feature: any, labelStyle: any) => {
+  const props = feature?.properties || {};
+  const hierarchy = normalizeLabelHierarchy(props.label_level ?? props.hierarchy ?? labelStyle?.hierarchy);
+  const contentType = normalizeLabelContentType(
+    props.label_content_type ?? props.content_type ?? labelStyle?.content_type,
+    hierarchy === 'detail' ? 'title_script_extra' : 'title_script',
+  );
+  const title = props.label_title || props.name || '';
+  const script = props.label_script || props.description || '';
+  const extra = props.label_extra_info || props.extra_info || '';
+  const width = Number(labelStyle?.width) || (hierarchy === 'core' ? 220 : hierarchy === 'secondary' ? 190 : 170);
+  const minHeight = Number(labelStyle?.height) || (hierarchy === 'core' ? 80 : hierarchy === 'secondary' ? 64 : 72);
+  const style = labelStyle?.style && typeof labelStyle.style === 'object' ? labelStyle.style : {};
+  const baseCss = styleObjectToCss({
+    boxSizing: 'border-box',
+    width,
+    minHeight,
+    maxWidth: width,
+    overflow: 'hidden',
+    ...style,
+  }, true);
+  const titleCss = styleObjectToCss({
+    fontWeight: hierarchy === 'core' ? 800 : 700,
+    fontSize: hierarchy === 'core' ? 14 : 12,
+    lineHeight: 1.25,
+    marginBottom: script ? 4 : 0,
+  }, true);
+  const scriptCss = styleObjectToCss({
+    fontSize: hierarchy === 'core' ? 12 : 11,
+    lineHeight: 1.35,
+    opacity: 0.82,
+    marginTop: 2,
+  }, true);
+  const extraCss = styleObjectToCss({
+    fontSize: 10,
+    lineHeight: 1.25,
+    opacity: 0.72,
+    marginTop: 4,
+  }, true);
+
+  return [
+    `<div class="map-label map-label-${hierarchy}" style="${baseCss}">`,
+    title ? `<div class="map-label-title" style="${titleCss}">${escapeHtml(title)}</div>` : '',
+    contentType !== 'title' && script ? `<div class="map-label-script" style="${scriptCss}">${escapeHtml(script)}</div>` : '',
+    contentType === 'title_script_extra' && extra ? `<div class="map-label-extra" style="${extraCss}">${escapeHtml(extra)}</div>` : '',
+    '</div>',
+  ].join('');
 };
 
 export const calculateMapViewState = (transformedData: TransformedMapData) => {
-  const { points, lines, polygons } = transformedData;
+  const { points, lines } = transformedData;
   
-  if (points.length === 0 && lines.length === 0 && polygons.length === 0) {
+  if (points.length === 0 && lines.length === 0) {
     return {
       longitude: 116.397,
       latitude: 39.94,
@@ -104,14 +201,6 @@ export const calculateMapViewState = (transformedData: TransformedMapData) => {
   lines.forEach((feature: any) => {
     feature.geometry.coordinates.forEach((coord: number[]) => {
       coords.push(coord);
-    });
-  });
-
-  polygons.forEach((feature: any) => {
-    feature.geometry.coordinates.forEach((ring: number[][]) => {
-      ring.forEach((coord: number[]) => {
-        coords.push(coord);
-      });
     });
   });
 
