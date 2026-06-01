@@ -16,74 +16,48 @@ class VisualStructureNode:
     """
 
     PROMPT_NAME = "visual_structure"
-    PROMPT_VERSION = "v0.2"
+    PROMPT_VERSION = "v0.3"
     
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm
         
         visual_example = '''{
-  "_style_extraction_thought": "观察到图中有 9 个橙色卡片式文字块和 9 个红色箭头，虽然文字不同，但文字块样式完全一致，因此合并为 1 个 detail Label 类和 1 个 Edge 类；观察到没有必要的真实区域面，因此不输出 Area；观察到路线有黑色实线和红色虚线两种样式，因此拆分为 2 个 Route 类...",
-  "BaseMap": [
-    {
-      "visual_id": "basemap_illustration",
-      "type": "standard",
-      "description": "浅色手绘地图气质，背景偏暖，水系和道路对比度较低"
-    }
-  ],
-  "Point": [
-    {
-      "visual_id": "point_vis_1",
-      "description": "POI的圆形地标图标（内含建筑图案）"
-    },
-    {
-      "visual_id": "point_vis_2",
-      "description": "城市图标（标准水滴型地标）"
-    }
-  ],
-  "Route": [
-    {
-      "visual_id": "route_vis_1",
-      "description": "黑色的主环线形成闭环"
-    },
-    {
-      "visual_id": "route_vis_2",
-      "description": "红色的沙漠公路支线"
-    }
-  ],
-  "Label": [
-    {
-      "visual_id": "label_vis_1",
-      "description": "白底黑字短标签，圆角较小，字体醒目",
-      "content_type": "title",
-      "hierarchy": "secondary",
-      "anchored_to": ["point_vis_1", "point_vis_2"]
-    },
-    {
-      "visual_id": "label_detail_1",
-      "description": "绿色背景详细标签，包含标题、短说明和补充信息三层文字",
-      "content_type": "title_script_extra",
-      "hierarchy": "detail",
-      "anchored_to": "point_vis_1"
-    }
-  ],
-  "Edge": [
-    {
-      "visual_id": "edge_vis_1",
-      "description": "红色箭头，从卡片指向POI位置",
-      "anchored_from": "label_detail_1",
-      "anchored_to": "point_vis_1"
-    }
-  ],
-  "Global": [
-    {
-      "visual_id": "global_vis_1",
-      "description": "顶部黑色大字标题：行程主题"
-    },
-    {
-      "visual_id": "global_vis_2",
-      "description": "左上角橙色背景条幅：对行程的简单总结"
-    }
-  ]
+  "Color": {
+    "palette": [
+      {"name": "warm paper", "hex": "#F7F3EA", "usage": "background", "weight": 0.42},
+      {"name": "ink black", "hex": "#2A2520", "usage": "primary text", "weight": 0.18},
+      {"name": "river blue", "hex": "#A8C7D8", "usage": "water", "weight": 0.12},
+      {"name": "route red", "hex": "#D84A3A", "usage": "accent route", "weight": 0.1},
+      {"name": "park green", "hex": "#CFE3B4", "usage": "parks", "weight": 0.1},
+      {"name": "road ochre", "hex": "#D0A15F", "usage": "roads", "weight": 0.08}
+    ],
+    "background": "#F7F3EA",
+    "water": "#A8C7D8",
+    "road": "#D0A15F",
+    "text": {"primary": "#2A2520", "secondary": "#6F665A", "inverse": "#FFFFFF"},
+    "accent": {"primary": "#D84A3A", "secondary": "#2C7C8C"}
+  },
+  "Theme&Design": {
+    "global": "light",
+    "theme": "warm editorial travel map",
+    "design_keywords": ["warm", "editorial", "hand-drawn", "highly legible", "layered", "playful"],
+    "visual_language": "低饱和纸张底色、柔和道路、水域偏灰蓝、重点元素用高对比暖色突出。",
+    "label_design": "标签有明确主副层级，背景浅色，边框细，阴影轻，适合承载短句。",
+    "route_design": "路线偏手绘曲线，线宽中等，可用箭头强调游览顺序。",
+    "icon_design": "POI 图标适合生成透明背景的半扁平插画，轮廓清晰，颜色取自主强调色。"
+  },
+  "Stylesheet": {
+    "global": "light",
+    "mapboxStyle": "mapbox://styles/mapbox/light-v11",
+    "layers": [
+      {"target": "background", "paint": {"background-color": "#F7F3EA"}},
+      {"target": "water", "paint": {"fill-color": "#A8C7D8"}},
+      {"target": "landuse_park", "paint": {"fill-color": "#CFE3B4"}},
+      {"target": "road_primary", "paint": {"line-color": "#D0A15F", "line-width": 1.6}},
+      {"target": "road_secondary", "paint": {"line-color": "#E6CC9A", "line-width": 0.8}},
+      {"target": "poi_label", "paint": {"text-color": "#2A2520", "text-halo-color": "#FFF7E8", "text-halo-width": 1.2}}
+    ]
+  }
 }'''
 
         safe_visual_example = _escape_prompt_braces(visual_example)
@@ -103,91 +77,49 @@ class VisualStructureNode:
         
         return f"data:image/{ext};base64,{base64_data}"
 
-    def _normalize_visual_structure(self, visual_structure: dict) -> dict:
-        """Normalize legacy visual extraction into the unified Label model."""
-        if not isinstance(visual_structure, dict):
-            return visual_structure
-
-        normalized = dict(visual_structure)
-        labels = list(normalized.get("Label") or [])
-
-        # Legacy Card styles now behave as detail labels.
-        for card in normalized.get("Card") or []:
-            if not isinstance(card, dict):
-                continue
-            migrated = dict(card)
-            migrated.setdefault("content_type", "title_script_extra")
-            migrated.setdefault("hierarchy", "detail")
-            labels.append(migrated)
-
-        content_aliases = {
-            "只包含title": "title",
-            "只包含 title": "title",
-            "title": "title",
-            "包含title+script": "title_script",
-            "包含 title+script": "title_script",
-            "title+script": "title_script",
-            "title_script": "title_script",
-            "title+script+extra info": "title_script_extra",
-            "title_script_extra": "title_script_extra",
+    def _default_visual_structure(self) -> dict:
+        return {
+            "Color": {
+                "palette": [
+                    {"name": "clean background", "hex": "#F7F8FA", "usage": "background", "weight": 0.45},
+                    {"name": "primary text", "hex": "#222222", "usage": "text", "weight": 0.2},
+                    {"name": "route accent", "hex": "#E4572E", "usage": "route and POI accent", "weight": 0.15},
+                    {"name": "water blue", "hex": "#B9D7EA", "usage": "water", "weight": 0.1},
+                    {"name": "park green", "hex": "#CDE7C7", "usage": "park", "weight": 0.1},
+                ],
+                "background": "#F7F8FA",
+                "water": "#B9D7EA",
+                "road": "#D7C7A3",
+                "text": {"primary": "#222222", "secondary": "#666666", "inverse": "#FFFFFF"},
+                "accent": {"primary": "#E4572E", "secondary": "#2B7C85"},
+            },
+            "Theme&Design": {
+                "global": "light",
+                "theme": "clean travel map",
+                "design_keywords": ["clean", "legible", "warm", "balanced", "map-first"],
+                "visual_language": "浅色地图基底，低噪声道路与水域，高对比路线和 POI。",
+                "label_design": "标签层级清楚，主标题醒目，副标题紧凑。",
+                "route_design": "路线颜色醒目，支持按顺序绘制箭头。",
+                "icon_design": "透明背景、简洁插画式 POI 图标。",
+            },
+            "Stylesheet": {
+                "global": "light",
+                "mapboxStyle": "mapbox://styles/mapbox/light-v11",
+                "layers": [
+                    {"target": "background", "paint": {"background-color": "#F7F8FA"}},
+                    {"target": "water", "paint": {"fill-color": "#B9D7EA"}},
+                    {"target": "road_primary", "paint": {"line-color": "#D7C7A3", "line-width": 1.2}},
+                    {"target": "poi_label", "paint": {"text-color": "#222222", "text-halo-color": "#FFFFFF", "text-halo-width": 1}},
+                ],
+            },
         }
-        hierarchy_aliases = {
-            "核心标签": "core",
-            "core": "core",
-            "次要标签": "secondary",
-            "secondary": "secondary",
-            "详细标签": "detail",
-            "detail": "detail",
-        }
-
-        deduped_labels = []
-        seen_ids = set()
-        for index, label in enumerate(labels, start=1):
-            if not isinstance(label, dict):
-                continue
-            item = dict(label)
-            item.setdefault("visual_id", f"label_vis_{index}")
-            visual_id = item.get("visual_id")
-            if visual_id in seen_ids:
-                continue
-            seen_ids.add(visual_id)
-            item["content_type"] = content_aliases.get(
-                str(item.get("content_type") or item.get("label_content_type") or "").strip(),
-                "title_script" if index == 1 else "title_script_extra",
-            )
-            item["hierarchy"] = hierarchy_aliases.get(
-                str(item.get("hierarchy") or item.get("label_hierarchy") or "").strip(),
-                "secondary" if index == 1 else "detail",
-            )
-            deduped_labels.append(item)
-
-        normalized["Label"] = deduped_labels
-        normalized["Card"] = []
-        normalized["Area"] = []
-
-        if not normalized.get("BaseMap"):
-            normalized["BaseMap"] = [
-                {
-                    "visual_id": "basemap_1",
-                    "type": "standard",
-                    "description": "标准地图底图，颜色跟随参考图整体气质",
-                }
-            ]
-
-        return normalized
     
     def execute(self, state: AgentState) -> AgentState:
         print("👁️ [Node 2] 视觉结构解析: 正在分析图片中的视觉元素...")
         
         if not state.image_path or not os.path.exists(state.image_path):
             # 如果没有图片，使用默认视觉结构
-            state.visual_structure = {
-                "BaseMap": [{"visual_id": "basemap_1", "type": "standard", "description": "标准地图底图"}],
-                "Route": [{"visual_id": "route_vis_1", "description": "所有 POI 的连线，表示导航路线"}],
-                "Point": [{"visual_id": "point_vis_1", "description": "POI 坐标图标"}],
-                "Label": [{"visual_id": "label_vis_1", "description": "POI 信息标签", "content_type": "title_script", "hierarchy": "secondary"}],
-                "Global": [{"visual_id": "global_vis_1", "description": "地图顶部的大标题"}]
-            }
+            state.visual_structure = self._default_visual_structure()
             print("⚠️ [Node 2] 无参考图片，使用默认视觉结构")
             return state
         
@@ -214,27 +146,15 @@ class VisualStructureNode:
                     state.visual_structure = _robust_json_loads(json_str)
             else:
                 # 降级处理
-                state.visual_structure = {
-                    "BaseMap": [{"visual_id": "basemap_1", "type": "standard", "description": "标准地图底图"}],
-                    "Route": [{"visual_id": "route_vis_1", "description": "所有 POI 的连线，表示导航路线"}],
-                    "Point": [{"visual_id": "point_vis_1", "description": "POI 坐标图标"}],
-                    "Label": [{"visual_id": "label_vis_1", "description": "POI 信息标签", "content_type": "title_script", "hierarchy": "secondary"}]
-                }
+                state.visual_structure = self._default_visual_structure()
                 print("⚠️ [Node 2] 无法解析视觉结构，使用默认结构")
-
-            state.visual_structure = self._normalize_visual_structure(state.visual_structure)
             
             print(f"✅ [Node 2] 视觉结构解析完成")
             print(f"   识别到的元素类型: {list(state.visual_structure.keys())}")
             
         except Exception as e:
             # 降级处理
-            state.visual_structure = {
-                "BaseMap": [{"visual_id": "basemap_1", "type": "standard", "description": "标准地图底图"}],
-                "Route": [{"visual_id": "route_vis_1", "description": "所有 POI 的连线，表示导航路线"}],
-                "Point": [{"visual_id": "point_vis_1", "description": "POI 坐标图标"}],
-                "Label": [{"visual_id": "label_vis_1", "description": "POI 信息标签", "content_type": "title_script", "hierarchy": "secondary"}]
-            }
+            state.visual_structure = self._default_visual_structure()
             state.error = None
             print(f"⚠️ [Node 2] 视觉结构解析失败，已降级为默认结构: {e}")
 

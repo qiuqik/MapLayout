@@ -34,8 +34,8 @@ def _validate(model: Type[BaseModel], data: Dict[str, Any]) -> Dict[str, Any]:
 def validate_visual_structure(data: Dict[str, Any]) -> Dict[str, Any]:
     result = _validate(VisualStructure, data)
     parsed = result.pop("parsed", None)
-    if parsed is not None and not parsed.visual_ids():
-        result["warnings"].append("visual structure contains no visual_id values")
+    if parsed is not None and not parsed.Stylesheet.layers:
+        result["warnings"].append("visual structure Stylesheet contains no layer mappings")
     return result
 
 
@@ -45,4 +45,3 @@ def validate_geojson(data: Dict[str, Any]) -> Dict[str, Any]:
 
 def validate_style_spec(data: Dict[str, Any]) -> Dict[str, Any]:
     return _validate(StyleSpec, data)
-

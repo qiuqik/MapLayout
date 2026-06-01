@@ -16,7 +16,7 @@ def _contains_empty_or_null(value: Any) -> bool:
 class Geometry(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    type: Literal["Point", "LineString", "Polygon"]
+    type: Literal["Point", "LineString"]
     coordinates: Any
 
     @field_validator("coordinates")
@@ -40,6 +40,8 @@ class GlobalProperty(BaseModel):
 
     title: Optional[str] = None
     description: Optional[str] = None
+    script: Optional[str] = None
+    extra_info: Optional[str] = None
     visual_id: Optional[str] = None
 
 
@@ -56,4 +58,3 @@ class GeoFeatureCollection(BaseModel):
         if not value:
             raise ValueError("features must not be empty")
         return value
-

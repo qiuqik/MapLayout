@@ -1,59 +1,68 @@
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-VISUAL_CATEGORIES = [
-    "BaseMap",
-    "Point",
-    "Area",
-    "Route",
-    "Label",
-    "Card",
-    "Edge",
-    "Global",
-]
-
-
-class VisualElement(BaseModel):
+class ColorToken(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    visual_id: Optional[str] = None
-    description: Optional[str] = None
-    anchored_to: Optional[Union[str, List[str]]] = None
-    anchored_from: Optional[Union[str, List[str]]] = None
+    name: str = ""
+    hex: str = ""
+    usage: str = ""
+    weight: float | int | str = ""
 
 
-class BaseMapVisual(VisualElement):
-    type: Optional[Literal["standard", "satellite", "blank"]] = None
+class ColorAnalysis(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    palette: List[ColorToken] = Field(default_factory=list)
+    background: str = ""
+    water: str = ""
+    road: str = ""
+    text: Dict[str, str] = Field(default_factory=dict)
+    accent: Dict[str, str] | List[str] | str = Field(default_factory=dict)
+
+
+class ThemeDesignAnalysis(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    global_mode: Literal["light", "dark"] = Field(default="light", alias="global")
+    theme: str = ""
+    design_keywords: List[str] = Field(default_factory=list)
+    visual_language: str = ""
+    label_design: str = ""
+    route_design: str = ""
+    icon_design: str = ""
+
+
+class StylesheetLayer(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    target: str = ""
+    paint: Dict[str, Any] = Field(default_factory=dict)
+    layout: Dict[str, Any] = Field(default_factory=dict)
+
+
+class MapStylesheet(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    global_mode: Literal["light", "dark"] = Field(default="light", alias="global")
+    mapboxStyle: str = "mapbox://styles/mapbox/light-v11"
+    layers: List[StylesheetLayer] = Field(default_factory=list)
 
 
 class VisualStructure(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
 
-    BaseMap: List[BaseMapVisual] = Field(default_factory=list)
-    Point: List[VisualElement] = Field(default_factory=list)
-    Area: List[VisualElement] = Field(default_factory=list)
-    Route: List[VisualElement] = Field(default_factory=list)
-    Label: List[VisualElement] = Field(default_factory=list)
-    Card: List[VisualElement] = Field(default_factory=list)
-    Edge: List[VisualElement] = Field(default_factory=list)
-    Global: List[VisualElement] = Field(default_factory=list)
+    Color: ColorAnalysis = Field(default_factory=ColorAnalysis)
+    ThemeDesign: ThemeDesignAnalysis = Field(default_factory=ThemeDesignAnalysis, alias="Theme&Design")
+    Stylesheet: MapStylesheet = Field(default_factory=MapStylesheet)
 
-    @field_validator(*VISUAL_CATEGORIES, mode="before")
+    @field_validator("Color", "ThemeDesign", "Stylesheet", mode="before")
     @classmethod
-    def ensure_category_lists(cls, value: Any) -> Any:
+    def ensure_objects(cls, value: Any) -> Any:
         if value is None:
-            return []
-        if not isinstance(value, list):
-            raise ValueError("visual categories must be arrays")
+            return {}
+        if not isinstance(value, dict):
+            raise ValueError("visual structure sections must be objects")
         return value
-
-    def visual_ids(self) -> List[str]:
-        ids: List[str] = []
-        for category in VISUAL_CATEGORIES:
-            for item in getattr(self, category):
-                if item.visual_id:
-                    ids.append(item.visual_id)
-        return ids
-

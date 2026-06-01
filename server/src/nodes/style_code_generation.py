@@ -63,7 +63,7 @@ class StyleCodeGenerationNode:
     """
 
     PROMPT_NAME = "style_code_generation"
-    PROMPT_VERSION = "v0.2"
+    PROMPT_VERSION = "v0.3"
     
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm
@@ -163,7 +163,7 @@ class StyleCodeGenerationNode:
             client_kwargs["base_url"] = base_url
         client = OpenAI(**client_kwargs)
         model = os.getenv("ICON_IMAGE_MODEL", "gpt-image-2")
-        size = os.getenv("ICON_IMAGE_SIZE", "256x256")
+        size = os.getenv("ICON_IMAGE_SIZE", "128x128")
 
         for point in style_code.get("Point") or []:
             if not isinstance(point, dict) or point.get("iconDataUrl") or point.get("iconUrl"):

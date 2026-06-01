@@ -13,7 +13,7 @@ class ValidationNode:
     """
 
     PROMPT_NAME = "validation"
-    PROMPT_VERSION = "v0.2"
+    PROMPT_VERSION = "v0.3"
 
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm

@@ -18,41 +18,47 @@ class GeoJSONGenerationNode:
     """
 
     PROMPT_NAME = "geojson_generation"
-    PROMPT_VERSION = "v0.2"
+    PROMPT_VERSION = "v0.3"
     
     def __init__(self, llm: ChatOpenAI, amap_service: AMapService = None):
         self.llm = llm
         self.amap_service = amap_service or AMapService()
         
         geojson_example = '''{
-  "_mapping_thought": "我从 Node 1 中识别出 2 天行程，因此按 D1/D2 生成两条 LineString；每个 POI 都是具体地点，没有行政区或区域面；文字信息全部通过 Label 字段承载，其中 D1 起点和 D2 关键点为核心标签，其余为次要或详细标签。",
+  "_mapping_thought": "我从 Node 1 中识别出 2 天行程，因此按 D1/D2 生成两条 LineString；每个 POI 都是具体地点；D1 起点和 D2 关键点为 core，其余为 secondary 或 detail。",
   "_city":"北京",
   "type": "FeatureCollection",
   "global_properties": [
-      {
-        "title": "2 天 1 夜北京核心景点游",
-        "description": "D1：天安门广场→故宫博物院→景山公园；D2：八达岭长城→奥林匹克公园。",
-        "visual_id": "global_vis_1"
-      }
+    {
+      "visual_id": "global_title",
+      "title": "2 天 1 夜北京核心景点游",
+      "script": "中轴线历史漫步 + 长城轻量远足",
+      "extra_info": "D1：天安门广场→故宫博物院→景山公园；D2：八达岭长城→奥林匹克公园"
+    },
+    {
+      "visual_id": "global_summary",
+      "title": "路线节奏",
+      "script": "D1 以步行为主，D2 早出发串联远郊与返程前城市地标"
+    }
   ],
   "features": [
     {
       "type": "Feature",
       "geometry": {
         "type": "LineString",
-	        "coordinates": [
-	          [116.397, 39.908],
-	          [116.397, 39.916],
-	          [116.395, 39.923]
-	        ]
-	      },
-	      "properties": {
-	        "visual_id": "route_vis_1",
-	        "name": "D1 北京中轴线步行路线",
-	        "day": "D1",
-	        "description": "天安门广场→故宫博物院→景山公园"
-	      }
-	    },
+        "coordinates": [
+          [116.397, 39.908],
+          [116.397, 39.916],
+          [116.395, 39.923]
+        ]
+      },
+      "properties": {
+        "visual_id": "route_D1",
+        "name": "D1 路线",
+        "day": "D1",
+        "point_names": ["天安门广场", "故宫博物院", "景山公园"]
+      }
+    },
     {
       "type": "Feature",
       "geometry": {
@@ -63,33 +69,30 @@ class GeoJSONGenerationNode:
         ]
       },
       "properties": {
-        "visual_id": "route_vis_1",
-        "name": "D2 长城与返程路线",
+        "visual_id": "route_D2",
+        "name": "D2 路线",
         "day": "D2",
-        "description": "八达岭长城→奥林匹克公园"
+        "point_names": ["八达岭长城", "奥林匹克公园"]
       }
     },
-	    {
-	      "type": "Feature",
-	      "geometry": {
+    {
+      "type": "Feature",
+      "geometry": {
         "type": "Point",
         "coordinates": [116.397, 39.908]
       },
       "properties": {
-	        "visual_id": "point_vis_1",
-	        "name": "天安门广场",
-	        "day": "D1",
-	        "order": 1,
-	        "description": "中轴线行程起点",
-	        "label_coord": [116.390, 39.809],
-	        "label_visual_id": "label_vis_1",
-	        "label_content_type": "title_script",
-	        "label_hierarchy": "core",
-	        "label_title": "天安门广场",
-	        "label_script": "D1 起点，建议清晨抵达",
-	        "label_extra_info": ""
-	      }
-	    },
+        "visual_id": "point_scenic",
+        "category": "scenic",
+        "name": "天安门广场",
+        "day": "D1",
+        "order": 1,
+        "label_level": "core",
+        "label_title": "天安门广场",
+        "label_script": "D1 起点，建议清晨抵达",
+        "label_extra_info": ""
+      }
+    },
     {
       "type": "Feature",
       "geometry": {
@@ -97,20 +100,17 @@ class GeoJSONGenerationNode:
         "coordinates": [116.397, 39.916]
       },
       "properties": {
-	        "visual_id": "point_vis_1",
-	        "name": "故宫博物院",
-	        "day": "D1",
-	        "order": 2,
-	        "description": "核心景点，需预约",
-	        "label_coord": [116.390, 39.809],
-	        "label_visual_id": "label_vis_1",
-	        "label_content_type": "title_script_extra",
-	        "label_hierarchy": "detail",
-	        "label_title": "故宫博物院",
-	        "label_script": "步行进入，预留 3-4 小时",
-	        "label_extra_info": "提前预约"
-	      }
-	    },
+        "visual_id": "point_culture",
+        "category": "culture",
+        "name": "故宫博物院",
+        "day": "D1",
+        "order": 2,
+        "label_level": "detail",
+        "label_title": "故宫博物院",
+        "label_script": "步行进入，预留 3-4 小时",
+        "label_extra_info": "提前预约"
+      }
+    },
     {
       "type": "Feature",
       "geometry": {
@@ -118,41 +118,35 @@ class GeoJSONGenerationNode:
         "coordinates": [116.395, 39.923]
       },
       "properties": {
-        "visual_id": "point_vis_1",
+        "visual_id": "point_scenic",
+        "category": "scenic",
         "name": "景山公园",
         "day": "D1",
         "order": 3,
-        "description": "俯瞰故宫和中轴线",
-        "label_coord": [116.390, 39.809],
-        "label_visual_id": "label_vis_1",
-        "label_content_type": "title",
-        "label_hierarchy": "secondary",
+        "label_level": "secondary",
         "label_title": "景山公园",
-        "label_script": "",
+        "label_script": "俯瞰故宫和中轴线",
         "label_extra_info": ""
       }
     },
-	    {
-	      "type": "Feature",
-	      "geometry": {
+    {
+      "type": "Feature",
+      "geometry": {
         "type": "Point",
         "coordinates": [116.416, 40.359]
       },
       "properties": {
-	        "visual_id": "point_vis_1",
-	        "name": "八达岭长城",
-	        "day": "D2",
-	        "order": 1,
-	        "description": "D2 核心景点",
-	        "label_coord": [116.390, 39.809],
-	        "label_visual_id": "label_vis_1",
-	        "label_content_type": "title_script",
-	        "label_hierarchy": "core",
-	        "label_title": "八达岭长城",
-	        "label_script": "D2 早出发，高铁/市郊铁路衔接",
-	        "label_extra_info": ""
-	      }
-	    },
+        "visual_id": "point_scenic",
+        "category": "scenic",
+        "name": "八达岭长城",
+        "day": "D2",
+        "order": 1,
+        "label_level": "core",
+        "label_title": "八达岭长城",
+        "label_script": "D2 早出发，高铁/市郊铁路衔接",
+        "label_extra_info": ""
+      }
+    },
     {
       "type": "Feature",
       "geometry": {
@@ -160,17 +154,14 @@ class GeoJSONGenerationNode:
         "coordinates": [116.391, 39.992]
       },
       "properties": {
-        "visual_id": "point_vis_1",
+        "visual_id": "point_culture",
+        "category": "culture",
         "name": "奥林匹克公园",
         "day": "D2",
         "order": 2,
-        "description": "返程前轻量游览",
-        "label_coord": [116.390, 39.809],
-        "label_visual_id": "label_vis_1",
-        "label_content_type": "title",
-        "label_hierarchy": "secondary",
+        "label_level": "secondary",
         "label_title": "奥林匹克公园",
-        "label_script": "",
+        "label_script": "返程前轻量游览",
         "label_extra_info": ""
       }
     }
