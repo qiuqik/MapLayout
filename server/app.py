@@ -43,6 +43,23 @@ class CreateRunRequest(BaseModel):
     geojsonFilename: str | None = None
 
 
+def _resolve_multimodal_session_dir(session_id: str) -> str | None:
+    """Resolve either an exact output folder name or a raw run/session id suffix."""
+    base = os.path.join(os.path.dirname(__file__), 'output')
+    exact = os.path.join(base, session_id)
+    if os.path.isdir(exact):
+        return exact
+    try:
+        matches = [
+            os.path.join(base, item)
+            for item in os.listdir(base)
+            if os.path.isdir(os.path.join(base, item)) and item.endswith(f"_{session_id}")
+        ]
+    except Exception:
+        matches = []
+    return sorted(matches)[-1] if matches else None
+
+
 def _convert_coordinates(coords):
     """递归转换 GeoJSON 中所有坐标从 GCJ-02 到 WGS84"""
     if isinstance(coords[0], (int, float)):
@@ -125,17 +142,15 @@ def process_geojson_for_frontend(geojson_data, style_code=None):
         # 处理 LineString 的步行路线
         if geom_type == 'LineString' and mapbox_token:
             visual_id = feature.get('properties', {}).get('visual_id')
-            # 只有当 style 为 navigationCurve 时才调用 Mapbox API
-            if route_style_map.get(visual_id) == 'navigationCurve':
+            # 只有当 style 为 navigation 时才调用 Mapbox API。
+            if route_style_map.get(visual_id) == 'navigation':
                 original_coords = feature['geometry']['coordinates']
                 if len(original_coords) > 2:
                     walking_route = _fetch_walking_route(original_coords, mapbox_token)
                     feature['geometry']['coordinates'] = walking_route
 
-        # 转换 card_coord 和 label_coord
+        # 转换 label_coord
         props = feature.get('properties', {})
-        if 'card_coord' in props and isinstance(props['card_coord'], list):
-            props['card_coord'] = list(gcj02_to_wgs84(props['card_coord'][0], props['card_coord'][1]))
         if 'label_coord' in props and isinstance(props['label_coord'], list):
             props['label_coord'] = list(gcj02_to_wgs84(props['label_coord'][0], props['label_coord'][1]))
 
@@ -502,11 +517,25 @@ async def list_multimodal_sessions():
     return {"sessions": sessions}
 
 
+@app.get("/api/multimodal/session/{session_id}/icon/{filename}")
+async def get_multimodal_session_icon(session_id: str, filename: str):
+    """Serve generated POI icon images from a session icon directory."""
+    base = _resolve_multimodal_session_dir(session_id)
+    if not base:
+        return JSONResponse(status_code=404, content={"error": "会话不存在"})
+
+    safe_filename = os.path.basename(filename)
+    icon_path = os.path.join(base, 'icon', safe_filename)
+    if not os.path.exists(icon_path):
+        return JSONResponse(status_code=404, content={"error": "图标不存在"})
+    return FileResponse(icon_path, media_type="image/png")
+
+
 @app.get("/api/multimodal/session/{session_id}")
 async def get_multimodal_session(session_id: str):
     """获取指定会话的完整历史"""
-    base = os.path.join(os.path.dirname(__file__), 'output', session_id)
-    if not os.path.exists(base):
+    base = _resolve_multimodal_session_dir(session_id)
+    if not base:
         return JSONResponse(status_code=404, content={"error": "会话不存在"})
 
     node3_path = os.path.join(base, 'node3')
@@ -594,8 +623,8 @@ def get_unique_filepath(directory: str, base_filename: str) -> str:
 @app.post('/api/multimodal/session/{session_id}/save')
 async def save_session_geojson(session_id: str, request: dict):
     """保存 geojson 数据到 session，支持 origin/layout/groundtruth 分类"""
-    base = os.path.join(os.path.dirname(__file__), 'output', session_id)
-    if not os.path.exists(base):
+    base = _resolve_multimodal_session_dir(session_id)
+    if not base:
         return JSONResponse(status_code=404, content={"error": "会话不存在"})
 
     try:
@@ -631,8 +660,8 @@ async def save_session_geojson(session_id: str, request: dict):
 @app.post('/api/multimodal/session/{session_id}/mapinfo')
 async def save_session_mapinfo(session_id: str, request: dict):
     """保存地图视图信息到 session/mapInfo.json"""
-    base = os.path.join(os.path.dirname(__file__), 'output', session_id)
-    if not os.path.exists(base):
+    base = _resolve_multimodal_session_dir(session_id)
+    if not base:
         return JSONResponse(status_code=404, content={"error": "会话不存在"})
 
     try:

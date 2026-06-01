@@ -35,7 +35,7 @@ class ValidationNode:
         self.chain = self.prompt | self.llm
 
     def _compress_geojson_for_qa(self, geojson_data: dict) -> dict:
-        """脱水压缩 GeoJSON：裁剪 LineString 和 Polygon 的超长坐标，避免 Token 溢出"""
+        """脱水压缩 GeoJSON：裁剪 LineString 的超长坐标，避免 Token 溢出"""
         if not geojson_data or not isinstance(geojson_data, dict):
             return geojson_data
             
@@ -54,12 +54,6 @@ class ValidationNode:
             if geom_type == "LineString" and len(coords) > 4:
                 geom["coordinates"] = [coords[0], coords[1], coords[-2], coords[-1]]
                 
-            # 压缩 Polygon: 只保留外环的前 3 个点和最后 1 个闭合点
-            elif geom_type == "Polygon" and len(coords) > 0 and isinstance(coords[0], list):
-                ring = coords[0]
-                if len(ring) > 5:
-                    geom["coordinates"] = [[ring[0], ring[1], ring[2], ring[-1]]]
-                    
         return qa_data
 
     def execute(self, state: AgentState, max_global_retries: int = 3) -> AgentState:

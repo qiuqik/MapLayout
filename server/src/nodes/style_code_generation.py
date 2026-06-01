@@ -1,294 +1,380 @@
-import os
+import json
+import re
+from typing import Any
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 from ..utils.agent_utils import AgentState, _extract_first_json_object, _robust_json_loads
 from ..utils.prompt_loader import load_prompt
 from ..validators.schema_validators import validate_style_spec
-import re
 
 
-def clean_transform_from_html(style_code: dict) -> dict:
-    """
-    清洗 stylejson 中 Card 和 Label 的 template HTML 中的 transform、width、height 样式
-    保留 Global 元素中的这些样式（因为 Global 需要绝对定位）
-    """
-    if not isinstance(style_code, dict):
-        return style_code
-    
-    elements_to_clean = ['Card', 'Label']
-    
-    for element_type in elements_to_clean:
-        if element_type not in style_code:
-            continue
-        
-        for item in style_code[element_type]:
-            if 'template' not in item:
-                continue
-            
-            template = item['template']
-            
-            # 移除 transform 样式（包括 transform 和 -webkit-transform 等前缀）
-            template = re.sub(
-                r'\s*(?:-webkit-|-moz-|-ms-|-o-)?transform\s*:\s*[^;]+;?',
-                '',
-                template
-            )
-            
-            # 移除 width 样式
-            template = re.sub(
-                r'\s*width\s*:\s*[^;]+;?',
-                '',
-                template
-            )
-            
-            # 移除 height 样式
-            template = re.sub(
-                r'\s*height\s*:\s*[^;]+;?',
-                '',
-                template
-            )
-            
-            item['template'] = template
-    
-    return style_code
+ROUTE_STYLE_ALIASES = {
+    "straight": "straight",
+    "line": "straight",
+    "direct": "straight",
+    "curve": "curve",
+    "curved": "curve",
+    "bezier": "curve",
+    "beziercurve": "curve",
+    "navigation": "navigation",
+    "navigationroute": "navigation",
+    "navigationcurve": "navigation",
+    "mapbox": "navigation",
+}
 
 
 class StyleCodeGenerationNode:
-    """Node 4: 样式推演与模板引擎 (Model: VLM/GPT-5)
-    
-    输入: 参考图片 + 视觉结构 + GeoJSON 数据
-    逻辑: 观察原图提取视觉样式（Design Tokens），结合 GeoJSON 中的数据实例，输出结构化的前端渲染样式代码
-    输出: 结构化的前端渲染样式代码
+    """Node 4: 样式推演与结构化渲染合同.
+
+    输入: 参考图片 + VisualStructure(Color/Theme&Design/Stylesheet) + GeoJSON
+    输出: Point/Route/Label/Global 四类前端渲染样式，不生成 HTML，不生成图标文件。
     """
 
     PROMPT_NAME = "style_code_generation"
     PROMPT_VERSION = "v0.3"
-    
+
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm
-        
-        system_prompt = load_prompt("style_code_generation.md")
-        
-        self.system_prompt = system_prompt
+        self.system_prompt = load_prompt("style_code_generation.md")
 
-    def _visual_description_by_id(self, visual_structure: dict | None, category: str) -> dict[str, str]:
-        if not isinstance(visual_structure, dict):
-            return {}
-        descriptions = {}
-        for item in visual_structure.get(category) or []:
-            if isinstance(item, dict) and item.get("visual_id"):
-                descriptions[item["visual_id"]] = item.get("description", "")
-        return descriptions
+    def _as_list(self, value: Any) -> list[dict]:
+        if not isinstance(value, list):
+            return []
+        return [item for item in value if isinstance(item, dict)]
 
-    def _normalize_style_code(self, style_code: dict, visual_structure: dict | None = None) -> dict:
-        """Convert legacy Card/SVG styles into unified responsive Label + image-icon styles."""
-        if not isinstance(style_code, dict):
-            return style_code
+    def _slug(self, value: Any, fallback: str) -> str:
+        text = str(value or "").strip().lower()
+        if text.startswith("point_"):
+            text = text[6:]
+        text = re.sub(r"[^a-z0-9_]+", "_", text)
+        text = re.sub(r"_+", "_", text).strip("_")
+        return text or fallback
 
-        normalized = dict(style_code)
-        visual_point_descriptions = self._visual_description_by_id(visual_structure, "Point")
+    def _normalize_route_style(self, value: Any) -> str:
+        key = re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
+        return ROUTE_STYLE_ALIASES.get(key, "curve")
 
-        labels = list(normalized.get("Label") or [])
-        for card in normalized.get("Card") or []:
-            if not isinstance(card, dict):
+    def _normalize_line_pattern(self, item: dict) -> str:
+        value = (
+            item.get("linePattern")
+            or item.get("pattern")
+            or item.get("stroke")
+            or item.get("line_style")
+            or item.get("lineStyle")
+        )
+        text = str(value or "").strip().lower()
+        if text in {"dashed", "dash", "虚线"} or item.get("dasharray") or item.get("dashArray"):
+            return "dashed"
+        return "solid"
+
+    def _normalize_label_hierarchy(self, value: Any, fallback: str) -> str:
+        aliases = {
+            "核心标签": "core",
+            "core": "core",
+            "primary": "core",
+            "次要标签": "secondary",
+            "secondary": "secondary",
+            "详细标签": "detail",
+            "detail": "detail",
+        }
+        return aliases.get(str(value or "").strip(), fallback)
+
+    def _normalize_label_content_type(self, value: Any, hierarchy: str) -> str:
+        aliases = {
+            "只包含title": "title",
+            "只包含 title": "title",
+            "title": "title",
+            "包含title+script": "title_script",
+            "包含 title+script": "title_script",
+            "title+script": "title_script",
+            "title_script": "title_script",
+            "title+script+extra info": "title_script_extra",
+            "title_script_extra": "title_script_extra",
+        }
+        normalized = aliases.get(str(value or "").strip().lower())
+        if normalized:
+            return normalized
+        return "title_script_extra" if hierarchy == "detail" else "title_script"
+
+    def _number(self, value: Any, default: int, minimum: int, maximum: int) -> int:
+        if isinstance(value, (int, float)):
+            number = int(value)
+        else:
+            match = re.search(r"\d+", str(value or ""))
+            number = int(match.group(0)) if match else default
+        return max(minimum, min(maximum, number))
+
+    def _normalize_point_styles(self, style_code: dict) -> list[dict]:
+        points = []
+        seen: set[str] = set()
+        for index, item in enumerate(self._as_list(style_code.get("Point")), start=1):
+            category = self._slug(item.get("category") or item.get("visual_id"), f"poi_{index}")
+            visual_id = item.get("visual_id") or f"point_{category}"
+            if not str(visual_id).startswith("point_"):
+                visual_id = f"point_{category}"
+            visual_id = str(visual_id)
+            if visual_id in seen:
                 continue
-            migrated = dict(card)
-            migrated.setdefault("content_type", "title_script_extra")
-            migrated.setdefault("hierarchy", "detail")
-            labels.append(migrated)
+            seen.add(visual_id)
 
-        deduped_labels = []
-        seen_label_ids = set()
-        for index, label in enumerate(labels, start=1):
-            if not isinstance(label, dict):
-                continue
-            item = dict(label)
-            item.setdefault("visual_id", f"label_vis_{index}")
-            if item["visual_id"] in seen_label_ids:
-                continue
-            seen_label_ids.add(item["visual_id"])
-            item.setdefault("content_type", item.get("label_content_type") or "title_script")
-            item.setdefault("hierarchy", item.get("label_hierarchy") or "secondary")
-            deduped_labels.append(item)
-        normalized["Label"] = deduped_labels
-        normalized["Card"] = []
-        normalized["Area"] = []
-
-        if not normalized.get("BaseMap"):
-            normalized["BaseMap"] = [{"visual_id": "basemap_1", "type": "standard", "tintColor": "#FFFFFF", "tintOpacity": 0}]
-        for base_map in normalized.get("BaseMap") or []:
-            if isinstance(base_map, dict):
-                base_map.setdefault("type", "standard")
-
-        for point in normalized.get("Point") or []:
-            if not isinstance(point, dict):
-                continue
-            visual_id = point.get("visual_id")
-            source_description = point.get("iconDescription") or visual_point_descriptions.get(visual_id, "")
-            point["iconDescription"] = source_description or "适合旅游地图 POI 的精致小图标，透明背景，轮廓清晰"
-            point.setdefault(
-                "iconPrompt",
-                (
-                    "A polished small travel map POI icon, transparent background, "
-                    f"clear silhouette, style description: {point['iconDescription']}. "
-                    "Isolated centered object, no text, no map pin SVG, high contrast."
-                ),
+            icon_description = (
+                item.get("icon描述")
+                or item.get("iconDescription")
+                or item.get("description")
+                or f"{category} 类 POI 图标，透明背景，清晰轮廓，与参考图地图风格一致"
             )
-            point.setdefault("iconFallbackColor", point.get("color") or "#E4572E")
-            point.pop("iconSvg", None)
+            normalized = dict(item)
+            normalized.update(
+                {
+                    "visual_id": visual_id,
+                    "category": category,
+                    "icon描述": str(icon_description),
+                    "style": item.get("style") if isinstance(item.get("style"), dict) else {},
+                }
+            )
+            for stale_key in ["iconSvg", "iconDataUrl", "iconUrl", "url"]:
+                normalized.pop(stale_key, None)
+            points.append(normalized)
 
-        self._generate_point_icon_images(normalized)
-        return normalized
+        if points:
+            return points
+        return [
+            {
+                "visual_id": "point_poi",
+                "category": "poi",
+                "icon描述": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
+                "style": {"color": "#E4572E", "size": 28},
+            }
+        ]
 
-    def _generate_point_icon_images(self, style_code: dict) -> None:
-        """Best-effort DALL·E/gpt-image icon generation from style-code prompts."""
-        enabled = os.getenv("ENABLE_ICON_IMAGE_GENERATION", "true").strip().lower()
-        if enabled in {"0", "false", "no", "off"}:
-            return
+    def _normalize_route_styles(self, style_code: dict) -> list[dict]:
+        routes = []
+        for index, item in enumerate(self._as_list(style_code.get("Route")), start=1):
+            visual_id = str(item.get("visual_id") or f"route_D{index}")
+            normalized = dict(item)
+            normalized.update(
+                {
+                    "visual_id": visual_id,
+                    "style": self._normalize_route_style(item.get("style")),
+                    "color": item.get("color") or item.get("lineColor") or "#E4572E",
+                    "width": self._number(item.get("width") or item.get("lineWidth"), 4, 1, 12),
+                    "linePattern": self._normalize_line_pattern(item),
+                }
+            )
+            routes.append(normalized)
 
-        try:
-            from openai import OpenAI
-        except Exception as exc:
-            print(f"⚠️ [Node 4] OpenAI image client unavailable, using icon fallback: {exc}")
-            return
+        return routes or [
+            {
+                "visual_id": "route_D1",
+                "style": "curve",
+                "color": "#E4572E",
+                "width": 4,
+                "linePattern": "solid",
+            }
+        ]
 
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key:
-            return
+    def _default_label_style(self, hierarchy: str) -> dict:
+        palette = {
+            "core": ("#FFFFFF", "#1F2937", "#E4572E", 220, 84),
+            "secondary": ("#FFFFFF", "#374151", "#B8C2CC", 190, 68),
+            "detail": ("#FFFFFF", "#4B5563", "#D9DEE4", 170, 76),
+        }
+        background, color, border, width, height = palette[hierarchy]
+        return {
+            "backgroundColor": background,
+            "color": color,
+            "borderColor": border,
+            "borderWidth": 1,
+            "borderRadius": 6,
+            "padding": "8px 10px",
+            "boxShadow": "0 3px 10px rgba(0,0,0,0.14)",
+            "fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+            "fontSize": 13 if hierarchy == "core" else 12,
+            "lineHeight": 1.35,
+            "_defaultWidth": width,
+            "_defaultHeight": height,
+        }
 
-        client_kwargs = {"api_key": api_key, "timeout": 20}
-        base_url = os.getenv("OPENAI_IMAGE_BASE_URL") or os.getenv("HTTP_PROXY")
-        if base_url:
-            client_kwargs["base_url"] = base_url
-        client = OpenAI(**client_kwargs)
-        model = os.getenv("ICON_IMAGE_MODEL", "gpt-image-2")
-        size = os.getenv("ICON_IMAGE_SIZE", "128x128")
-
-        for point in style_code.get("Point") or []:
-            if not isinstance(point, dict) or point.get("iconDataUrl") or point.get("iconUrl"):
+    def _normalize_label_styles(self, style_code: dict) -> list[dict]:
+        labels = []
+        seen: set[str] = set()
+        fallback_hierarchy = ["core", "secondary", "detail"]
+        for index, item in enumerate(self._as_list(style_code.get("Label")), start=1):
+            hierarchy = self._normalize_label_hierarchy(
+                item.get("hierarchy") or item.get("label_level"),
+                fallback_hierarchy[min(index - 1, len(fallback_hierarchy) - 1)],
+            )
+            visual_id = str(item.get("visual_id") or f"label_{hierarchy}")
+            if visual_id in seen:
                 continue
-            prompt = point.get("iconPrompt") or point.get("iconDescription")
-            if not prompt:
-                continue
-            try:
-                response = client.images.generate(
-                    model=model,
-                    prompt=prompt,
-                    size=size,
-                )
-                data = response.data[0] if response.data else None
-                if data is None:
-                    continue
-                b64_json = getattr(data, "b64_json", None)
-                url = getattr(data, "url", None)
-                if b64_json:
-                    point["iconDataUrl"] = f"data:image/png;base64,{b64_json}"
-                elif url:
-                    point["iconUrl"] = url
-            except Exception as exc:
-                print(f"⚠️ [Node 4] Icon image generation failed for {point.get('visual_id')}: {exc}")
-    
+            seen.add(visual_id)
+            style = item.get("style") if isinstance(item.get("style"), dict) else {}
+            if not style:
+                style = self._default_label_style(hierarchy)
+            normalized = dict(item)
+            normalized.pop("template", None)
+            normalized.update(
+                {
+                    "visual_id": visual_id,
+                    "hierarchy": hierarchy,
+                    "content_type": self._normalize_label_content_type(
+                        item.get("content_type") or item.get("label_content_type"),
+                        hierarchy,
+                    ),
+                    "width": self._number(item.get("width") or style.get("_defaultWidth"), 190, 96, 320),
+                    "height": self._number(item.get("height") or style.get("_defaultHeight"), 68, 32, 180),
+                    "style": {k: v for k, v in style.items() if not str(k).startswith("_default")},
+                }
+            )
+            labels.append(normalized)
+
+        if labels:
+            return labels
+
+        return [
+            {
+                "visual_id": f"label_{hierarchy}",
+                "hierarchy": hierarchy,
+                "content_type": "title_script_extra" if hierarchy == "detail" else "title_script",
+                "width": self._default_label_style(hierarchy)["_defaultWidth"],
+                "height": self._default_label_style(hierarchy)["_defaultHeight"],
+                "style": {k: v for k, v in self._default_label_style(hierarchy).items() if not k.startswith("_default")},
+            }
+            for hierarchy in ["core", "secondary", "detail"]
+        ]
+
+    def _normalize_global_styles(self, style_code: dict) -> list[dict]:
+        globals_out = []
+        defaults = [
+            {
+                "visual_id": "global_title",
+                "placement": {"position": "fixed", "top": "15%", "left": 0, "width": "100%"},
+                "content_type": "title_script_extra",
+            },
+            {
+                "visual_id": "global_summary",
+                "placement": {"position": "fixed", "bottom": "10%", "left": 0, "width": "100%"},
+                "content_type": "title_script",
+            },
+        ]
+        source_items = self._as_list(style_code.get("Global"))[:2]
+        for index in range(max(len(source_items), 2)):
+            source = source_items[index] if index < len(source_items) else {}
+            default = defaults[index]
+            style = source.get("style") if isinstance(source.get("style"), dict) else {}
+            normalized = dict(source)
+            normalized.pop("template", None)
+            normalized.update(
+                {
+                    "visual_id": source.get("visual_id") or default["visual_id"],
+                    "placement": default["placement"],
+                    "content_type": default["content_type"],
+                    "style": style
+                    or {
+                        "color": "#1F2937",
+                        "fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+                        "textAlign": "center",
+                        "fontWeight": 700 if index == 0 else 500,
+                    },
+                }
+            )
+            globals_out.append(normalized)
+        return globals_out[:2]
+
+    def _normalize_style_code(self, style_code: dict) -> dict:
+        """Keep only the new Point/Route/Label/Global contract."""
+        if not isinstance(style_code, dict):
+            return self._default_style_code("style_code is not an object")
+        return {
+            "Point": self._normalize_point_styles(style_code),
+            "Route": self._normalize_route_styles(style_code),
+            "Label": self._normalize_label_styles(style_code),
+            "Global": self._normalize_global_styles(style_code),
+        }
+
+    def _default_style_code(self, reason: str = "") -> dict:
+        fallback = {
+            "Point": [
+                {
+                    "visual_id": "point_poi",
+                    "category": "poi",
+                    "icon描述": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
+                    "style": {"color": "#E4572E", "size": 28},
+                }
+            ],
+            "Route": [
+                {
+                    "visual_id": "route_D1",
+                    "style": "curve",
+                    "color": "#E4572E",
+                    "width": 4,
+                    "linePattern": "solid",
+                }
+            ],
+            "Label": self._normalize_label_styles({}),
+            "Global": self._normalize_global_styles({}),
+        }
+        if reason:
+            fallback["_style_generation_error"] = reason
+        return fallback
+
     def execute(self, state: AgentState) -> AgentState:
-        print("🎨 [Node 4] 样式推演与模板引擎: 正在生成前端渲染样式代码...")
-        
+        print("🎨 [Node 4] 样式推演与结构化渲染合同: 正在生成前端样式 JSON...")
+
         if not state.visual_structure:
             state.error = "缺少视觉结构解析结果"
-            print(f"❌ [Node 4] 缺少视觉结构")
+            print("❌ [Node 4] 缺少视觉结构")
             return state
-        
+
         if not state.geojson_data:
             state.error = "缺少 GeoJSON 数据"
-            print(f"❌ [Node 4] 缺少 GeoJSON 数据")
+            print("❌ [Node 4] 缺少 GeoJSON 数据")
             return state
-        
+
         try:
-            import json
             messages = [
                 SystemMessage(content=self.system_prompt),
-                HumanMessage(content=[
-                    {"type": "text", "text": f"视觉元素拆解：\n{json.dumps(state.visual_structure, ensure_ascii=False)}"},
-                    {"type": "text", "text": f"GeoJSON 数据：\n{json.dumps(state.geojson_data, ensure_ascii=False)}"},
-                    {"type": "text", "text": "请生成前端渲染样式代码（严格输出 JSON）："}
-                ]),
+                HumanMessage(
+                    content=[
+                        {"type": "text", "text": f"视觉结构：\n{json.dumps(state.visual_structure, ensure_ascii=False)}"},
+                        {"type": "text", "text": f"GeoJSON 数据：\n{json.dumps(state.geojson_data, ensure_ascii=False)}"},
+                        {"type": "text", "text": "请生成 Point/Route/Label/Global 四类前端渲染样式 JSON："},
+                    ]
+                ),
             ]
-            
-            # 如果有图片，添加图片到消息中
+
             if state.image_base64:
-                messages[1].content.insert(0, {
-                    "type": "image_url", 
-                    "image_url": {"url": state.image_base64}
-                })
-            
+                messages[1].content.insert(
+                    0,
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": state.image_base64},
+                    },
+                )
+
             response = self.llm.invoke(messages)
-            content = response.content
-            
-            json_str = _extract_first_json_object(content)
-            if json_str:
-                try:
-                    style_code = json.loads(json_str)
-                except json.JSONDecodeError:
-                    style_code = _robust_json_loads(json_str)
-                
-                state.style_code = self._normalize_style_code(style_code, state.visual_structure)
-                # 清洗旧模板中的 transform/固定宽高，避免和前端布局引擎冲突
-                state.style_code = clean_transform_from_html(state.style_code)
-                print(f"✅ [Node 4] Style Code 生成完成")
-                print(f"   生成的样式类别: {list(style_code.keys())}")
-            else:
+            json_str = _extract_first_json_object(response.content)
+            if not json_str:
                 raise ValueError("无法解析 Style Code JSON")
-                
-        except Exception as e:
-            # 降级处理
-            state.style_code = {
-                "BaseMap": [
-                    {
-                        "visual_id": "basemap_1",
-                        "type": "standard",
-                        "tintColor": "#F4F6F9",
-                        "tintOpacity": 0.12
-                    }
-                ],
-                "Point": [
-                    {
-                        "visual_id": "point_vis_1",
-                        "iconDescription": "橙红色精致旅游 POI 图标，透明背景，圆润但清晰",
-                        "iconPrompt": "A polished orange-red travel map POI icon, transparent background, centered object, high contrast, no text, no SVG, no map screenshot.",
-                        "iconFallbackColor": "#FF5722"
-                    }
-                ],
-                "Route": [
-                    {
-                        "visual_id": "route_vis_1",
-                        "color": "#FF5722",
-                        "width": 4,
-                        "style": "navigationCurve"
-                    }
-                ],
-                "Label": [
-                    {
-                        "visual_id": "label_vis_1",
-                        "content_type": "title_script",
-                        "hierarchy": "secondary",
-                        "template": "<div style='background:#FFF; border:1px solid #E0E0E0; border-radius:6px; padding:calc(var(--map-label-scale, 1) * 7px) calc(var(--map-label-scale, 1) * 10px); max-width:calc(var(--map-label-scale, 1) * 190px); box-shadow:0 3px 8px rgba(0,0,0,0.12); line-height:1.35;'><div style='font-size:calc(var(--map-label-scale, 1) * 13px); font-weight:700; color:#333;'>{properties.label_title}</div><div style='font-size:calc(var(--map-label-scale, 1) * 11px); color:#666;'>{properties.label_script}</div></div>"
-                    }
-                ],
-                "Card": [],
-                "Area": [],
-                "Global": [
-                    {
-                        "visual_id": "global_vis_1",
-                        "template": "<div style='position: absolute; top: 20px; left: 20px; z-index: 100; font-size: 18px; font-weight: bold; color: #333; line-height: 1.4;'><h3>{global_properties[0].title}</h3><p style='font-size: 12px; color: #666;'>{global_properties[0].description}</p></div>"
-                    }
-                ]
-            }
-            state.error = f"Style Code 生成失败: {str(e)}"
-            print(f"⚠️ [Node 4] Style Code 生成失败，已降级为默认样式: {e}")
+
+            try:
+                style_code = json.loads(json_str)
+            except json.JSONDecodeError:
+                style_code = _robust_json_loads(json_str)
+
+            state.style_code = self._normalize_style_code(style_code)
+            print("✅ [Node 4] Style Code 生成完成")
+            print(f"   生成的样式类别: {list(state.style_code.keys())}")
+
+        except Exception as exc:
+            state.style_code = self._default_style_code(str(exc))
+            print(f"⚠️ [Node 4] Style Code 生成失败，已降级为默认结构化样式: {exc}")
 
         schema_report = validate_style_spec(state.style_code)
         if schema_report["valid"]:
             print("✅ [Node 4] Style schema 校验通过")
         else:
             print(f"⚠️ [Node 4] Style schema 校验失败: {schema_report['errors']}")
-        
+
         return state

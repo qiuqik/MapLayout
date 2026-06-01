@@ -1,3 +1,4 @@
+import os
 import re
 import time
 from langchain_openai import ChatOpenAI
@@ -23,6 +24,10 @@ class GeoJSONGenerationNode:
     def __init__(self, llm: ChatOpenAI, amap_service: AMapService = None):
         self.llm = llm
         self.amap_service = amap_service or AMapService()
+        try:
+            self.max_pois_per_day = max(2, int(os.getenv("MAX_POIS_PER_DAY", "5")))
+        except ValueError:
+            self.max_pois_per_day = 5
         
         geojson_example = '''{
   "_mapping_thought": "我从 Node 1 中识别出 2 天行程，因此按 D1/D2 生成两条 LineString；每个 POI 都是具体地点；D1 起点和 D2 关键点为 core，其余为 secondary 或 detail。",
@@ -234,18 +239,9 @@ class GeoJSONGenerationNode:
                     feat["geometry"]["coordinates"] = new_line_coords
                     valid_lines.append(feat)
 
-        # 3. 当前产品形态不再生成 Area/Polygon，避免区域信息混入 POI 层。
+        # 3. 当前产品形态只保留具体 POI 和按天路线，避免区域信息混入 POI 层。
         geojson_data["features"] = valid_points + valid_lines
         return geojson_data
-
-    def _category_visual_ids(self, visual_structure: dict, category: str) -> list[str]:
-        if not isinstance(visual_structure, dict):
-            return []
-        ids = []
-        for item in visual_structure.get(category) or []:
-            if isinstance(item, dict) and item.get("visual_id"):
-                ids.append(item["visual_id"])
-        return ids
 
     def _normalize_day(self, value, fallback: int = 1) -> int:
         if isinstance(value, int):
@@ -314,17 +310,30 @@ class GeoJSONGenerationNode:
                 return True
         return False
 
-    def _label_style_by_hierarchy(self, visual_structure: dict) -> dict[str, str]:
-        aliases = {"核心标签": "core", "次要标签": "secondary", "详细标签": "detail"}
-        mapping = {}
-        labels = (visual_structure or {}).get("Label") or []
-        for item in labels:
-            if not isinstance(item, dict) or not item.get("visual_id"):
-                continue
-            hierarchy = aliases.get(str(item.get("hierarchy") or item.get("label_hierarchy") or ""), item.get("hierarchy"))
-            if hierarchy in {"core", "secondary", "detail"} and hierarchy not in mapping:
-                mapping[hierarchy] = item["visual_id"]
-        return mapping
+    def _normalize_category(self, props: dict, fallback: str = "poi") -> str:
+        raw = props.get("category") or props.get("poi_category") or props.get("type") or props.get("visual_id") or fallback
+        aliases = {
+            "景点": "scenic",
+            "自然景观": "scenic",
+            "文化": "culture",
+            "文化历史": "culture",
+            "博物馆": "culture",
+            "餐饮": "food",
+            "美食": "food",
+            "酒店": "hotel",
+            "住宿": "hotel",
+            "交通": "transport",
+            "购物": "shopping",
+            "娱乐": "entertainment",
+            "滑雪": "ski",
+        }
+        text = str(raw or fallback).strip()
+        text = aliases.get(text, text)
+        if text.startswith("point_"):
+            text = text[6:]
+        text = re.sub(r"[^a-zA-Z0-9_]+", "_", text.lower())
+        text = re.sub(r"_+", "_", text).strip("_")
+        return text or fallback
 
     def _normalize_label_content_type(self, value: str | None, hierarchy: str, props: dict) -> str:
         aliases = {
@@ -343,7 +352,9 @@ class GeoJSONGenerationNode:
             return normalized
         if hierarchy == "detail":
             return "title_script_extra"
-        return "title_script" if props.get("description") else "title"
+        if props.get("label_extra_info") or props.get("extra_info"):
+            return "title_script_extra"
+        return "title_script" if props.get("label_script") or props.get("description") else "title"
 
     def _normalize_label_hierarchy(self, value: str | None, order_index: int) -> str:
         aliases = {
@@ -363,14 +374,46 @@ class GeoJSONGenerationNode:
             return "secondary"
         return "detail"
 
+    def _normalize_global_properties(self, geojson_data: dict) -> None:
+        source_items = geojson_data.get("global_properties")
+        if not isinstance(source_items, list):
+            source_items = []
+
+        normalized = []
+        for index, source in enumerate(source_items[:2]):
+            if not isinstance(source, dict):
+                continue
+            if index == 0:
+                item = {
+                    "visual_id": source.get("visual_id") or "global_title",
+                    "title": source.get("title") or source.get("name") or "旅行路线规划",
+                    "script": source.get("script") or source.get("description") or source.get("subtitle") or "",
+                    "extra_info": source.get("extra_info") or source.get("summary") or source.get("detail") or "",
+                }
+            else:
+                item = {
+                    "visual_id": source.get("visual_id") or "global_summary",
+                    "title": source.get("title") or source.get("name") or "路线节奏",
+                    "script": source.get("script") or source.get("description") or source.get("subtitle") or "",
+                }
+            normalized.append(item)
+
+        if not normalized:
+            city = geojson_data.get("_city") or ""
+            normalized.append(
+                {
+                    "visual_id": "global_title",
+                    "title": f"{city}旅行路线规划" if city else "旅行路线规划",
+                    "script": "按天数拆分路线与重点 POI",
+                    "extra_info": "",
+                }
+            )
+
+        geojson_data["global_properties"] = normalized[:2]
+
     def _normalize_travel_semantics(self, geojson_data: dict, visual_structure: dict | None = None) -> dict:
-        """Deduplicate POIs, apply label hierarchy, remove legacy Card/Area, and rebuild day routes."""
+        """Deduplicate concrete POIs, classify labels, and rebuild one route per day."""
         features = geojson_data.get("features", [])
-        point_visual_ids = self._category_visual_ids(visual_structure, "Point") or ["point_vis_1"]
-        route_visual_ids = self._category_visual_ids(visual_structure, "Route") or ["route_vis_1"]
-        label_visual_ids = self._category_visual_ids(visual_structure, "Label") or self._category_visual_ids(visual_structure, "Card") or ["label_vis_1"]
-        global_visual_ids = self._category_visual_ids(visual_structure, "Global")
-        label_by_hierarchy = self._label_style_by_hierarchy(visual_structure or {})
 
         existing_routes_by_day = {}
         route_order = []
@@ -395,10 +438,9 @@ class GeoJSONGenerationNode:
             props["day"] = f"D{day_num}"
             day_counts[day_num] = day_counts.get(day_num, 0) + 1
             props["order"] = self._normalize_order(props.get("order") or props.get("sequence"), fallback=day_counts[day_num])
-            props.pop("card_coord", None)
-            props.pop("card_visual_id", None)
-            if props.get("visual_id") not in point_visual_ids:
-                props["visual_id"] = point_visual_ids[(day_num - 1) % len(point_visual_ids)]
+            category = self._normalize_category(props)
+            props["category"] = category
+            props["visual_id"] = f"point_{category}"
             if not props.get("name"):
                 props["name"] = props.get("label_title") or f"D{day_num} POI {props['order']}"
             candidates.append(feature)
@@ -421,7 +463,7 @@ class GeoJSONGenerationNode:
             points_by_day.setdefault(day_num, []).append(feature)
 
         kept_points = []
-        max_pois_per_day = 5
+        max_pois_per_day = max(2, int(getattr(self, "max_pois_per_day", 5)))
         for day_num in sorted(points_by_day):
             day_points = sorted(
                 points_by_day[day_num],
@@ -430,11 +472,11 @@ class GeoJSONGenerationNode:
             for index, feature in enumerate(day_points):
                 props = feature.setdefault("properties", {})
                 coords = feature.get("geometry", {}).get("coordinates")
-                hierarchy = self._normalize_label_hierarchy(props.get("label_hierarchy") or props.get("hierarchy"), index)
+                hierarchy = self._normalize_label_hierarchy(props.get("label_level") or props.get("label_hierarchy") or props.get("hierarchy"), index)
                 content_type = self._normalize_label_content_type(props.get("label_content_type") or props.get("content_type"), hierarchy, props)
                 props["day"] = f"D{day_num}"
                 props["order"] = index + 1
-                props["label_hierarchy"] = hierarchy
+                props["label_level"] = hierarchy
                 props["label_content_type"] = content_type
                 props["label_title"] = props.get("label_title") or props.get("name") or ""
                 if not props.get("label_script"):
@@ -442,26 +484,22 @@ class GeoJSONGenerationNode:
                 if "label_extra_info" not in props:
                     props["label_extra_info"] = props.get("open_time") or props.get("ticket") or props.get("transport") or ""
                 props["label_coord"] = props.get("label_coord") or coords
-                if props.get("label_visual_id") not in label_visual_ids:
-                    props["label_visual_id"] = (
-                        label_by_hierarchy.get(hierarchy)
-                        or label_visual_ids[min(index, len(label_visual_ids) - 1)]
-                    )
-                for noisy_key in ["global_title", "global_description", "trip_summary", "total_budget"]:
+                props.pop("label_hierarchy", None)
+                for noisy_key in ["global_title", "global_description", "trip_summary", "total_budget", "summary_title", "trip_title"]:
                     props.pop(noisy_key, None)
                 kept_points.append(feature)
 
         rebuilt_routes = []
-        for route_index, day_num in enumerate(sorted(points_by_day)):
+        for route_index, day_num in enumerate(sorted(points_by_day), start=1):
             day_points = [p for p in kept_points if self._normalize_day(p.get("properties", {}).get("day")) == day_num]
             if len(day_points) < 2:
                 continue
             existing_props = dict(existing_routes_by_day.get(day_num) or {})
-            if existing_props.get("visual_id") not in route_visual_ids:
-                existing_props["visual_id"] = route_visual_ids[route_index % len(route_visual_ids)]
-            existing_props["name"] = existing_props.get("name") or f"D{day_num} 旅行路线"
+            existing_props["visual_id"] = f"route_D{day_num}"
+            existing_props["name"] = existing_props.get("name") or f"D{day_num} 路线"
             existing_props["day"] = f"D{day_num}"
-            existing_props["description"] = "→".join(p.get("properties", {}).get("name", "") for p in day_points)
+            existing_props["point_names"] = [p.get("properties", {}).get("name", "") for p in day_points]
+            existing_props["description"] = "→".join(existing_props["point_names"])
             rebuilt_routes.append({
                 "type": "Feature",
                 "geometry": {
@@ -471,20 +509,15 @@ class GeoJSONGenerationNode:
                 "properties": existing_props,
             })
 
-        global_properties = geojson_data.setdefault("global_properties", [])
-        if global_properties and global_visual_ids:
-            for index, item in enumerate(global_properties):
-                if isinstance(item, dict):
-                    item.setdefault("visual_id", global_visual_ids[min(index, len(global_visual_ids) - 1)])
-
-        geojson_data["features"] = kept_points + rebuilt_routes
+        self._normalize_global_properties(geojson_data)
+        geojson_data["features"] = rebuilt_routes + kept_points
         return geojson_data
 
     def _annotate_feature_metadata(self, geojson_data: dict) -> dict:
         """Add stable feature ids and machine-readable visual-to-content mappings."""
         features = geojson_data.get("features", [])
-        counters = {"Point": 0, "LineString": 0, "Polygon": 0}
-        prefixes = {"Point": "poi", "LineString": "route", "Polygon": "area"}
+        counters = {"Point": 0, "LineString": 0}
+        prefixes = {"Point": "poi", "LineString": "route"}
         used_feature_ids = set()
         visual_mapping = {}
 
@@ -507,13 +540,10 @@ class GeoJSONGenerationNode:
                 properties["semantic_role"] = {
                     "Point": "poi",
                     "LineString": "route",
-                    "Polygon": "area",
                 }.get(geom_type, "feature")
 
-            for visual_key in ["visual_id", "card_visual_id", "label_visual_id"]:
-                visual_id = properties.get(visual_key)
-                if not visual_id:
-                    continue
+            visual_id = properties.get("visual_id")
+            if visual_id:
                 item = visual_mapping.setdefault(
                     visual_id,
                     {
@@ -523,8 +553,8 @@ class GeoJSONGenerationNode:
                     }
                 )
                 item["applied_to"].append(properties["feature_id"])
-                if visual_key not in item["properties"]:
-                    item["properties"].append(visual_key)
+                if "visual_id" not in item["properties"]:
+                    item["properties"].append("visual_id")
 
         geojson_data["_visual_content_mapping"] = list(visual_mapping.values())
         return geojson_data
@@ -568,13 +598,18 @@ class GeoJSONGenerationNode:
                 
                 json_str = _extract_first_json_object(content)
                 geojson_data = _robust_json_loads(json_str)
+                if not geojson_data.get("global_properties"):
+                    geojson_data["global_properties"] = [
+                        {
+                            "visual_id": "global_title",
+                            "title": state.global_title or "旅行路线规划",
+                            "script": state.global_description or "",
+                            "extra_info": "",
+                        }
+                    ]
                 geojson_data = self._correct_and_sync_topology(geojson_data)
                 geojson_data = self._normalize_travel_semantics(geojson_data, state.visual_structure)
                 geojson_data = self._annotate_feature_metadata(geojson_data)
-                if "global_properties" not in geojson_data:
-                    geojson_data["global_properties"] = [
-                        {"title": state.global_title, "visual_id": "global_vis_1"}
-                    ]
 
                 schema_report = validate_geojson(geojson_data)
                 if schema_report["valid"]:
