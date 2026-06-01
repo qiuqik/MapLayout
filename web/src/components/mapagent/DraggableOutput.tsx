@@ -110,13 +110,18 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
     }
   }, [enabled, handleMouseMove, handleMouseUp]);
 
-  const positionStyle: React.CSSProperties = {
+  const usesScaleVariable = outputPosition.html.includes('--map-label-scale');
+  const visualScale = usesScaleVariable ? 1 : outputPosition.scale ?? 1;
+  const positionStyle: React.CSSProperties & Record<string, string | number> = {
     position: 'absolute',
     left: `${position.x}px`,
     top: `${position.y}px`,
     pointerEvents: enabled ? 'auto' : 'none',
     cursor: enabled ? (isDragging ? 'grabbing' : 'grab') : 'default',
     zIndex: isDragging ? 1000 : 5,
+    transform: `scale(${visualScale})`,
+    transformOrigin: 'center center',
+    '--map-label-scale': outputPosition.scale ?? 1,
   };
 
   return (

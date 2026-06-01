@@ -128,7 +128,7 @@ class MultiModalMapAgent:
         
         self.openai_key = os.getenv("OPENAI_API_KEY")
         self.http_proxy = os.getenv("HTTP_PROXY")
-        self.llm_model = os.getenv("LLM_MODEL", "gpt-5")
+        self.llm_model = os.getenv("LLM_MODEL", "gpt-5.5")
         self.vlm_model_type = os.getenv("VLM_MODEL", "qwen").lower()
         
         if self.vlm_model_type not in ["qwen", "gemini"]:
@@ -427,7 +427,7 @@ class MultiModalMapAgent:
             
             return ChatOpenAI(
                 api_key=gemini_key,
-                model="gemini-3-pro-preview",
+                model="gemini-3.1-pro-preview",
                 base_url=self.http_proxy,
                 temperature=0.7
             )

@@ -13,7 +13,7 @@ class IntentEnrichmentNode:
     """
 
     PROMPT_NAME = "intent_enrichment"
-    PROMPT_VERSION = "v0.1"
+    PROMPT_VERSION = "v0.2"
     
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm

@@ -10,6 +10,46 @@ interface PointRendererProps {
 }
 
 const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, globalProps = {} }) => {
+  const renderPointIcon = (pointStyle: any, feature: any) => {
+    const iconSrc = pointStyle.iconDataUrl || pointStyle.iconUrl;
+    const fallbackColor = pointStyle.iconFallbackColor || pointStyle.color || '#E4572E';
+
+    if (iconSrc) {
+      return (
+        <img
+          src={iconSrc}
+          alt={feature.properties?.name || pointStyle.iconDescription || 'POI'}
+          style={{
+            width: 28,
+            height: 28,
+            objectFit: 'contain',
+            display: 'block',
+            filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.25))',
+          }}
+        />
+      );
+    }
+
+    if (pointStyle.template || pointStyle.iconSvg) {
+      const htmlStr = populateTemplate(pointStyle.template || pointStyle.iconSvg, feature.properties, globalProps);
+      return <div dangerouslySetInnerHTML={{ __html: htmlStr }} />;
+    }
+
+    return (
+      <span
+        style={{
+          width: 16,
+          height: 16,
+          borderRadius: '999px',
+          background: fallbackColor,
+          border: '2px solid #fff',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.28)',
+          display: 'block',
+        }}
+      />
+    );
+  };
+
   return (
     <>
       {points.map((feature: any) => {
@@ -19,7 +59,6 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, glob
         if (!pointStyle) return null;
 
         const [lng, lat] = feature.geometry.coordinates;
-        const htmlStr = populateTemplate(pointStyle.template || pointStyle.iconSvg, feature.properties, globalProps);
         
         return (
           <Marker
@@ -30,12 +69,13 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, glob
           >
             <div
               style={{
-                width: 20,
-                height: 20,
+                width: 28,
+                height: 28,
                 pointerEvents: 'none',
               }}
-              dangerouslySetInnerHTML={{ __html: htmlStr }}
-            />
+            >
+              {renderPointIcon(pointStyle, feature)}
+            </div>
           </Marker>
         );
       })}

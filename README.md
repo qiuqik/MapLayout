@@ -46,4 +46,5 @@ MapLayout/
 ## 研究与开发文档
 
 - [CHI 改进路线与完成记录](docs/CHI_ROADMAP.md)：记录已完成改动、当前效果修复与后续实验/投稿路线。
+- [项目理解与相关文献地图](docs/RELATED_LITERATURE.md)：整理系统研究定位、CHI/VIS 等相关文献、研究缺口与实验映射。
 - [Codex 调试与验证方法](docs/CODEX_DEBUGGING_WORKFLOW.md)：记录后端、前端、布局评估与分步提交的调试流程。

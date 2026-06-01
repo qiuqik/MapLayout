@@ -8,9 +8,13 @@ interface CardRendererProps {
   polygons: any[];
   cardStyles: any[];
   globalProps: any;
+  labelScale?: number;
+  hideDetailLabels?: boolean;
 }
 
-const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyles, globalProps }) => {
+const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyles, globalProps, labelScale = 1, hideDetailLabels = false }) => {
+  if (hideDetailLabels) return null;
+
   return (
     <>
       {points.map((feature: any) => {
@@ -24,6 +28,7 @@ const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyle
         const coord = feature.properties?.card_coord || feature.geometry.coordinates;
         const [lng, lat] = coord;
         const htmlStr = populateTemplate(cardStyle.template, feature.properties, globalProps);
+        const visualScale = htmlStr.includes('--map-label-scale') ? 1 : labelScale;
         // const AhtmlStr = htmlStr.replace(/\s*transform:[^;]+;?/gi, '');
         // console.log("card html:", htmlStr, AhtmlStr);
 
@@ -34,7 +39,14 @@ const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyle
             latitude={lat}
             anchor="bottom"
           >
-            <div dangerouslySetInnerHTML={{ __html: htmlStr }} />
+            <div
+              style={{
+                transform: `scale(${visualScale})`,
+                transformOrigin: 'bottom center',
+                '--map-label-scale': labelScale,
+              } as any}
+              dangerouslySetInnerHTML={{ __html: htmlStr }}
+            />
           </Marker>
         );
       })}
@@ -47,6 +59,7 @@ const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyle
         const coord = feature.properties?.card_coord || feature.geometry.coordinates[0][0];
         const [lng, lat] = coord;
         const htmlStr = populateTemplate(cardStyle.template, feature.properties, globalProps);
+        const visualScale = htmlStr.includes('--map-label-scale') ? 1 : labelScale;
         // const AhtmlStr = htmlStr.replace(/\s*transform:[^;]+;?/gi, '');
         // console.log("card html:", htmlStr, AhtmlStr);
 
@@ -57,7 +70,14 @@ const CardRenderer: React.FC<CardRendererProps> = ({ points, polygons, cardStyle
             latitude={lat}
             anchor="bottom"
           >
-            <div dangerouslySetInnerHTML={{ __html: htmlStr }} />
+            <div
+              style={{
+                transform: `scale(${visualScale})`,
+                transformOrigin: 'bottom center',
+                '--map-label-scale': labelScale,
+              } as any}
+              dangerouslySetInnerHTML={{ __html: htmlStr }}
+            />
           </Marker>
         );
       })}

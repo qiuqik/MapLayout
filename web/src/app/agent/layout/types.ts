@@ -8,6 +8,8 @@ export type Rect = {
 };
 
 export type LayoutItemKind = 'label' | 'card';
+export type LayoutItemHierarchy = 'core' | 'secondary' | 'detail';
+export type LayoutItemContentType = 'title' | 'title_script' | 'title_script_extra';
 
 export type LayoutItemInput = {
   id: string;
@@ -20,6 +22,10 @@ export type LayoutItemInput = {
   height: number;
   /** Optional padding to keep away from repulsion field */
   padding?: number;
+  hierarchy?: LayoutItemHierarchy;
+  contentType?: LayoutItemContentType;
+  scale?: number;
+  hidden?: boolean;
 };
 
 export type LayoutItemOutput = LayoutItemInput & {

@@ -19,7 +19,7 @@ import CardRenderer from './renderers/CardRenderer';
 import LabelRenderer from './renderers/LabelRenderer';
 import DraggableOutput from './DraggableOutput';
 
-import type { LayoutItemInput, LayoutItemOutput, LayoutItemPosition, LayoutRunMetadata, LeaderLine, Rect } from '@/app/agent/layout/types';
+import type { LayoutItemContentType, LayoutItemHierarchy, LayoutItemInput, LayoutItemOutput, LayoutItemPosition, LayoutRunMetadata, LeaderLine, Rect } from '@/app/agent/layout/types';
 import { buildObstacleRects, buildObstacleSegments } from '@/app/agent/layout/obstacles';
 import { buildCostFieldFromRects, type CostField } from '@/app/agent/layout/costField';
 import { runForceLayout, type LayoutParams } from '@/app/agent/layout/forceLayout';
@@ -48,6 +48,70 @@ const DEFAULT_FIELD: FieldParamsOverride = {
   cellSize: 24,
 };
 
+const hierarchyAliases: Record<string, LayoutItemHierarchy> = {
+  core: 'core',
+  '核心标签': 'core',
+  secondary: 'secondary',
+  '次要标签': 'secondary',
+  detail: 'detail',
+  '详细标签': 'detail',
+};
+
+const contentTypeAliases: Record<string, LayoutItemContentType> = {
+  title: 'title',
+  '只包含title': 'title',
+  '只包含 title': 'title',
+  title_script: 'title_script',
+  'title+script': 'title_script',
+  '包含title+script': 'title_script',
+  '包含 title+script': 'title_script',
+  title_script_extra: 'title_script_extra',
+  'title+script+extra info': 'title_script_extra',
+};
+
+function normalizeHierarchy(value: unknown, fallback: LayoutItemHierarchy = 'secondary'): LayoutItemHierarchy {
+  return hierarchyAliases[String(value ?? '').trim()] ?? fallback;
+}
+
+function normalizeContentType(value: unknown, fallback: LayoutItemContentType = 'title_script'): LayoutItemContentType {
+  return contentTypeAliases[String(value ?? '').trim()] ?? fallback;
+}
+
+function getOverlayMeta(feature: any, style: any, fallbackHierarchy: LayoutItemHierarchy = 'secondary') {
+  const hierarchy = normalizeHierarchy(
+    feature?.properties?.label_hierarchy ?? feature?.properties?.hierarchy ?? style?.hierarchy ?? style?.label_hierarchy,
+    fallbackHierarchy,
+  );
+  const contentType = normalizeContentType(
+    feature?.properties?.label_content_type ?? feature?.properties?.content_type ?? style?.content_type ?? style?.label_content_type,
+    hierarchy === 'detail' ? 'title_script_extra' : 'title_script',
+  );
+  return { hierarchy, contentType };
+}
+
+function getResponsiveOverlayScale(
+  hierarchy: LayoutItemHierarchy,
+  viewport: { width: number; height: number } | null,
+  itemCount: number,
+) {
+  const width = viewport?.width || 1100;
+  const base = Math.min(1, Math.max(0.68, width / 1100));
+  const density = itemCount > 24 ? 0.86 : itemCount > 16 ? 0.92 : 1;
+  const hierarchyFactor = hierarchy === 'core' ? 1 : hierarchy === 'secondary' ? 0.9 : 0.78;
+  return Number((base * density * hierarchyFactor).toFixed(3));
+}
+
+function shouldHideOverlay(
+  hierarchy: LayoutItemHierarchy,
+  viewport: { width: number; height: number } | null,
+  itemCount: number,
+) {
+  const width = viewport?.width || 1100;
+  if (hierarchy === 'detail' && (width < 700 || itemCount > 24)) return true;
+  if (hierarchy === 'secondary' && width < 460 && itemCount > 12) return true;
+  return false;
+}
+
 interface TravelMapProps {
   geojson: any;
   styleCode: any;
@@ -68,8 +132,10 @@ interface TravelMapProps {
 }
 
 export default function TravelMap({ geojson, styleCode, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, rerunLayoutTrigger = 0, layoutAlgorithm = 'force', layoutSeed = 1 }: TravelMapProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapRef>(null);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
+  const [viewportSize, setViewportSize] = useState<{ width: number; height: number } | null>(null);
   // Bounding rects of global items in map-container px space (set via onMeasured callback).
   const globalRectsRef = useRef<Rect[]>([]);
   // Always points to the latest recomputeLayout closure so handleGlobalMeasured can call it.
@@ -194,7 +260,15 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         ? 'mapbox://styles/mapbox/satellite-v9'
         : 'mapbox://styles/mapbox/streets-v12';
 
-  const processLayoutInput = (id: string, feature: any, globalProps: any, cardVisualId: string, styles: any[]) => {
+  const processLayoutInput = (
+    id: string,
+    feature: any,
+    globalProps: any,
+    visualId: string,
+    styles: any[],
+    fallbackHierarchy: LayoutItemHierarchy = 'secondary',
+    itemCount: number = 0,
+  ) => {
     let positions = originPositions;
     if(currentDataset === 'layout'){
       positions = layoutPositions;
@@ -207,15 +281,22 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     for(let i = 0; i < selectedPositions.length; i++){
       const position = selectedPositions[i];
       if(position.id !== id) continue;
-      const style = styles.find((l: any) => l.visual_id === cardVisualId);
+      const style = styles.find((l: any) => l.visual_id === visualId);
       if(style) {
         const html = populateTemplate(style.template, feature.properties, globalProps);
+        const meta = getOverlayMeta(feature, style, fallbackHierarchy);
+        const scale = getResponsiveOverlayScale(meta.hierarchy, viewportSize, itemCount || selectedPositions.length);
         input.push({
           ...position,
+          kind: 'label',
           html,
           width: 0,
           height: 0,
-          padding: 14,
+          padding: meta.hierarchy === 'detail' ? 18 : 14,
+          hierarchy: meta.hierarchy,
+          contentType: meta.contentType,
+          scale,
+          hidden: shouldHideOverlay(meta.hierarchy, viewportSize, itemCount || selectedPositions.length),
         })
       }
     }
@@ -227,6 +308,9 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     const inputs: LayoutItemInput[] = [];
     const globalProps = transformedData.globalProps;
     const allTransformedFeatures = [...transformedData.points,...transformedData.lines, ...transformedData.polygons];
+    const overlayCount = allTransformedFeatures.reduce((count: number, feature: any) => {
+      return count + (feature.properties?.card_coord ? 1 : 0) + (feature.properties?.label_coord ? 1 : 0);
+    }, 0);
 
     for (let i = 0; i < allTransformedFeatures.length; i++) {
       const feature: any = allTransformedFeatures[i];
@@ -236,14 +320,14 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
         const cardVisualId = feature.properties?.card_visual_id;
         const id = `card-${type}-${name}-${cardVisualId}`;
         // console.log("card id:", id);
-        const input = processLayoutInput(id, feature, globalProps, cardVisualId, cardStyles);
+        const input = processLayoutInput(id, feature, globalProps, cardVisualId, cardStyles, 'detail', overlayCount);
         if(input) inputs.push(...input);
       }
       if(feature.properties?.label_coord){
         const labelVisualId = feature.properties?.label_visual_id;
         const id = `label-${type}-${name}-${labelVisualId}`;
         // console.log("label id:", id);
-        const input = processLayoutInput(id, feature, globalProps, labelVisualId, labelStyles);
+        const input = processLayoutInput(id, feature, globalProps, labelVisualId, labelStyles, 'secondary', overlayCount);
         if(input) inputs.push(...input);
       }
     }
@@ -260,6 +344,7 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     groundtruthPositions,
     labelStyles,
     cardStyles,
+    viewportSize,
   ]);
 
   // Called by GlobalRenderer after it measures its rendered children.
@@ -297,14 +382,21 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
       if (s.inputs.length !== next.length) {
         return { ...s, inputs: next, outputs: [], leaderLines: [] };
       }
-      const same = s.inputs.every((it, i) => it.id === next[i].id);
+      const same = s.inputs.every((it, i) => (
+        it.id === next[i].id &&
+        it.html === next[i].html &&
+        it.scale === next[i].scale &&
+        it.hidden === next[i].hidden &&
+        it.hierarchy === next[i].hierarchy &&
+        it.contentType === next[i].contentType
+      ));
       if (same) {
         return s;
       }
       // Preserve already-measured width/height values when IDs change
       const merged = next.map(newItem => {
         const oldItem = s.inputs.find(it => it.id === newItem.id);
-        if (oldItem && oldItem.width > 0 && oldItem.height > 0) {
+        if (oldItem && oldItem.html === newItem.html && oldItem.scale === newItem.scale && oldItem.width > 0 && oldItem.height > 0) {
           return { ...newItem, width: oldItem.width, height: oldItem.height };
         }
         return newItem;
@@ -408,7 +500,8 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     }, segments);
 
     setDebugCostField(field);
-    const ready = layoutState.inputs.map((it) => {
+    const visibleInputs = layoutState.inputs.filter((it) => !it.hidden);
+    const ready = visibleInputs.map((it) => {
       // Use measured dimensions, fallback to conservative defaults if not yet measured
       const width = it.width > 0 ? it.width : 80;
       const height = it.height > 0 ? it.height : 32;
@@ -507,10 +600,40 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
     recomputeLayoutRef.current = recomputeLayout;
   });
 
-  // useEffect(() => {
-  //   if (layoutState.inputs.length === 0) return;
-  //   recomputeLayout();
-  // }, [layoutState.inputs, recomputeLayout]);
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const updateSize = () => {
+      const rect = root.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      setViewportSize((prev) => {
+        if (prev && Math.round(prev.width) === Math.round(rect.width) && Math.round(prev.height) === Math.round(rect.height)) {
+          return prev;
+        }
+        return { width: rect.width, height: rect.height };
+      });
+
+      const raw = mapRef.current as any;
+      const map = raw?.getMap ? raw.getMap() : raw;
+      map?.resize?.();
+      recomputeLayoutRef.current();
+    };
+
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(root);
+    window.addEventListener('resize', updateSize);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateSize);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (layoutState.inputs.length === 0) return;
+    recomputeLayout();
+  }, [layoutState.inputs, recomputeLayout]);
 
 
 
@@ -652,9 +775,12 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
   const displayLeaderLines = currentDataset === 'groundtruth' && groundtruthLeaderLines.length > 0
     ? groundtruthLeaderLines
     : layoutState.leaderLines;
+  const fallbackOverlayCount = transformedData.points.length + transformedData.polygons.length;
+  const fallbackLabelScale = getResponsiveOverlayScale('secondary', viewportSize, fallbackOverlayCount);
+  const hideDetailLabels = shouldHideOverlay('detail', viewportSize, fallbackOverlayCount);
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={rootRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
       {!hideOverlays && <BaseMapRenderer baseMapStyle={baseMapStyle} />}
 
       <MapGL
@@ -681,11 +807,15 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
               polygons={transformedData.polygons}
               cardStyles={cardStyles}
               globalProps={transformedData.globalProps}
+              labelScale={fallbackLabelScale}
+              hideDetailLabels={hideDetailLabels}
             />
             <LabelRenderer
               points={transformedData.points}
               labelStyles={labelStyles}
               globalProps={transformedData.globalProps}
+              labelScale={fallbackLabelScale}
+              hideDetailLabels={hideDetailLabels}
             />
           </>
         )}
@@ -768,7 +898,8 @@ export default function TravelMap({ geojson, styleCode, showHeatmap = false, for
               display: 'inline-block',
               width: 'auto',
               height: 'auto',
-            }}
+              '--map-label-scale': it.scale ?? 1,
+            } as React.CSSProperties}
             dangerouslySetInnerHTML={{ __html: it.html }}
           />
         ))}

@@ -1,3 +1,4 @@
+import re
 import time
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -6,7 +7,6 @@ from ..utils.prompt_loader import load_prompt
 from ..validators.schema_validators import validate_geojson
 
 from ..amap_service import AMapService
-from shapely.geometry import MultiPoint, Polygon as ShapelyPolygon
 import math
 
 class GeoJSONGenerationNode:
@@ -18,26 +18,21 @@ class GeoJSONGenerationNode:
     """
 
     PROMPT_NAME = "geojson_generation"
-    PROMPT_VERSION = "v0.1"
+    PROMPT_VERSION = "v0.2"
     
     def __init__(self, llm: ChatOpenAI, amap_service: AMapService = None):
         self.llm = llm
         self.amap_service = amap_service or AMapService()
         
         geojson_example = '''{
-  "_mapping_thought": "参考图虽然是新疆滑雪场，但提供了 Area 和 Card 容器。我将北京行程按地理划分为'东城区'和'延庆区'两个 Polygon，并复用 area_vis_1 和 area_vis_2，为它们生成了对应的总结 Card。",
+  "_mapping_thought": "我从 Node 1 中识别出 2 天行程，因此按 D1/D2 生成两条 LineString；每个 POI 都是具体地点，没有行政区或区域面；文字信息全部通过 Label 字段承载，其中 D1 起点和 D2 关键点为核心标签，其余为次要或详细标签。",
   "_city":"北京",
   "type": "FeatureCollection",
   "global_properties": [
       {
         "title": "2 天 1 夜北京核心景点游",
-        "description": "D1：天安门广场（东城）→故宫博物院；D2：八达岭长城（延庆区，德胜门乘 877 路直达）→返程。",
+        "description": "D1：天安门广场→故宫博物院→景山公园；D2：八达岭长城→奥林匹克公园。",
         "visual_id": "global_vis_1"
-      },
-      {
-        "title": "天安门→故宫→长城",
-        "description": "简单总结",
-        "visual_id": " global_vis_2"
       }
   ],
   "features": [
@@ -45,37 +40,56 @@ class GeoJSONGenerationNode:
       "type": "Feature",
       "geometry": {
         "type": "LineString",
+	        "coordinates": [
+	          [116.397, 39.908],
+	          [116.397, 39.916],
+	          [116.395, 39.923]
+	        ]
+	      },
+	      "properties": {
+	        "visual_id": "route_vis_1",
+	        "name": "D1 北京中轴线步行路线",
+	        "day": "D1",
+	        "description": "天安门广场→故宫博物院→景山公园"
+	      }
+	    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "LineString",
         "coordinates": [
-          [116.397, 39.908],
-          [116.397, 39.916],
-          [116.395, 39.923],
-          [116.412, 39.913],
-          [116.416, 40.359]
+          [116.416, 40.359],
+          [116.391, 39.992]
         ]
       },
       "properties": {
         "visual_id": "route_vis_1",
-        "name": "北京核心景点路线",
-        "description": "天安门→故宫→长城"
+        "name": "D2 长城与返程路线",
+        "day": "D2",
+        "description": "八达岭长城→奥林匹克公园"
       }
     },
-    {
-      "type": "Feature",
-      "geometry": {
+	    {
+	      "type": "Feature",
+	      "geometry": {
         "type": "Point",
         "coordinates": [116.397, 39.908]
       },
       "properties": {
-        "visual_id": "point_vis_1",
-        "name": "天安门广场",
-        "description": "东城，行程起点",
-        "open_time":"全天开放",
-        "card_coord": [116.0, 39.5],
-        "card_visual_id": "card_vis_1",
-        "label_coord": [116.390, 39.809],
-        "label_visual_id": "label_vis_1"
-      }
-    },
+	        "visual_id": "point_vis_1",
+	        "name": "天安门广场",
+	        "day": "D1",
+	        "order": 1,
+	        "description": "中轴线行程起点",
+	        "label_coord": [116.390, 39.809],
+	        "label_visual_id": "label_vis_1",
+	        "label_content_type": "title_script",
+	        "label_hierarchy": "core",
+	        "label_title": "天安门广场",
+	        "label_script": "D1 起点，建议清晨抵达",
+	        "label_extra_info": ""
+	      }
+	    },
     {
       "type": "Feature",
       "geometry": {
@@ -83,86 +97,81 @@ class GeoJSONGenerationNode:
         "coordinates": [116.397, 39.916]
       },
       "properties": {
-        "visual_id": "point_vis_1",
-        "name": "故宫博物院",
-        "description": "核心景点，需预约",
-        "open_time":"9:00am-17:00pm",
-        "card_coord": [116.1, 39.7],
-        "card_visual_id": "card_vis_1",
-        "label_coord": [116.390, 39.809],
-        "label_visual_id": "label_vis_1"
-      }
-    },
+	        "visual_id": "point_vis_1",
+	        "name": "故宫博物院",
+	        "day": "D1",
+	        "order": 2,
+	        "description": "核心景点，需预约",
+	        "label_coord": [116.390, 39.809],
+	        "label_visual_id": "label_vis_1",
+	        "label_content_type": "title_script_extra",
+	        "label_hierarchy": "detail",
+	        "label_title": "故宫博物院",
+	        "label_script": "步行进入，预留 3-4 小时",
+	        "label_extra_info": "提前预约"
+	      }
+	    },
     {
       "type": "Feature",
       "geometry": {
+        "type": "Point",
+        "coordinates": [116.395, 39.923]
+      },
+      "properties": {
+        "visual_id": "point_vis_1",
+        "name": "景山公园",
+        "day": "D1",
+        "order": 3,
+        "description": "俯瞰故宫和中轴线",
+        "label_coord": [116.390, 39.809],
+        "label_visual_id": "label_vis_1",
+        "label_content_type": "title",
+        "label_hierarchy": "secondary",
+        "label_title": "景山公园",
+        "label_script": "",
+        "label_extra_info": ""
+      }
+    },
+	    {
+	      "type": "Feature",
+	      "geometry": {
         "type": "Point",
         "coordinates": [116.416, 40.359]
       },
       "properties": {
+	        "visual_id": "point_vis_1",
+	        "name": "八达岭长城",
+	        "day": "D2",
+	        "order": 1,
+	        "description": "D2 核心景点",
+	        "label_coord": [116.390, 39.809],
+	        "label_visual_id": "label_vis_1",
+	        "label_content_type": "title_script",
+	        "label_hierarchy": "core",
+	        "label_title": "八达岭长城",
+	        "label_script": "D2 早出发，高铁/市郊铁路衔接",
+	        "label_extra_info": ""
+	      }
+	    },
+    {
+      "type": "Feature",
+      "geometry": {
+        "type": "Point",
+        "coordinates": [116.391, 39.992]
+      },
+      "properties": {
         "visual_id": "point_vis_1",
-        "name": "八达岭长城",
-        "description": "延庆区，D2 行程",
-        "open_time":"8:00am-22:00pm",
-        "card_coord": [116.0, 39.5],
-        "card_visual_id": "card_vis_1",
+        "name": "奥林匹克公园",
+        "day": "D2",
+        "order": 2,
+        "description": "返程前轻量游览",
         "label_coord": [116.390, 39.809],
-        "label_visual_id": "label_vis_1"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [116.416,39.928]
-      },
-      "properties": {
-        "visual_id": "point_vis_2",
-        "name": "东城区",
-        "label_coord": [116.390, 39.809],
-        "label_visual_id": "label_vis_1"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [115.974,40.457]
-      },
-      "properties": {
-        "visual_id": "point_vis_2",
-        "name": "延庆区",
-        "label_coord": [116.390, 39.809],
-        "label_visual_id": "label_vis_1"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[
-            [116.390, 39.809],
-            [116.416,39.928]
-        ]]
-      },
-      "properties": {
-        "visual_id": "area_vis_1",
-        "name": "东城区",
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [[
-            [115.974,40.457],
-            [115.974,40.457],
-            [115.974,40.457]
-        ]]
-      },
-      "properties": {
-        "visual_id": "area_vis_2",
-        "name": "延庆区",
+        "label_visual_id": "label_vis_1",
+        "label_content_type": "title",
+        "label_hierarchy": "secondary",
+        "label_title": "奥林匹克公园",
+        "label_script": "",
+        "label_extra_info": ""
       }
     }
   ]
@@ -234,68 +243,250 @@ class GeoJSONGenerationNode:
                     feat["geometry"]["coordinates"] = new_line_coords
                     valid_lines.append(feat)
 
-        # 3. 同步更新 Polygon (直接基于 LLM 划分的面)
-        valid_polygons = []
-        
-        # --- 第一步：收集所有基础凸包，并寻找全局最大跨度 ---
-        temp_hulls = []
-        max_diagonal_span = 0.0005 # 极小值兜底，防止全部是单点或极小区域
-        
-        for feat in features:
-            if feat.get("geometry", {}).get("type") == "Polygon":
-                # Polygon 的坐标通常包裹在一层额外的数组中
-                raw_poly_coords = feat["geometry"]["coordinates"][0] 
-                updated_poly_coords = []
-                
-                for pt in raw_poly_coords:
-                    t_pt = tuple(pt)
-                    # 替换多边形内部的坐标
-                    if t_pt in coord_map:
-                        updated_poly_coords.append(coord_map[t_pt])
-                    else:
-                        updated_poly_coords.append(pt)
-                
-                # 去重获取唯一独立点集
-                unique_coords = []
-                for pt in updated_poly_coords:
-                    if pt not in unique_coords:
-                        unique_coords.append(pt)
+        # 3. 当前产品形态不再生成 Area/Polygon，避免区域信息混入 POI 层。
+        geojson_data["features"] = valid_points + valid_lines
+        return geojson_data
 
-                # 仅处理有效点数 >= 2 的多边形
-                if len(unique_coords) >= 1:
-                    hull = MultiPoint(unique_coords).convex_hull
-                    minx, miny, maxx, maxy = hull.bounds
-                    
-                    # 计算当前多边形的对角线跨度
-                    span = math.hypot(maxx - minx, maxy - miny)
-                    if span > max_diagonal_span:
-                        max_diagonal_span = span
-                        
-                    # 暂存基础凸包和特征，用于第二步
-                    temp_hulls.append({
-                        "feature": feat,
-                        "hull": hull
-                    })
-                else:
-                    print(f"   ⚠️ Polygon [{feat.get('properties', {}).get('name', '未命名')}] 剩余有效点不足 2 个，已移除")
+    def _category_visual_ids(self, visual_structure: dict, category: str) -> list[str]:
+        if not isinstance(visual_structure, dict):
+            return []
+        ids = []
+        for item in visual_structure.get(category) or []:
+            if isinstance(item, dict) and item.get("visual_id"):
+                ids.append(item["visual_id"])
+        return ids
 
-        # --- 第二步：根据最大跨度计算统一 padding，并应用到所有凸包 ---
-        # 动态 padding 距离为全局最大跨度的 8% (比例可视前端 UI 效果微调)
-        global_dynamic_buffer = max(0.0005, max_diagonal_span * 0.08)
+    def _normalize_day(self, value, fallback: int = 1) -> int:
+        if isinstance(value, int):
+            return max(1, value)
+        text = str(value or "")
+        match = re.search(r"(?:D|DAY|第)?\s*(\d+)", text, re.IGNORECASE)
+        return max(1, int(match.group(1))) if match else fallback
 
-        for item in temp_hulls:
-            feat = item["feature"]
-            hull = item["hull"]
+    def _normalize_order(self, value, fallback: int = 999) -> int:
+        if isinstance(value, int):
+            return max(1, value)
+        match = re.search(r"\d+", str(value or ""))
+        return max(1, int(match.group(0))) if match else fallback
 
-            # 使用统一的全局 buffer 进行外扩
-            buffered_hull = hull.buffer(global_dynamic_buffer, quad_segs=8, join_style=1)
+    def _normalize_poi_name(self, name: str) -> str:
+        normalized = re.sub(r"[\s·•\-_/()（）【】\[\]，,。.:：;；'\"“”]", "", str(name or "").lower())
+        for suffix in ["游客中心", "地铁站", "公交站", "站"]:
+            if len(normalized) > len(suffix) + 1 and normalized.endswith(suffix):
+                normalized = normalized[: -len(suffix)]
+        return normalized
 
-            if isinstance(buffered_hull, ShapelyPolygon):
-                feat["geometry"]["coordinates"] = [list(buffered_hull.exterior.coords)]
-                valid_polygons.append(feat)
+    def _is_region_like_point(self, feature: dict) -> bool:
+        props = feature.get("properties") or {}
+        name = str(props.get("name") or props.get("label_title") or "")
+        role = str(props.get("semantic_role") or "").lower()
+        if role in {"area", "region", "district", "admin_area"}:
+            return True
+        if name.endswith(("片区", "商圈", "街道", "区域", "范围", "新区", "城区")):
+            return True
+        if len(name) <= 4 and name.endswith(("区", "市", "县")):
+            return True
+        return False
 
-        # 4. 将过滤后的有效 features 写回 geojson_data
-        geojson_data["features"] = valid_points + valid_lines + valid_polygons
+    def _distance_meters(self, coord_a, coord_b) -> float:
+        try:
+            lon1, lat1 = float(coord_a[0]), float(coord_a[1])
+            lon2, lat2 = float(coord_b[0]), float(coord_b[1])
+        except (TypeError, ValueError, IndexError):
+            return float("inf")
+        radius = 6371000
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        d_phi = math.radians(lat2 - lat1)
+        d_lambda = math.radians(lon2 - lon1)
+        a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+        return 2 * radius * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    def _is_duplicate_poi(self, candidate: dict, kept: list[dict]) -> bool:
+        candidate_props = candidate.get("properties") or {}
+        candidate_name = self._normalize_poi_name(candidate_props.get("name"))
+        candidate_day = candidate_props.get("day")
+        candidate_coord = candidate.get("geometry", {}).get("coordinates")
+        for existing in kept:
+            existing_props = existing.get("properties") or {}
+            existing_name = self._normalize_poi_name(existing_props.get("name"))
+            if candidate_name and existing_name:
+                if candidate_name == existing_name:
+                    return True
+                if min(len(candidate_name), len(existing_name)) >= 2 and (
+                    candidate_name in existing_name or existing_name in candidate_name
+                ):
+                    return True
+            dist = self._distance_meters(candidate_coord, existing.get("geometry", {}).get("coordinates"))
+            if dist < 35:
+                return True
+            if candidate_day == existing_props.get("day") and dist < 120:
+                return True
+        return False
+
+    def _label_style_by_hierarchy(self, visual_structure: dict) -> dict[str, str]:
+        aliases = {"核心标签": "core", "次要标签": "secondary", "详细标签": "detail"}
+        mapping = {}
+        labels = (visual_structure or {}).get("Label") or []
+        for item in labels:
+            if not isinstance(item, dict) or not item.get("visual_id"):
+                continue
+            hierarchy = aliases.get(str(item.get("hierarchy") or item.get("label_hierarchy") or ""), item.get("hierarchy"))
+            if hierarchy in {"core", "secondary", "detail"} and hierarchy not in mapping:
+                mapping[hierarchy] = item["visual_id"]
+        return mapping
+
+    def _normalize_label_content_type(self, value: str | None, hierarchy: str, props: dict) -> str:
+        aliases = {
+            "只包含title": "title",
+            "只包含 title": "title",
+            "title": "title",
+            "包含title+script": "title_script",
+            "包含 title+script": "title_script",
+            "title+script": "title_script",
+            "title_script": "title_script",
+            "title+script+extra info": "title_script_extra",
+            "title_script_extra": "title_script_extra",
+        }
+        normalized = aliases.get(str(value or "").strip())
+        if normalized:
+            return normalized
+        if hierarchy == "detail":
+            return "title_script_extra"
+        return "title_script" if props.get("description") else "title"
+
+    def _normalize_label_hierarchy(self, value: str | None, order_index: int) -> str:
+        aliases = {
+            "核心标签": "core",
+            "core": "core",
+            "次要标签": "secondary",
+            "secondary": "secondary",
+            "详细标签": "detail",
+            "detail": "detail",
+        }
+        normalized = aliases.get(str(value or "").strip())
+        if normalized:
+            return normalized
+        if order_index == 0:
+            return "core"
+        if order_index <= 2:
+            return "secondary"
+        return "detail"
+
+    def _normalize_travel_semantics(self, geojson_data: dict, visual_structure: dict | None = None) -> dict:
+        """Deduplicate POIs, apply label hierarchy, remove legacy Card/Area, and rebuild day routes."""
+        features = geojson_data.get("features", [])
+        point_visual_ids = self._category_visual_ids(visual_structure, "Point") or ["point_vis_1"]
+        route_visual_ids = self._category_visual_ids(visual_structure, "Route") or ["route_vis_1"]
+        label_visual_ids = self._category_visual_ids(visual_structure, "Label") or self._category_visual_ids(visual_structure, "Card") or ["label_vis_1"]
+        global_visual_ids = self._category_visual_ids(visual_structure, "Global")
+        label_by_hierarchy = self._label_style_by_hierarchy(visual_structure or {})
+
+        existing_routes_by_day = {}
+        route_order = []
+        for feature in features:
+            if feature.get("geometry", {}).get("type") != "LineString":
+                continue
+            props = feature.get("properties") or {}
+            day_num = self._normalize_day(props.get("day") or props.get("name") or props.get("description"), fallback=len(route_order) + 1)
+            existing_routes_by_day.setdefault(day_num, props)
+            if day_num not in route_order:
+                route_order.append(day_num)
+
+        candidates = []
+        day_counts: dict[int, int] = {}
+        for feature in features:
+            if feature.get("geometry", {}).get("type") != "Point":
+                continue
+            if self._is_region_like_point(feature):
+                continue
+            props = feature.setdefault("properties", {})
+            day_num = self._normalize_day(props.get("day") or props.get("day_index") or props.get("name") or props.get("description"), fallback=1)
+            props["day"] = f"D{day_num}"
+            day_counts[day_num] = day_counts.get(day_num, 0) + 1
+            props["order"] = self._normalize_order(props.get("order") or props.get("sequence"), fallback=day_counts[day_num])
+            props.pop("card_coord", None)
+            props.pop("card_visual_id", None)
+            if props.get("visual_id") not in point_visual_ids:
+                props["visual_id"] = point_visual_ids[(day_num - 1) % len(point_visual_ids)]
+            if not props.get("name"):
+                props["name"] = props.get("label_title") or f"D{day_num} POI {props['order']}"
+            candidates.append(feature)
+
+        candidates.sort(key=lambda feat: (
+            self._normalize_day(feat.get("properties", {}).get("day")),
+            self._normalize_order(feat.get("properties", {}).get("order")),
+            str(feat.get("properties", {}).get("name") or ""),
+        ))
+
+        deduped = []
+        for feature in candidates:
+            if self._is_duplicate_poi(feature, deduped):
+                continue
+            deduped.append(feature)
+
+        points_by_day: dict[int, list[dict]] = {}
+        for feature in deduped:
+            day_num = self._normalize_day(feature.get("properties", {}).get("day"))
+            points_by_day.setdefault(day_num, []).append(feature)
+
+        kept_points = []
+        max_pois_per_day = 5
+        for day_num in sorted(points_by_day):
+            day_points = sorted(
+                points_by_day[day_num],
+                key=lambda feat: self._normalize_order(feat.get("properties", {}).get("order")),
+            )[:max_pois_per_day]
+            for index, feature in enumerate(day_points):
+                props = feature.setdefault("properties", {})
+                coords = feature.get("geometry", {}).get("coordinates")
+                hierarchy = self._normalize_label_hierarchy(props.get("label_hierarchy") or props.get("hierarchy"), index)
+                content_type = self._normalize_label_content_type(props.get("label_content_type") or props.get("content_type"), hierarchy, props)
+                props["day"] = f"D{day_num}"
+                props["order"] = index + 1
+                props["label_hierarchy"] = hierarchy
+                props["label_content_type"] = content_type
+                props["label_title"] = props.get("label_title") or props.get("name") or ""
+                if not props.get("label_script"):
+                    props["label_script"] = str(props.get("description") or "")[:36]
+                if "label_extra_info" not in props:
+                    props["label_extra_info"] = props.get("open_time") or props.get("ticket") or props.get("transport") or ""
+                props["label_coord"] = props.get("label_coord") or coords
+                if props.get("label_visual_id") not in label_visual_ids:
+                    props["label_visual_id"] = (
+                        label_by_hierarchy.get(hierarchy)
+                        or label_visual_ids[min(index, len(label_visual_ids) - 1)]
+                    )
+                for noisy_key in ["global_title", "global_description", "trip_summary", "total_budget"]:
+                    props.pop(noisy_key, None)
+                kept_points.append(feature)
+
+        rebuilt_routes = []
+        for route_index, day_num in enumerate(sorted(points_by_day)):
+            day_points = [p for p in kept_points if self._normalize_day(p.get("properties", {}).get("day")) == day_num]
+            if len(day_points) < 2:
+                continue
+            existing_props = dict(existing_routes_by_day.get(day_num) or {})
+            if existing_props.get("visual_id") not in route_visual_ids:
+                existing_props["visual_id"] = route_visual_ids[route_index % len(route_visual_ids)]
+            existing_props["name"] = existing_props.get("name") or f"D{day_num} 旅行路线"
+            existing_props["day"] = f"D{day_num}"
+            existing_props["description"] = "→".join(p.get("properties", {}).get("name", "") for p in day_points)
+            rebuilt_routes.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "LineString",
+                    "coordinates": [p.get("geometry", {}).get("coordinates") for p in day_points],
+                },
+                "properties": existing_props,
+            })
+
+        global_properties = geojson_data.setdefault("global_properties", [])
+        if global_properties and global_visual_ids:
+            for index, item in enumerate(global_properties):
+                if isinstance(item, dict):
+                    item.setdefault("visual_id", global_visual_ids[min(index, len(global_visual_ids) - 1)])
+
+        geojson_data["features"] = kept_points + rebuilt_routes
         return geojson_data
 
     def _annotate_feature_metadata(self, geojson_data: dict) -> dict:
@@ -387,6 +578,7 @@ class GeoJSONGenerationNode:
                 json_str = _extract_first_json_object(content)
                 geojson_data = _robust_json_loads(json_str)
                 geojson_data = self._correct_and_sync_topology(geojson_data)
+                geojson_data = self._normalize_travel_semantics(geojson_data, state.visual_structure)
                 geojson_data = self._annotate_feature_metadata(geojson_data)
                 if "global_properties" not in geojson_data:
                     geojson_data["global_properties"] = [

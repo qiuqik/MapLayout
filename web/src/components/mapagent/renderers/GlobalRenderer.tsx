@@ -112,7 +112,7 @@ const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalP
           );
         }
         const htmlStr = populateTemplate(dec.template, {}, globalProps);
-
+        console.log("global-htmlStr", htmlStr);
         return (
           <div
             key={dec.visual_id}
