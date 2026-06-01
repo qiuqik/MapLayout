@@ -36,6 +36,8 @@ interface AgentMapContextType {
   setActiveRunId: (runId: string | null) => void;
   isAgentRunning: boolean;
   setIsAgentRunning: (running: boolean) => void;
+  selectedAgentEvent: AgentRunEvent | null;
+  setSelectedAgentEvent: (event: AgentRunEvent | null) => void;
 }
 
 const AgentMapContext = createContext<AgentMapContextType | undefined>(undefined);
@@ -48,6 +50,7 @@ export const AgentMapProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [agentEvents, setAgentEvents] = useState<AgentRunEvent[]>([]);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [isAgentRunning, setIsAgentRunning] = useState(false);
+  const [selectedAgentEvent, setSelectedAgentEvent] = useState<AgentRunEvent | null>(null);
   const appendAgentEvent = useCallback((event: AgentRunEvent) => {
     setAgentEvents((events) => [...events, event]);
   }, []);
@@ -71,6 +74,8 @@ export const AgentMapProvider: React.FC<{ children: ReactNode }> = ({ children }
       setActiveRunId,
       isAgentRunning,
       setIsAgentRunning,
+      selectedAgentEvent,
+      setSelectedAgentEvent,
     }}>
       {children}
     </AgentMapContext.Provider>

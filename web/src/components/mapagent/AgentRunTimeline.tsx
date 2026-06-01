@@ -62,7 +62,7 @@ const nodeState = (events: AgentRunEvent[], nodeId: string) => {
 };
 
 const AgentRunTimeline = () => {
-  const { agentEvents, activeRunId, isAgentRunning } = useAgentMap();
+  const { agentEvents, activeRunId, isAgentRunning, selectedAgentEvent, setSelectedAgentEvent } = useAgentMap();
   const workflowError = findLastEvent(agentEvents, (event) => event.type === 'workflow_error');
   const workflowDone = findLastEvent(agentEvents, (event) => event.type === 'workflow_completed');
 
@@ -81,11 +81,13 @@ const AgentRunTimeline = () => {
           const isComplete = Boolean(state.completed);
           const Icon = state.failed ? AlertTriangleIcon : state.running ? Loader2Icon : isComplete ? CheckCircle2Icon : CircleIcon;
           return (
-            <div
+            <button
               key={node.id}
+              type="button"
+              onClick={() => setSelectedAgentEvent(state.completed || state.latest || null)}
               className={`rounded border bg-white px-2 py-1.5 ${
                 state.running ? 'border-blue-300' : state.failed ? 'border-red-300' : isComplete ? 'border-emerald-200' : 'border-gray-200'
-              }`}
+              } ${selectedAgentEvent?.node_id === node.id ? 'ring-1 ring-gray-800' : ''} w-full text-left`}
             >
               <div className="flex items-center gap-2">
                 <Icon className={`h-3.5 w-3.5 flex-none ${
@@ -101,7 +103,7 @@ const AgentRunTimeline = () => {
                   )}
                 </div>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

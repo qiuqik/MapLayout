@@ -5,6 +5,7 @@ import { Source, Layer } from 'react-map-gl/mapbox';
 interface RouteRendererProps {
   routeStyles: any[];
   transformedLayers: any;
+  selectedRouteId?: string | null;
 }
 
 const routeStyleAliases: Record<string, 'straight' | 'curve' | 'navigation'> = {
@@ -63,7 +64,7 @@ const shapeRouteFeature = (feature: any, renderStyle: 'straight' | 'curve' | 'na
   };
 };
 
-const RouteRenderer: React.FC<RouteRendererProps> = ({ routeStyles, transformedLayers }) => {
+const RouteRenderer: React.FC<RouteRendererProps> = ({ routeStyles, transformedLayers, selectedRouteId }) => {
   return (
     <>
       {routeStyles.map((routeStyle: any) => {
@@ -76,7 +77,7 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ routeStyles, transformedL
 
         const linePattern = String(routeStyle.linePattern || routeStyle.pattern || 'solid').toLowerCase();
         const lineColor = routeStyle.color || '#E4572E';
-        const lineWidth = Number(routeStyle.width || 4);
+        const lineWidth = Number(routeStyle.width || 4) + (selectedRouteId === routeStyle.visual_id ? 2 : 0);
 
         return (
           <Source key={routeStyle.visual_id} id={`route-${routeStyle.visual_id}`} type="geojson" data={{

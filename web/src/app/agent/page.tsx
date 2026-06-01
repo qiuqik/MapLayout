@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import AgentDialog from '@/components/mapagent/AgentDialog';
 import AgentRunTimeline from '@/components/mapagent/AgentRunTimeline';
+import AgentControlPanel from '@/components/mapagent/AgentControlPanel';
 import { AgentMapProvider, useAgentMap } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
 import dynamic from 'next/dynamic';
@@ -57,6 +58,7 @@ function AgentPageContent() {
   const [mapInfo, setMapInfo] = useState<{ center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } } | null>(null);
   const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('force');
   const [layoutSeed, setLayoutSeed] = useState(1);
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
 
   const handleDatasetChange = useCallback((type: DatasetType) => {
     if (type === 'groundtruth' && !hasGroundtruthFile) {
@@ -351,11 +353,18 @@ function AgentPageContent() {
             });
           }}
           onMapInfoChange={setMapInfo}
+          onRouteSelect={setSelectedRouteId}
+          selectedRouteId={selectedRouteId}
           rerunLayoutTrigger={rerunLayoutTrigger}
           layoutAlgorithm={layoutAlgorithm}
           layoutSeed={layoutSeed}
         />
       </div>
+      <AgentControlPanel
+        sessionId={currentSession?.session_id || activeRunId || undefined}
+        selectedRouteId={selectedRouteId}
+        onRouteSelect={setSelectedRouteId}
+      />
     </div>
   );
 }

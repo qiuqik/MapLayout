@@ -15,6 +15,7 @@ from src.agent_events import AgentEvent
 from src.multi_modal_agent import MultiModalMapAgent
 from src.run_store import run_store
 from src.utils.coord_transform import gcj02_to_wgs84
+from src.utils.agent_utils import AgentState
 
 app = FastAPI()
 
@@ -43,6 +44,11 @@ class CreateRunRequest(BaseModel):
     geojsonFilename: str | None = None
 
 
+class RerunDownstreamRequest(BaseModel):
+    node_id: str
+    payload: dict
+
+
 def _resolve_multimodal_session_dir(session_id: str) -> str | None:
     """Resolve either an exact output folder name or a raw run/session id suffix."""
     base = os.path.join(os.path.dirname(__file__), 'output')
@@ -58,6 +64,17 @@ def _resolve_multimodal_session_dir(session_id: str) -> str | None:
     except Exception:
         matches = []
     return sorted(matches)[-1] if matches else None
+
+
+def _load_latest_session_json(session_dir: str, subdir: str) -> dict | None:
+    target = os.path.join(session_dir, subdir)
+    if not os.path.isdir(target):
+        return None
+    files = sorted([name for name in os.listdir(target) if name.endswith('.json')])
+    if not files:
+        return None
+    with open(os.path.join(target, files[-1]), "r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def _convert_coordinates(coords):
@@ -610,6 +627,84 @@ async def get_multimodal_session(session_id: str):
         "groundtruth_file": {"filename": groundtruth_files[-1]['filename'], "data": groundtruth_processed} if groundtruth_files else ({"filename": layout_files[-1]['filename'], "data": layout_processed} if layout_files else ({"filename": origin_files[-1]['filename'], "data": origin_processed} if origin_files else None)),
         "has_groundtruth": len(groundtruth_files) > 0,
     }
+
+
+@app.post("/api/multimodal/session/{session_id}/rerun-downstream")
+async def rerun_multimodal_downstream(session_id: str, request: RerunDownstreamRequest):
+    """Rerun downstream nodes from an edited Visual/GeoJSON/Style payload."""
+    base = _resolve_multimodal_session_dir(session_id)
+    if not base:
+        return JSONResponse(status_code=404, content={"error": "会话不存在"})
+
+    try:
+        manifest = None
+        manifest_path = os.path.join(base, "session_manifest.json")
+        if os.path.exists(manifest_path):
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                manifest = json.load(f)
+
+        visual_structure = _load_latest_session_json(base, "node2")
+        geojson_data = _load_latest_session_json(base, "node3")
+        style_code = _load_latest_session_json(base, "node4")
+        payload = request.payload or {}
+        node_id = request.node_id
+
+        if node_id == "visual":
+            visual_structure = payload.get("visual_structure") or payload
+        elif node_id == "geojson":
+            geojson_data = payload.get("geojson") or payload
+        elif node_id in {"style", "icon_generation"}:
+            style_code = payload.get("style_code") or payload
+        elif node_id == "workflow_completed":
+            visual_structure = payload.get("visual_structure") or visual_structure
+            geojson_data = payload.get("geojson") or geojson_data
+            style_code = payload.get("style_code") or style_code
+
+        if not visual_structure:
+            return JSONResponse(status_code=400, content={"error": "缺少 visual_structure"})
+        if not geojson_data and node_id not in {"style", "icon_generation"}:
+            return JSONResponse(status_code=400, content={"error": "缺少 geojson"})
+        if not style_code and node_id in {"style", "icon_generation"}:
+            return JSONResponse(status_code=400, content={"error": "缺少 style_code"})
+
+        output_dir = os.path.join(os.path.dirname(__file__), 'output')
+        agent = MultiModalMapAgent(output_dir)
+        agent.session_manager.current_session_dir = base
+
+        user_text = (manifest or {}).get("input", {}).get("user_text") or ""
+        state = AgentState(
+            session_id=session_id,
+            user_text=user_text,
+            image_path=(manifest or {}).get("input", {}).get("image_path"),
+            visual_structure=visual_structure,
+            geojson_data=geojson_data,
+            style_code=style_code,
+            is_valid=True,
+        )
+
+        if node_id in {"visual", "geojson", "workflow_completed"}:
+            state = agent.style_node.execute(state)
+            if state.error:
+                return JSONResponse(status_code=500, content={"error": state.error})
+
+        state = agent.icon_node.execute(state, base)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if geojson_data and node_id in {"geojson", "workflow_completed"}:
+            agent.session_manager.save_file(geojson_data, f"geojson_rerun_{timestamp}.json", "node3")
+        style_path = agent.session_manager.save_file(state.style_code, f"style_{session_id}.json", "node4")
+
+        return {
+            "success": True,
+            "session_id": session_id,
+            "visual_structure": visual_structure,
+            "geojson": geojson_data,
+            "style_code": state.style_code,
+            "style_path": style_path,
+        }
+    except Exception as e:
+        print(f"❌ downstream rerun 失败: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 def get_unique_filepath(directory: str, base_filename: str) -> str:

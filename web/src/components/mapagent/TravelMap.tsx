@@ -181,12 +181,14 @@ interface TravelMapProps {
   onLayoutOutput?: (outputs: LayoutItemOutput[], inputs: LayoutItemInput[], metadata?: LayoutRunMetadata) => void;
   onGroundtruthChange?: (positions: Record<string, { lng: number; lat: number }>) => void;
   onMapInfoChange?: (mapInfo: { center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } }) => void;
+  onRouteSelect?: (routeId: string | null) => void;
+  selectedRouteId?: string | null;
   rerunLayoutTrigger?: number;
   layoutAlgorithm?: 'force' | 'simulatedAnnealing' | 'weightedVoronoiDirect' | 'weightedVoronoi';
   layoutSeed?: number;
 }
 
-export default function TravelMap({ geojson, styleCode, visualStructure, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, rerunLayoutTrigger = 0, layoutAlgorithm = 'force', layoutSeed = 1 }: TravelMapProps) {
+export default function TravelMap({ geojson, styleCode, visualStructure, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, onRouteSelect, selectedRouteId, rerunLayoutTrigger = 0, layoutAlgorithm = 'force', layoutSeed = 1 }: TravelMapProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapRef>(null);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
@@ -278,6 +280,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     type: 'FeatureCollection',
     features: displayLines
   };
+  const routeLayerIds = routeStyles.map((route: any) => `${route.visual_id}-line`);
 
   const mapStyle = useMemo(
     () => resolveMapStyle(visualStructure, showHeatmap),
@@ -746,6 +749,13 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     console.log("onMoveEnd:",layoutState.inputs, layoutState.outputs);
   }, [recomputeLayout, onMapInfoChange]);
 
+  const onMapClick = useCallback((event: any) => {
+    const feature = event.features?.find((item: any) => item.geometry?.type === 'LineString');
+    if (feature?.properties?.visual_id) {
+      onRouteSelect?.(feature.properties.visual_id);
+    }
+  }, [onRouteSelect]);
+
       
   // showHeatmap: standard map + line/point/polygon only, no label/card/global/background
   // normal/debug: all components
@@ -800,14 +810,16 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
         style={{ width: '100%', height: '100%', zIndex: 1 }}
         onLoad={onMapLoad}
         onStyleData={onStyleData}
+        onClick={onMapClick}
         onMoveEnd={onMoveEnd}
+        interactiveLayerIds={routeLayerIds}
         scrollZoom={draggable}
         dragPan={draggable}
         dragRotate={draggable}
         keyboard={draggable}
         doubleClickZoom={draggable}
       >
-        <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} />
+        <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} selectedRouteId={selectedRouteId} />
         <PointRenderer points={transformedData.points} pointStyles={pointStyles} globalProps={transformedData.globalProps} />
         {!hideOverlays && layoutState.outputs.length === 0 && (
           <LabelRenderer
