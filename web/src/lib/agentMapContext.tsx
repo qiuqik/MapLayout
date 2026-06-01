@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useCallback, useContext, useState, ReactNode } from 'react';
 
 interface StyleManifest {
   Point?: any[];
@@ -8,6 +8,17 @@ interface StyleManifest {
   _icon_generation?: any;
 }
 
+export interface AgentRunEvent {
+  type: string;
+  run_id: string;
+  session_id?: string | null;
+  node_id?: string | null;
+  label?: string | null;
+  status?: string | null;
+  payload?: Record<string, any>;
+  timestamp?: string;
+}
+
 interface AgentMapContextType {
   specfilename: string | null;
   setSpecfilename: (name: string | null) => void;
@@ -15,6 +26,16 @@ interface AgentMapContextType {
   setManifest: (spec: StyleManifest | null) => void;
   geojson: any | null;
   setGeojson: (geojson: any | null) => void;
+  visualStructure: any | null;
+  setVisualStructure: (visualStructure: any | null) => void;
+  agentEvents: AgentRunEvent[];
+  setAgentEvents: (events: AgentRunEvent[]) => void;
+  appendAgentEvent: (event: AgentRunEvent) => void;
+  clearAgentEvents: () => void;
+  activeRunId: string | null;
+  setActiveRunId: (runId: string | null) => void;
+  isAgentRunning: boolean;
+  setIsAgentRunning: (running: boolean) => void;
 }
 
 const AgentMapContext = createContext<AgentMapContextType | undefined>(undefined);
@@ -23,6 +44,14 @@ export const AgentMapProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [specfilename, setSpecfilename] = useState<string | null>(null);
   const [manifest, setManifest] = useState<StyleManifest | null>(null);
   const [geojson, setGeojson] = useState<any | null>(null);
+  const [visualStructure, setVisualStructure] = useState<any | null>(null);
+  const [agentEvents, setAgentEvents] = useState<AgentRunEvent[]>([]);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [isAgentRunning, setIsAgentRunning] = useState(false);
+  const appendAgentEvent = useCallback((event: AgentRunEvent) => {
+    setAgentEvents((events) => [...events, event]);
+  }, []);
+  const clearAgentEvents = useCallback(() => setAgentEvents([]), []);
 
   return (
     <AgentMapContext.Provider value={{ 
@@ -31,7 +60,17 @@ export const AgentMapProvider: React.FC<{ children: ReactNode }> = ({ children }
       manifest, 
       setManifest,
       geojson,
-      setGeojson
+      setGeojson,
+      visualStructure,
+      setVisualStructure,
+      agentEvents,
+      setAgentEvents,
+      appendAgentEvent,
+      clearAgentEvents,
+      activeRunId,
+      setActiveRunId,
+      isAgentRunning,
+      setIsAgentRunning,
     }}>
       {children}
     </AgentMapContext.Provider>

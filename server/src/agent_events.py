@@ -25,6 +25,7 @@ AgentNodeId = Literal[
     "geojson",
     "validation",
     "style",
+    "icon_generation",
 ]
 
 

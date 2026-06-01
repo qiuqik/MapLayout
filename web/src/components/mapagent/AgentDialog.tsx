@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { SparklesIcon, UploadIcon, Wand2Icon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAgentMap } from '@/lib/agentMapContext';
 import { API_BASE_URL, buildFileUrl } from '@/lib/api';
-import { Separator } from '@/components/ui/separator';
 
 interface AgentDialogProps {
   className?: string;
@@ -19,8 +18,25 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageModalOpen, setImageModalOpen] = useState(false);
 
-  const { setSpecfilename, setManifest, setGeojson } = useAgentMap();
+  const {
+    setSpecfilename,
+    setManifest,
+    setGeojson,
+    setVisualStructure,
+    appendAgentEvent,
+    clearAgentEvents,
+    setActiveRunId,
+    setIsAgentRunning,
+  } = useAgentMap();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
+
+  const closeEventSource = () => {
+    eventSourceRef.current?.close();
+    eventSourceRef.current = null;
+  };
+
+  useEffect(() => closeEventSource, []);
 
   const clearImage = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -70,10 +86,14 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
     if (!message.trim()) return alert('Please enter a travel requirement description');
     
     setLoading(true);
-    setProgress('Generating route and map data...'); // 单一真实的 Loading 状态
+    setProgress('Starting agent run...');
+    clearAgentEvents();
+    setActiveRunId(null);
+    setIsAgentRunning(true);
+    closeEventSource();
     
     try {
-      const response = await fetch(`${API_BASE_URL}/api/multimodal/agent`, {
+      const response = await fetch(`${API_BASE_URL}/api/multimodal/runs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -88,29 +108,61 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
       }
 
       const data = await response.json();
-      
-      // 并行拉取地图数据，减少实际等待时间
-      const fetchPromises = [];
+      const runId = data.run_id;
+      setActiveRunId(runId);
+      setProgress('Agents are running...');
 
-      if (data.geofilepath) {
-        const geoPromise = fetch(buildFileUrl(data.geofilepath))
-          .then(res => res.json())
-          .then(setGeojson);
-        fetchPromises.push(geoPromise);
-      }
-      
-      if (data.specfilepath) {
-        const specPromise = fetch(buildFileUrl(data.specfilepath))
-          .then(res => res.json())
-          .then(specData => {
-            setManifest(specData);
-            setSpecfilename(data.specfilepath);
-          });
-        fetchPromises.push(specPromise);
-      }
+      await new Promise<void>((resolve, reject) => {
+        const source = new EventSource(`${API_BASE_URL}/api/multimodal/runs/${runId}/events`);
+        eventSourceRef.current = source;
+        let settled = false;
 
-      await Promise.all(fetchPromises);
-      setProgress('Processing completed!');
+        const finish = (fn: () => void) => {
+          if (settled) return;
+          settled = true;
+          closeEventSource();
+          fn();
+        };
+
+        const handleEvent = (event: MessageEvent) => {
+          const parsed = JSON.parse(event.data);
+          appendAgentEvent(parsed);
+
+          if (parsed.type === 'node_started') {
+            setProgress(`${parsed.label || parsed.node_id} running...`);
+          }
+          if (parsed.type === 'node_completed') {
+            setProgress(`${parsed.label || parsed.node_id} completed`);
+          }
+          if (parsed.type === 'workflow_completed') {
+            const result = parsed.payload || {};
+            setGeojson(result.geojson || null);
+            setManifest(result.style_code || null);
+            setVisualStructure(result.visual_structure || null);
+            setSpecfilename(result.session_id || runId);
+            setProgress('Processing completed!');
+            finish(resolve);
+          }
+          if (parsed.type === 'workflow_error') {
+            finish(() => reject(new Error(parsed.payload?.error || 'Agent workflow failed')));
+          }
+        };
+
+        [
+          'workflow_started',
+          'node_started',
+          'node_completed',
+          'node_validation',
+          'node_retry',
+          'artifact_saved',
+          'workflow_completed',
+          'workflow_error',
+        ].forEach((eventName) => source.addEventListener(eventName, handleEvent));
+
+        source.onerror = () => {
+          finish(() => reject(new Error('Agent event stream disconnected')));
+        };
+      });
 
     } catch (error: any) {
       console.error('Agent error:', error);
@@ -118,6 +170,7 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
       setProgress('');
     } finally {
       setLoading(false);
+      setIsAgentRunning(false);
       setTimeout(() => setProgress(''), 3000);
     }
   };

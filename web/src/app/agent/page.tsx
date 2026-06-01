@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import AgentDialog from '@/components/mapagent/AgentDialog';
+import AgentRunTimeline from '@/components/mapagent/AgentRunTimeline';
 import { AgentMapProvider, useAgentMap } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
 import dynamic from 'next/dynamic';
@@ -56,7 +57,6 @@ function AgentPageContent() {
   const [mapInfo, setMapInfo] = useState<{ center: { lng: number; lat: number }; bounds: { north: number; south: number; east: number; west: number } } | null>(null);
   const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('force');
   const [layoutSeed, setLayoutSeed] = useState(1);
-  const [visualStructure, setVisualStructure] = useState<any>(null);
 
   const handleDatasetChange = useCallback((type: DatasetType) => {
     if (type === 'groundtruth' && !hasGroundtruthFile) {
@@ -81,7 +81,14 @@ function AgentPageContent() {
     setLayoutRunMetadata(metadata ?? null);
   }, []);
 
-  const { setManifest, manifest } = useAgentMap();
+  const {
+    setManifest,
+    manifest,
+    geojson: contextGeojson,
+    setVisualStructure,
+    visualStructure,
+    activeRunId,
+  } = useAgentMap();
 
   const processFeature = (feature: any) => {
     const type = feature.geometry.type;
@@ -174,6 +181,26 @@ function AgentPageContent() {
       .catch(err => console.error('Error fetching historical sessions:', err));
   }, []);
 
+  useEffect(() => {
+    if (!contextGeojson?.features) return;
+    setCurrentSession(null);
+    setCurrentDataset('layout');
+    setOriginGeojson(contextGeojson);
+    setHasOriginFile(false);
+    setHasLayoutFile(false);
+    setHasGroundtruthFile(false);
+    const positions: LayoutItemPosition[] = [];
+    contextGeojson.features.forEach((feature: any) => {
+      const positionList = processFeature(feature);
+      if (positionList) {
+        positions.push(...positionList);
+      }
+    });
+    setOriginPositions(positions.length > 0 ? positions : null);
+    setLayoutPositions(null);
+    setGroundtruthPositions(null);
+  }, [contextGeojson]);
+
   return (
     <div className="flex flex-1 overflow-hidden bg-gray-50">
       {/* 左侧控制栏 */}
@@ -186,6 +213,7 @@ function AgentPageContent() {
         {/* 可滚动内容区域 */}
         <div className="flex-1 overflow-y-auto pl-4 pr-2 pt-4 pb-4 custom-scrollbar">
           <AgentDialog />
+          <AgentRunTimeline />
 
           <Separator className="my-3 bg-gray-400" />
 
@@ -268,7 +296,7 @@ function AgentPageContent() {
             layoutInputs={layoutInputs}
             originPositions={originPositions}
             groundtruthPositions={groundtruthPositions}
-            sessionId={currentSession?.session_id}
+            sessionId={currentSession?.session_id || activeRunId || undefined}
             currentDataset={currentDataset}
             onDatasetChange={handleDatasetChange}
             onRerunLayout={handleRerunLayout}
