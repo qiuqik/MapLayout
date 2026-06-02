@@ -112,16 +112,21 @@ function shouldHideOverlay(
 
 const MAPBOX_LAYER_TARGETS: Record<string, string[]> = {
   background: ['background'],
-  land: ['land'],
-  water: ['water'],
-  landuse_park: ['landuse-park', 'national-park', 'park'],
-  park: ['landuse-park', 'national-park', 'park'],
-  road_primary: ['road-primary', 'road-motorway-trunk'],
-  road_secondary: ['road-secondary-tertiary', 'road-street', 'road-minor'],
-  road: ['road-primary', 'road-secondary-tertiary', 'road-street', 'road-minor'],
-  poi_label: ['poi-label'],
-  place_label: ['settlement-major-label', 'settlement-minor-label', 'place-label'],
-  label: ['poi-label', 'settlement-major-label', 'settlement-minor-label'],
+  land: ['land', 'landcover', 'landuse'],
+  water: ['water', 'waterway', 'water-shadow'],
+  landuse: ['landuse', 'landcover', 'land-structure-polygon'],
+  landuse_park: ['landuse-park', 'national-park', 'park', 'landuse'],
+  park: ['landuse-park', 'national-park', 'park', 'landuse'],
+  building: ['building', 'building-top', 'building-outline'],
+  road_primary: ['road-primary', 'road-motorway-trunk', 'road-major-link'],
+  road_secondary: ['road-secondary-tertiary', 'road-street', 'road-minor', 'road-path'],
+  road: ['road-motorway-trunk', 'road-primary', 'road-secondary-tertiary', 'road-street', 'road-minor', 'road-path'],
+  road_label: ['road-label'],
+  poi_label: ['poi-label', 'transit-label', 'airport-label'],
+  place_label: ['settlement-major-label', 'settlement-minor-label', 'state-label', 'country-label'],
+  water_label: ['water-line-label', 'water-point-label'],
+  natural_label: ['natural-line-label', 'natural-point-label'],
+  label: ['poi-label', 'transit-label', 'airport-label', 'settlement-major-label', 'settlement-minor-label', 'state-label', 'country-label'],
 };
 
 function getVisualStylesheet(visualStructure: any) {
@@ -132,7 +137,8 @@ function resolveMapStyle(visualStructure: any, showHeatmap: boolean) {
   if (showHeatmap) return 'mapbox://styles/mapbox/light-v11';
   const stylesheet = getVisualStylesheet(visualStructure);
   const globalMode = stylesheet?.global || visualStructure?.['Theme&Design']?.global || 'light';
-  return stylesheet?.mapboxStyle || (globalMode === 'dark'
+  const hasLayerMappings = Array.isArray(stylesheet?.layers) && stylesheet.layers.length > 0;
+  return hasLayerMappings && stylesheet?.mapboxStyle ? stylesheet.mapboxStyle : (globalMode === 'dark'
     ? 'mapbox://styles/mapbox/dark-v11'
     : 'mapbox://styles/mapbox/light-v11');
 }
@@ -140,12 +146,20 @@ function resolveMapStyle(visualStructure: any, showHeatmap: boolean) {
 function applyMapboxStylesheet(map: any, visualStructure: any) {
   const stylesheet = getVisualStylesheet(visualStructure);
   if (!map || !stylesheet?.layers?.length) return;
+  const styleLayerIds = new Set((map.getStyle?.().layers || []).map((layer: any) => layer.id));
 
   stylesheet.layers.forEach((entry: any) => {
     if (!entry?.target || !entry.paint || typeof entry.paint !== 'object') return;
-    const layerIds = MAPBOX_LAYER_TARGETS[entry.target] || [entry.target];
+    const mappedLayerIds = MAPBOX_LAYER_TARGETS[entry.target] || [];
+    const layerIds = [
+      entry.target,
+      ...mappedLayerIds,
+    ].filter((layerId, index, all) => all.indexOf(layerId) === index && styleLayerIds.has(layerId));
+    if (layerIds.length === 0) {
+      console.warn(`[Stylesheet] No Mapbox layer matched target "${entry.target}"`);
+      return;
+    }
     layerIds.forEach((layerId) => {
-      if (!map.getLayer(layerId)) return;
       Object.entries(entry.paint).forEach(([paintKey, value]) => {
         try {
           map.setPaintProperty(layerId, paintKey, value);

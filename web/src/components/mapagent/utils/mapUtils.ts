@@ -132,6 +132,12 @@ export const styleObjectToCss = (style: Record<string, any> = {}, scaleNumeric =
     .join(';');
 };
 
+const styleSection = (style: any, section: string) => (
+  style && typeof style === 'object' && style[section] && typeof style[section] === 'object'
+    ? style[section]
+    : {}
+);
+
 export const buildLabelHtml = (feature: any, labelStyle: any) => {
   const props = feature?.properties || {};
   const hierarchy = normalizeLabelHierarchy(props.label_level ?? props.hierarchy ?? labelStyle?.hierarchy);
@@ -145,31 +151,38 @@ export const buildLabelHtml = (feature: any, labelStyle: any) => {
   const width = Number(labelStyle?.width) || (hierarchy === 'core' ? 220 : hierarchy === 'secondary' ? 190 : 170);
   const minHeight = Number(labelStyle?.height) || (hierarchy === 'core' ? 80 : hierarchy === 'secondary' ? 64 : 72);
   const style = labelStyle?.style && typeof labelStyle.style === 'object' ? labelStyle.style : {};
+  const containerStyle = style.container && typeof style.container === 'object' ? style.container : style;
+  const titleStyle = styleSection(style, 'title');
+  const scriptStyle = styleSection(style, 'script');
+  const extraStyle = styleSection(style, 'extra_info');
   const baseCss = styleObjectToCss({
     boxSizing: 'border-box',
     width,
     minHeight,
     maxWidth: width,
     overflow: 'hidden',
-    ...style,
+    ...containerStyle,
   }, true);
   const titleCss = styleObjectToCss({
     fontWeight: hierarchy === 'core' ? 800 : 700,
     fontSize: hierarchy === 'core' ? 14 : 12,
     lineHeight: 1.25,
     marginBottom: script ? 4 : 0,
+    ...titleStyle,
   }, true);
   const scriptCss = styleObjectToCss({
     fontSize: hierarchy === 'core' ? 12 : 11,
     lineHeight: 1.35,
     opacity: 0.82,
     marginTop: 2,
+    ...scriptStyle,
   }, true);
   const extraCss = styleObjectToCss({
     fontSize: 10,
     lineHeight: 1.25,
     opacity: 0.72,
     marginTop: 4,
+    ...extraStyle,
   }, true);
 
   return [

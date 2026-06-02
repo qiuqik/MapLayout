@@ -183,11 +183,25 @@ def test_geojson_generation():
         global_title="北京周末游",
         global_description="包含故宫、天安门和长城的两天一夜旅游路线",
         visual_structure={
-            "BaseMap": [{"visual_id": "basemap_1", "type": "blank", "description": "纯色极简底图"}],
-            "Route": [{"visual_id": "route_main", "description": "所有 POI 的连线，表示导航路线"}],
-            "PointMarker": [{"visual_id": "point_poi", "description": "POI 坐标图标"}],
-            "Card": [{"visual_id": "card_poi", "description": "POI 详细信息卡片"}],
-            "Decorator": [{"visual_id": "decorator_main_title", "description": "地图顶部的大标题"}]
+            "Color": {
+                "primary": "#D64545",
+                "secondary": "#2F6F8F",
+                "background": "#F6F0E8",
+                "text": "#1F2933"
+            },
+            "Theme&Design": {
+                "global": "light",
+                "description": "参考手绘旅行地图的暖色纸张底图、细描边标签和轻量路线"
+            },
+            "Stylesheet": {
+                "global": "light",
+                "mapboxStyle": "mapbox://styles/mapbox/light-v11",
+                "layers": [
+                    {"target": "background", "paint": {"background-color": "#F6F0E8"}},
+                    {"target": "water", "paint": {"fill-color": "#B8D8E8"}},
+                    {"target": "road", "paint": {"line-color": "#E3B55A"}}
+                ]
+            }
         }
     )
     
@@ -239,18 +253,31 @@ def test_style_code_generation():
         session_id=f"test_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
         user_text="测试样式代码生成",
         visual_structure={
-            "BaseMap": [{"visual_id": "basemap_1", "type": "blank", "description": "纯色极简底图"}],
-            "Route": [{"visual_id": "route_main", "description": "所有 POI 的连线，表示导航路线"}],
-            "PointMarker": [{"visual_id": "point_poi", "description": "POI 坐标图标"}],
-            "Card": [{"visual_id": "card_poi", "description": "POI 详细信息卡片"}],
-            "Decorator": [{"visual_id": "decorator_main_title", "description": "地图顶部的大标题"}]
+            "Color": {
+                "primary": "#D64545",
+                "secondary": "#2F6F8F",
+                "background": "#F6F0E8",
+                "text": "#1F2933"
+            },
+            "Theme&Design": {
+                "global": "light",
+                "description": "参考手绘旅行地图的暖色纸张底图、细描边标签和轻量路线"
+            },
+            "Stylesheet": {
+                "global": "light",
+                "mapboxStyle": "mapbox://styles/mapbox/light-v11",
+                "layers": [
+                    {"target": "background", "paint": {"background-color": "#F6F0E8"}},
+                    {"target": "water", "paint": {"fill-color": "#B8D8E8"}},
+                    {"target": "road", "paint": {"line-color": "#E3B55A"}}
+                ]
+            }
         },
         geojson_data={
             "type": "FeatureCollection",
             "global_properties": {
                 "title": "北京周末游",
-                "description": "包含故宫、天安门和长城的两天一夜旅游路线",
-                "visual_id": "decorator_main_title"
+                "description": "包含故宫、天安门和长城的两天一夜旅游路线"
             },
             "features": [
                 {
@@ -262,8 +289,11 @@ def test_style_code_generation():
                     },
                     "properties": {
                         "element_type": "point",
-                        "visual_id": "point_poi",
+                        "visual_id": "poi_day1_forbidden_city",
+                        "day": 1,
                         "name": "故宫",
+                        "script": "09:00-12:00",
+                        "label_level": "core",
                         "description": "中国明清两代的皇家宫殿"
                     }
                 }

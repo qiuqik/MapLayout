@@ -52,12 +52,22 @@ const placementStyle = (element: any, index: number): CSSProperties => {
   };
 };
 
-const panelStyle = (element: any, index: number): CSSProperties => ({
-  maxWidth: index === 0 ? 'min(86%, 760px)' : 'min(82%, 620px)',
-  textAlign: 'center',
-  pointerEvents: 'none',
-  ...((element?.style && typeof element.style === 'object') ? element.style : {}),
-});
+const styleSection = (style: any, section: string) => (
+  style && typeof style === 'object' && style[section] && typeof style[section] === 'object'
+    ? style[section]
+    : {}
+);
+
+const panelStyle = (element: any, index: number): CSSProperties => {
+  const style = element?.style && typeof element.style === 'object' ? element.style : {};
+  const containerStyle = style.container && typeof style.container === 'object' ? style.container : style;
+  return {
+    maxWidth: index === 0 ? 'min(86%, 760px)' : 'min(82%, 620px)',
+    textAlign: 'center',
+    pointerEvents: 'none',
+    ...containerStyle,
+  };
+};
 
 const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalProps, onMeasured }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -83,21 +93,25 @@ const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalP
       {globalElements.slice(0, 2).map((element: any, index) => {
         const content = globalContent(globalProps, index);
         const contentType = element.content_type || (index === 0 ? 'title_script_extra' : 'title_script');
+        const style = element?.style && typeof element.style === 'object' ? element.style : {};
+        const titleStyle = styleSection(style, 'title');
+        const scriptStyle = styleSection(style, 'script');
+        const extraStyle = styleSection(style, 'extra_info');
         return (
           <div key={element.visual_id || `global-${index}`} style={placementStyle(element, index)}>
             <div style={panelStyle(element, index)}>
               {content.title && (
-                <div style={{ fontSize: index === 0 ? 28 : 16, fontWeight: index === 0 ? 800 : 700, lineHeight: 1.15 }}>
+                <div style={{ fontSize: index === 0 ? 28 : 16, fontWeight: index === 0 ? 800 : 700, lineHeight: 1.15, ...titleStyle }}>
                   {content.title}
                 </div>
               )}
               {contentType !== 'title' && content.script && (
-                <div style={{ marginTop: 6, fontSize: index === 0 ? 14 : 12, lineHeight: 1.35, opacity: 0.82 }}>
+                <div style={{ marginTop: 6, fontSize: index === 0 ? 14 : 12, lineHeight: 1.35, opacity: 0.82, ...scriptStyle }}>
                   {content.script}
                 </div>
               )}
               {contentType === 'title_script_extra' && content.extra_info && (
-                <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.35, opacity: 0.72 }}>
+                <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.35, opacity: 0.72, ...extraStyle }}>
                   {content.extra_info}
                 </div>
               )}

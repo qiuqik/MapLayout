@@ -8,20 +8,28 @@ interface RouteRendererProps {
   selectedRouteId?: string | null;
 }
 
-const routeStyleAliases: Record<string, 'straight' | 'curve' | 'navigation'> = {
+type RouteRenderStyle = 'straight' | 'bezier' | 'navigation';
+
+const routeStyleAliases: Record<string, RouteRenderStyle> = {
   straight: 'straight',
   line: 'straight',
   direct: 'straight',
-  curve: 'curve',
-  curved: 'curve',
-  bezier: 'curve',
+  curve: 'bezier',
+  curved: 'bezier',
+  bezier: 'bezier',
   navigation: 'navigation',
 };
 
-const normalizeRouteStyle = (value: unknown): 'straight' | 'curve' | 'navigation' => {
+const normalizeRouteStyle = (value: unknown): RouteRenderStyle => {
   const key = String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
-  return routeStyleAliases[key] ?? 'curve';
+  return routeStyleAliases[key] ?? 'bezier';
 };
+
+const numericArray = (value: unknown): number[] => (
+  Array.isArray(value)
+    ? value.map(Number).filter((item) => Number.isFinite(item) && item > 0)
+    : []
+);
 
 const buildCurveCoords = (coords: number[][]) => {
   if (coords.length < 3) return coords;
@@ -51,8 +59,8 @@ const buildCurveCoords = (coords: number[][]) => {
   return result;
 };
 
-const shapeRouteFeature = (feature: any, renderStyle: 'straight' | 'curve' | 'navigation') => {
-  if (renderStyle !== 'curve') return feature;
+const shapeRouteFeature = (feature: any, renderStyle: RouteRenderStyle) => {
+  if (renderStyle !== 'bezier') return feature;
   const coordinates = feature.geometry?.coordinates;
   if (!Array.isArray(coordinates) || coordinates.length < 3) return feature;
   return {
@@ -76,8 +84,10 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ routeStyles, transformedL
         if (routeFeatures.length === 0) return null;
 
         const linePattern = String(routeStyle.linePattern || routeStyle.pattern || 'solid').toLowerCase();
-        const lineColor = routeStyle.color || '#E4572E';
+        const lineColor = routeStyle.Color || routeStyle.color || '#E4572E';
         const lineWidth = Number(routeStyle.width || 4) + (selectedRouteId === routeStyle.visual_id ? 2 : 0);
+        const dashArray = numericArray(routeStyle.dashArray || routeStyle.dasharray);
+        const shouldDrawArrows = routeStyle.arrow !== false;
 
         return (
           <Source key={routeStyle.visual_id} id={`route-${routeStyle.visual_id}`} type="geojson" data={{
@@ -95,27 +105,29 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ routeStyles, transformedL
                 'line-color': lineColor,
                 'line-width': lineWidth,
                 'line-opacity': routeStyle.opacity ?? 0.92,
-                ...(linePattern === 'dashed' ? { 'line-dasharray': [1.4, 1.2] } : {}),
+                ...(linePattern === 'dashed' ? { 'line-dasharray': dashArray.length ? dashArray : [1.4, 1.2] } : {}),
               }}
             />
-            <Layer
-              id={`${routeStyle.visual_id}-arrows`}
-              type="symbol"
-              layout={{
-                'symbol-placement': 'line',
-                'symbol-spacing': 120,
-                'text-field': '➜',
-                'text-size': Math.max(12, lineWidth * 3.2),
-                'text-allow-overlap': true,
-                'text-ignore-placement': true,
-                'text-keep-upright': false,
-              }}
-              paint={{
-                'text-color': lineColor,
-                'text-halo-color': '#FFFFFF',
-                'text-halo-width': 1,
-              }}
-            />
+            {shouldDrawArrows && (
+              <Layer
+                id={`${routeStyle.visual_id}-arrows`}
+                type="symbol"
+                layout={{
+                  'symbol-placement': 'line',
+                  'symbol-spacing': 120,
+                  'text-field': '➜',
+                  'text-size': Math.max(12, lineWidth * 3.2),
+                  'text-allow-overlap': true,
+                  'text-ignore-placement': true,
+                  'text-keep-upright': false,
+                }}
+                paint={{
+                  'text-color': lineColor,
+                  'text-halo-color': '#FFFFFF',
+                  'text-halo-width': 1,
+                }}
+              />
+            )}
           </Source>
         );
       })}

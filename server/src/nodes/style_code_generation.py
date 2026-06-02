@@ -13,10 +13,10 @@ ROUTE_STYLE_ALIASES = {
     "straight": "straight",
     "line": "straight",
     "direct": "straight",
-    "curve": "curve",
-    "curved": "curve",
-    "bezier": "curve",
-    "beziercurve": "curve",
+    "curve": "bezier",
+    "curved": "bezier",
+    "bezier": "bezier",
+    "beziercurve": "bezier",
     "navigation": "navigation",
     "navigationroute": "navigation",
     "navigationcurve": "navigation",
@@ -53,7 +53,7 @@ class StyleCodeGenerationNode:
 
     def _normalize_route_style(self, value: Any) -> str:
         key = re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
-        return ROUTE_STYLE_ALIASES.get(key, "curve")
+        return ROUTE_STYLE_ALIASES.get(key, "bezier")
 
     def _normalize_line_pattern(self, item: dict) -> str:
         value = (
@@ -157,9 +157,12 @@ class StyleCodeGenerationNode:
                 {
                     "visual_id": visual_id,
                     "style": self._normalize_route_style(item.get("style")),
-                    "color": item.get("color") or item.get("lineColor") or "#E4572E",
+                    "Color": item.get("Color") or item.get("color") or item.get("lineColor") or "#E4572E",
+                    "color": item.get("color") or item.get("Color") or item.get("lineColor") or "#E4572E",
                     "width": self._number(item.get("width") or item.get("lineWidth"), 4, 1, 12),
                     "linePattern": self._normalize_line_pattern(item),
+                    "dashArray": item.get("dashArray") or item.get("dasharray") or ([2, 2] if self._normalize_line_pattern(item) == "dashed" else []),
+                    "arrow": item.get("arrow", True),
                 }
             )
             routes.append(normalized)
@@ -167,10 +170,13 @@ class StyleCodeGenerationNode:
         return routes or [
             {
                 "visual_id": "route_D1",
-                "style": "curve",
+                "style": "bezier",
+                "Color": "#E4572E",
                 "color": "#E4572E",
                 "width": 4,
                 "linePattern": "solid",
+                "dashArray": [],
+                "arrow": True,
             }
         ]
 
@@ -306,10 +312,13 @@ class StyleCodeGenerationNode:
             "Route": [
                 {
                     "visual_id": "route_D1",
-                    "style": "curve",
+                    "style": "bezier",
+                    "Color": "#E4572E",
                     "color": "#E4572E",
                     "width": 4,
                     "linePattern": "solid",
+                    "dashArray": [],
+                    "arrow": True,
                 }
             ],
             "Label": self._normalize_label_styles({}),

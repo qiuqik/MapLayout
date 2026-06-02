@@ -9,6 +9,21 @@ interface PointRendererProps {
   globalProps?: any;
 }
 
+const resolvePointSize = (pointStyle: any): { width: number; height: number } => {
+  const rawSize = pointStyle?.style?.size ?? pointStyle?.size;
+  if (Array.isArray(rawSize)) {
+    const width = Number(rawSize[0]);
+    const height = Number(rawSize[1] ?? rawSize[0]);
+    return {
+      width: Number.isFinite(width) && width > 0 ? width : 28,
+      height: Number.isFinite(height) && height > 0 ? height : 28,
+    };
+  }
+  const size = Number(rawSize);
+  const safeSize = Number.isFinite(size) && size > 0 ? size : 28;
+  return { width: safeSize, height: safeSize };
+};
+
 const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles }) => {
   const renderPointIcon = (pointStyle: any, feature: any) => {
     const rawIconSrc = pointStyle.url;
@@ -18,8 +33,9 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles }) =>
         : `${API_BASE_URL}${rawIconSrc}`
       : '';
     const visualStyle = pointStyle.style && typeof pointStyle.style === 'object' ? pointStyle.style : {};
-    const size = Number(visualStyle.size || pointStyle.size || 28);
-    const fallbackColor = visualStyle.color || pointStyle.color || '#E4572E';
+    const { width, height } = resolvePointSize(pointStyle);
+    const fallback = pointStyle.fallback && typeof pointStyle.fallback === 'object' ? pointStyle.fallback : {};
+    const fallbackColor = visualStyle.color || pointStyle.color || fallback.color || '#E4572E';
 
     if (iconSrc) {
       return (
@@ -27,11 +43,11 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles }) =>
           src={iconSrc}
           alt={feature.properties?.name || pointStyle['icon描述'] || 'POI'}
           style={{
-            width: size,
-            height: size,
+            width,
+            height,
             objectFit: 'contain',
             display: 'block',
-            filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.25))',
+            filter: fallback.shadow ? `drop-shadow(${fallback.shadow})` : 'drop-shadow(0 1px 2px rgba(0,0,0,0.25))',
           }}
         />
       );
@@ -40,12 +56,12 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles }) =>
     return (
       <span
         style={{
-          width: Math.max(12, size * 0.58),
-          height: Math.max(12, size * 0.58),
+          width: Math.max(12, width * 0.58),
+          height: Math.max(12, height * 0.58),
           borderRadius: '999px',
           background: fallbackColor,
-          border: '2px solid #fff',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.28)',
+          border: `2px solid ${fallback.borderColor || '#fff'}`,
+          boxShadow: fallback.shadow || '0 1px 4px rgba(0,0,0,0.28)',
           display: 'block',
         }}
       />
@@ -61,18 +77,19 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles }) =>
         if (!pointStyle) return null;
 
         const [lng, lat] = feature.geometry.coordinates;
+        const { width, height } = resolvePointSize(pointStyle);
         
         return (
           <Marker
             key={feature.properties?.name || feature.properties?.visual_id}
             longitude={lng}
             latitude={lat}
-            anchor="bottom"
+            anchor={pointStyle.anchor || 'bottom'}
           >
             <div
-            style={{
-                width: Number(pointStyle.style?.size || pointStyle.size || 28),
-                height: Number(pointStyle.style?.size || pointStyle.size || 28),
+              style={{
+                width,
+                height,
                 pointerEvents: 'none',
               }}
             >

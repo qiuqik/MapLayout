@@ -15,6 +15,7 @@ interface AgentControlPanelProps {
 const editablePayload = (event: AgentRunEvent | null) => {
   if (!event) return {};
   const payload = event.payload || {};
+  if (event.node_id === 'intent') return payload.intent_enriched ? payload : payload.intent || payload;
   if (event.node_id === 'visual') return payload.visual_structure || payload;
   if (event.node_id === 'geojson') return payload.geojson || payload;
   if (event.node_id === 'style' || event.node_id === 'icon_generation') return payload.style_code || payload;
@@ -42,7 +43,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   const routes = manifest?.Route || [];
   const canRerun = Boolean(
     selectedAgentEvent &&
-    ['visual', 'geojson', 'style', 'icon_generation', 'workflow_completed'].includes(
+    ['intent', 'visual', 'geojson', 'style', 'icon_generation', 'workflow_completed'].includes(
       selectedAgentEvent.node_id || selectedAgentEvent.type,
     )
   );
@@ -53,7 +54,18 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
 
   const applyPayloadLocally = (payload: any) => {
     const nodeId = selectedAgentEvent?.node_id;
-    if (nodeId === 'visual') {
+    if (nodeId === 'intent') {
+      appendAgentEvent({
+        type: 'node_completed',
+        run_id: sessionId || 'local',
+        session_id: sessionId,
+        node_id: 'intent',
+        label: 'Intent edit applied',
+        status: 'completed',
+        payload: typeof payload === 'string' ? { intent_enriched: payload } : payload,
+        timestamp: new Date().toISOString(),
+      });
+    } else if (nodeId === 'visual') {
       setVisualStructure(payload.visual_structure || payload);
     } else if (nodeId === 'geojson') {
       setGeojson(payload.geojson || payload);
@@ -96,19 +108,25 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
       });
       const data = await response.json();
       if (!response.ok || data.error) throw new Error(data.error || 'Downstream rerun failed');
-      setGeojson(data.geojson || null);
-      setManifest(data.style_code || null);
-      setVisualStructure(data.visual_structure || visualStructure || null);
-      appendAgentEvent({
-        type: 'node_completed',
-        run_id: sessionId,
-        session_id: sessionId,
-        node_id: 'style',
-        label: 'Downstream rerun',
-        status: 'completed',
-        payload: { style_code: data.style_code, geojson: data.geojson },
-        timestamp: new Date().toISOString(),
-      });
+      if (data.geojson) setGeojson(data.geojson);
+      if (data.style_code) setManifest(data.style_code);
+      if (data.visual_structure) setVisualStructure(data.visual_structure);
+
+      const events = Array.isArray(data.events) ? data.events : [];
+      if (events.length > 0) {
+        events.forEach((event: AgentRunEvent) => appendAgentEvent(event));
+      } else {
+        appendAgentEvent({
+          type: 'node_completed',
+          run_id: sessionId,
+          session_id: sessionId,
+          node_id: 'style',
+          label: 'Downstream rerun',
+          status: 'completed',
+          payload: { style_code: data.style_code, geojson: data.geojson },
+          timestamp: new Date().toISOString(),
+        });
+      }
     } catch (error: any) {
       alert(error.message || 'Downstream rerun failed');
     } finally {
@@ -149,7 +167,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
                 ))}
               </select>
               <div className="grid grid-cols-3 gap-1">
-                {(['straight', 'curve', 'navigation'] as const).map((style) => (
+                {(['straight', 'bezier', 'navigation'] as const).map((style) => (
                   <button
                     key={style}
                     type="button"
@@ -184,8 +202,8 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
               </div>
               <input
                 type="color"
-                value={activeRoute?.color || '#E4572E'}
-                onChange={(event) => updateRoute({ color: event.target.value })}
+                value={activeRoute?.Color || activeRoute?.color || '#E4572E'}
+                onChange={(event) => updateRoute({ color: event.target.value, Color: event.target.value })}
                 className="h-8 w-full rounded border"
               />
             </div>

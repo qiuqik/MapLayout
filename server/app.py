@@ -631,7 +631,7 @@ async def get_multimodal_session(session_id: str):
 
 @app.post("/api/multimodal/session/{session_id}/rerun-downstream")
 async def rerun_multimodal_downstream(session_id: str, request: RerunDownstreamRequest):
-    """Rerun downstream nodes from an edited Visual/GeoJSON/Style payload."""
+    """Rerun downstream nodes from an edited agent artifact payload."""
     base = _resolve_multimodal_session_dir(session_id)
     if not base:
         return JSONResponse(status_code=404, content={"error": "会话不存在"})
@@ -643,12 +643,61 @@ async def rerun_multimodal_downstream(session_id: str, request: RerunDownstreamR
             with open(manifest_path, "r", encoding="utf-8") as f:
                 manifest = json.load(f)
 
+        intent_artifact = _load_latest_session_json(base, "node1") or {}
         visual_structure = _load_latest_session_json(base, "node2")
         geojson_data = _load_latest_session_json(base, "node3")
         style_code = _load_latest_session_json(base, "node4")
         payload = request.payload or {}
         node_id = request.node_id
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        events = []
 
+        def append_event(event_type: str, event_node_id: str, label: str, status: str, event_payload: dict | None = None):
+            events.append({
+                "type": event_type,
+                "run_id": session_id,
+                "session_id": session_id,
+                "node_id": event_node_id,
+                "label": label,
+                "status": status,
+                "payload": event_payload or {},
+                "timestamp": datetime.now().isoformat(),
+            })
+
+        def feature_count(data):
+            return len(data.get("features", [])) if isinstance(data, dict) else 0
+
+        def has_hard_error():
+            return bool(state.error and "验证节点" not in state.error)
+
+        def save_artifact(content, filename: str, subdir: str, event_node_id: str, label: str, extra: dict | None = None):
+            path = agent.session_manager.save_file(content, filename, subdir)
+            event_payload = {"path": path, "subdir": subdir}
+            if extra:
+                event_payload.update(extra)
+            append_event("artifact_saved", event_node_id, label, "completed", event_payload)
+            return path
+
+        user_text = (manifest or {}).get("input", {}).get("user_text") or ""
+        intent_enriched = intent_artifact.get("intent_enriched") or user_text
+        global_title = intent_artifact.get("global_title") or (manifest or {}).get("global_title")
+        global_description = intent_artifact.get("global_description") or (manifest or {}).get("global_description")
+
+        if node_id == "intent":
+            next_intent = payload.get("intent_enriched") or payload.get("intent") or payload.get("user_text")
+            if next_intent is None and isinstance(payload, dict):
+                next_intent = payload
+            if isinstance(next_intent, dict):
+                intent_enriched = next_intent.get("intent_enriched") or next_intent.get("intent") or json.dumps(next_intent, ensure_ascii=False)
+                global_title = next_intent.get("global_title", global_title)
+                global_description = next_intent.get("global_description", global_description)
+            else:
+                intent_enriched = str(next_intent or intent_enriched)
+            intent_artifact = {
+                "intent_enriched": intent_enriched,
+                "global_title": global_title,
+                "global_description": global_description,
+            }
         if node_id == "visual":
             visual_structure = payload.get("visual_structure") or payload
         elif node_id == "geojson":
@@ -656,13 +705,20 @@ async def rerun_multimodal_downstream(session_id: str, request: RerunDownstreamR
         elif node_id in {"style", "icon_generation"}:
             style_code = payload.get("style_code") or payload
         elif node_id == "workflow_completed":
+            if payload.get("intent_enriched"):
+                intent_enriched = payload.get("intent_enriched")
+                intent_artifact = {
+                    "intent_enriched": intent_enriched,
+                    "global_title": payload.get("global_title", global_title),
+                    "global_description": payload.get("global_description", global_description),
+                }
             visual_structure = payload.get("visual_structure") or visual_structure
             geojson_data = payload.get("geojson") or geojson_data
             style_code = payload.get("style_code") or style_code
 
         if not visual_structure:
             return JSONResponse(status_code=400, content={"error": "缺少 visual_structure"})
-        if not geojson_data and node_id not in {"style", "icon_generation"}:
+        if not geojson_data and node_id not in {"intent", "visual", "style", "icon_generation"}:
             return JSONResponse(status_code=400, content={"error": "缺少 geojson"})
         if not style_code and node_id in {"style", "icon_generation"}:
             return JSONResponse(status_code=400, content={"error": "缺少 style_code"})
@@ -676,31 +732,164 @@ async def rerun_multimodal_downstream(session_id: str, request: RerunDownstreamR
             session_id=session_id,
             user_text=user_text,
             image_path=(manifest or {}).get("input", {}).get("image_path"),
+            intent_enriched=intent_enriched,
+            global_title=global_title,
+            global_description=global_description,
             visual_structure=visual_structure,
             geojson_data=geojson_data,
             style_code=style_code,
             is_valid=True,
         )
 
-        if node_id in {"visual", "geojson", "workflow_completed"}:
+        def run_geojson_and_validation():
+            nonlocal state, geojson_data
+            for attempt in range(3):
+                append_event(
+                    "node_started",
+                    "geojson",
+                    "GeoJSON generation",
+                    "running",
+                    {"validation_retry_count": state.validation_retry_count},
+                )
+                state = agent.geojson_node.execute(state)
+                if state.error:
+                    return
+                geojson_data = state.geojson_data
+                append_event(
+                    "node_completed",
+                    "geojson",
+                    "GeoJSON generation",
+                    "completed",
+                    {
+                        "feature_count": feature_count(state.geojson_data),
+                        "validation_retry_count": state.validation_retry_count,
+                        "geojson": state.geojson_data,
+                    },
+                )
+                save_artifact(
+                    state.geojson_data,
+                    f"geojson_rerun_{timestamp}_{attempt}.json",
+                    "node3",
+                    "geojson",
+                    "GeoJSON artifact saved",
+                    {"feature_count": feature_count(state.geojson_data)},
+                )
+                run_validation()
+                if has_hard_error() or state.is_valid or state.failed_node != "node3":
+                    break
+                append_event(
+                    "node_retry",
+                    "geojson",
+                    "GeoJSON retry requested",
+                    "retrying",
+                    {
+                        "is_valid": state.is_valid,
+                        "failed_node": state.failed_node,
+                        "validation_feedback": state.validation_feedback,
+                        "validation_retry_count": state.validation_retry_count,
+                    },
+                )
+        def run_validation():
+            nonlocal state
+            append_event("node_started", "validation", "Validation", "running")
+            state = agent.validation_node.execute(state)
+            append_event(
+                "node_validation",
+                "validation",
+                "Validation",
+                "passed" if state.is_valid else "failed",
+                {
+                    "is_valid": state.is_valid,
+                    "failed_node": state.failed_node,
+                    "validation_feedback": state.validation_feedback,
+                    "validation_retry_count": state.validation_retry_count,
+                },
+            )
+
+        if node_id == "intent":
+            save_artifact(intent_artifact, f"intent_rerun_{timestamp}.json", "node1", "intent", "Intent artifact saved")
+            run_geojson_and_validation()
+            if has_hard_error():
+                return JSONResponse(status_code=500, content={"error": state.error, "events": events})
+        elif node_id == "visual":
+            save_artifact(visual_structure, f"visual_rerun_{timestamp}.json", "node2", "visual", "Visual artifact saved")
+            run_geojson_and_validation()
+            if has_hard_error():
+                return JSONResponse(status_code=500, content={"error": state.error, "events": events})
+        elif node_id == "geojson":
+            save_artifact(
+                geojson_data,
+                f"geojson_rerun_{timestamp}.json",
+                "node3",
+                "geojson",
+                "GeoJSON artifact saved",
+                {"feature_count": feature_count(geojson_data)},
+            )
+            run_validation()
+            if has_hard_error():
+                return JSONResponse(status_code=500, content={"error": state.error, "events": events})
+        elif node_id == "workflow_completed":
+            if payload.get("visual_structure"):
+                save_artifact(visual_structure, f"visual_rerun_{timestamp}.json", "node2", "visual", "Visual artifact saved")
+            if payload.get("geojson"):
+                save_artifact(
+                    geojson_data,
+                    f"geojson_rerun_{timestamp}.json",
+                    "node3",
+                    "geojson",
+                    "GeoJSON artifact saved",
+                    {"feature_count": feature_count(geojson_data)},
+                )
+                run_validation()
+                if has_hard_error():
+                    return JSONResponse(status_code=500, content={"error": state.error, "events": events})
+
+        if node_id in {"intent", "visual", "geojson", "workflow_completed"}:
+            append_event("node_started", "style", "Style generation", "running")
             state = agent.style_node.execute(state)
-            if state.error:
-                return JSONResponse(status_code=500, content={"error": state.error})
+            if has_hard_error():
+                return JSONResponse(status_code=500, content={"error": state.error, "events": events})
+            style_code = state.style_code
+            style_sections = sorted([k for k in state.style_code.keys() if not k.startswith("_")]) if isinstance(state.style_code, dict) else []
+            append_event(
+                "node_completed",
+                "style",
+                "Style generation",
+                "completed",
+                {"style_sections": style_sections, "style_code": state.style_code},
+            )
 
+        append_event("node_started", "icon_generation", "Icon generation", "running")
         state = agent.icon_node.execute(state, base)
+        if has_hard_error():
+            return JSONResponse(status_code=500, content={"error": state.error, "events": events})
+        style_code = state.style_code
+        icon_meta = state.style_code.get("_icon_generation", {}) if isinstance(state.style_code, dict) else {}
+        append_event(
+            "node_completed",
+            "icon_generation",
+            "Icon generation",
+            "completed",
+            {"icon_generation": icon_meta, "style_code": state.style_code},
+        )
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        if geojson_data and node_id in {"geojson", "workflow_completed"}:
-            agent.session_manager.save_file(geojson_data, f"geojson_rerun_{timestamp}.json", "node3")
-        style_path = agent.session_manager.save_file(state.style_code, f"style_{session_id}.json", "node4")
+        style_path = save_artifact(
+            state.style_code,
+            f"style_{session_id}.json",
+            "node4",
+            "icon_generation",
+            "Style artifact saved after icon generation",
+            {"style_sections": sorted([k for k in state.style_code.keys() if not k.startswith("_")]) if isinstance(state.style_code, dict) else [], "icon_generation": icon_meta},
+        )
 
         return {
             "success": True,
             "session_id": session_id,
-            "visual_structure": visual_structure,
-            "geojson": geojson_data,
+            "visual_structure": state.visual_structure,
+            "geojson": state.geojson_data,
             "style_code": state.style_code,
             "style_path": style_path,
+            "events": events,
         }
     except Exception as e:
         print(f"❌ downstream rerun 失败: {e}")
