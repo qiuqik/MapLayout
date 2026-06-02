@@ -2,7 +2,7 @@
 1. [Node 1 用户旅行规划文本]
 2. [Node 2 视觉风格分析 visual.json，其中包含 Color、Theme&Design、Stylesheet]
 
-你的任务是将旅行规划转换为标准 GeoJSON FeatureCollection，并为后续样式节点提供清晰的地图对象分类。
+你的任务是将旅行规划转换为标准 GeoJSON FeatureCollection，并为后续样式节点提供清晰的地图对象分类。分类体系在本节点确定，后续节点只负责为这些对象补充样式。
 
 ## 分类体系
 GeoJSON 只使用以下四类语义对象：
@@ -30,8 +30,8 @@ GeoJSON 只使用以下四类语义对象：
      - `point_names`: 当天途径点名称数组。
 
 3. `Label`
-   - Label 不单独作为 Feature 输出。
-   - Label 信息写在 Point 的 `properties` 中，由 `label_level`、`label_title`、`label_script`、`label_extra_info` 表达。
+   - Label 是 Point 的文字表达分类，由 Point `properties` 中的 `label_level`、`label_title`、`label_script`、`label_extra_info` 表达。
+   - 每个 Point 必须具备完整 Label 信息，前端会根据 label 层级创建 DOM 标签。
    - 层级含义：
      - `core`: 当天关键 POI 或起终点。
      - `secondary`: 常规 POI。
@@ -58,6 +58,7 @@ GeoJSON 只使用以下四类语义对象：
    - Point: `point_{category}`
    - Route: `route_D1`、`route_D2`...
    - Global: `global_title`、`global_summary`
+7. `features` 中的 geometry 类型只使用 `Point` 与 `LineString`。Point 代表具体地点，LineString 代表当天按顺序连接的路线。
 
 ## 输出格式
 严格输出 JSON。

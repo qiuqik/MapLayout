@@ -13,6 +13,7 @@
 - `size`: 图标像素尺寸，例如 `[28, 28]`。
 - `anchor`: 图标锚点，例如 `"bottom"` 或 `"center"`。
 - `fallback`: 图像生成前的兜底样式，至少包含 `color`、`borderColor`、`shadow`。
+- 同一 `category` 共享同一 `visual_id` 与同一图标风格，用于减少 POI 重复和图标噪声。
 
 ## Route 样式
 为每条 LineString `visual_id` 输出样式对象：
@@ -25,6 +26,7 @@
 - `dashArray`: 虚线时输出数字数组，例如 `[2, 2]`；实线时输出空数组。
 - `arrow`: 是否按 LineString 点顺序绘制箭头，布尔值。
 - `opacity`
+- `style` 控制前端连接 LineString 坐标点的方式：`straight` 为点到点直线，`bezier` 为点到点贝塞尔曲线，`navigation` 为导航路线。
 
 ## Label 样式
 不输出 HTML。为 `core`、`secondary`、`detail` 三个层级输出结构化样式：
@@ -34,6 +36,8 @@
 - `height`
 - `style`: 前端创建 DOM 时使用的样式代码对象，包含 `container`、`title`、`script`、`extra_info` 四组 CSS-like 属性。
 - `collision`: 包含 `priority`、`canShrink`、`canHide`。
+- `core` 优先级最高，`secondary` 次之，`detail` 最容易触发退让、缩小或隐藏。
+- `container` 控制背景、边框、阴影、内边距；`title`、`script`、`extra_info` 分别控制三层文字。
 
 ## Global 样式
 输出两个固定槽位：
@@ -55,6 +59,7 @@
 - 所有颜色必须是十六进制色值。
 - 样式应同时满足信息有效性（Informative）和视觉吸引力（Visually appealing）。
 - `_used_visual_ids` 必须列出 geojson 中实际使用到的 Point、Route、Global visual_id，以及 Label 的三个层级 ID：`label_core`、`label_secondary`、`label_detail`。
+- 输出的样式 JSON 是 icon_generation agent 的输入，Point 的 `icon描述` 必须足够具体，使 gpt-image-2 能生成透明背景 bitmap 图标。
 
 ## 输出格式
 严格输出 JSON，不要输出 Markdown、解释文字或代码块。

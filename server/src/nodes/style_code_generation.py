@@ -13,14 +13,13 @@ ROUTE_STYLE_ALIASES = {
     "straight": "straight",
     "line": "straight",
     "direct": "straight",
-    "curve": "bezier",
-    "curved": "bezier",
+    "直线": "straight",
     "bezier": "bezier",
-    "beziercurve": "bezier",
+    "贝塞尔": "bezier",
+    "曲线": "bezier",
     "navigation": "navigation",
-    "navigationroute": "navigation",
-    "navigationcurve": "navigation",
-    "mapbox": "navigation",
+    "导航": "navigation",
+    "导航路线": "navigation",
 }
 
 
@@ -32,7 +31,7 @@ class StyleCodeGenerationNode:
     """
 
     PROMPT_NAME = "style_code_generation"
-    PROMPT_VERSION = "v0.3"
+    PROMPT_VERSION = "v0.4"
 
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm
@@ -52,7 +51,7 @@ class StyleCodeGenerationNode:
         return text or fallback
 
     def _normalize_route_style(self, value: Any) -> str:
-        key = re.sub(r"[^a-z0-9]+", "", str(value or "").strip().lower())
+        key = re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", str(value or "").strip().lower())
         return ROUTE_STYLE_ALIASES.get(key, "bezier")
 
     def _normalize_line_pattern(self, item: dict) -> str:
@@ -219,7 +218,6 @@ class StyleCodeGenerationNode:
             if not style:
                 style = self._default_label_style(hierarchy)
             normalized = dict(item)
-            normalized.pop("template", None)
             normalized.update(
                 {
                     "visual_id": visual_id,
@@ -270,7 +268,6 @@ class StyleCodeGenerationNode:
             default = defaults[index]
             style = source.get("style") if isinstance(source.get("style"), dict) else {}
             normalized = dict(source)
-            normalized.pop("template", None)
             normalized.update(
                 {
                     "visual_id": source.get("visual_id") or default["visual_id"],

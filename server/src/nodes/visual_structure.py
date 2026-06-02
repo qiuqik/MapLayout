@@ -2,7 +2,7 @@ import os
 import base64
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
-from ..utils.agent_utils import AgentState, _escape_prompt_braces, _extract_first_json_object, _robust_json_loads
+from ..utils.agent_utils import AgentState, _extract_first_json_object, _robust_json_loads
 from ..utils.prompt_loader import load_prompt
 from ..validators.schema_validators import validate_visual_structure
 
@@ -16,7 +16,7 @@ class VisualStructureNode:
     """
 
     PROMPT_NAME = "visual_structure"
-    PROMPT_VERSION = "v0.3"
+    PROMPT_VERSION = "v0.4"
     
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm
@@ -55,15 +55,14 @@ class VisualStructureNode:
       {"target": "landuse_park", "paint": {"fill-color": "#CFE3B4"}},
       {"target": "road_primary", "paint": {"line-color": "#D0A15F", "line-width": 1.6}},
       {"target": "road_secondary", "paint": {"line-color": "#E6CC9A", "line-width": 0.8}},
-      {"target": "poi_label", "paint": {"text-color": "#2A2520", "text-halo-color": "#FFF7E8", "text-halo-width": 1.2}}
+      {"target": "poi_label", "paint": {"text-color": "#2A2520", "text-halo-color": "#FFF7E8", "text-halo-width": 1.2}},
+      {"target": "place_label", "paint": {"text-color": "#4E463D", "text-halo-color": "#FFF7E8", "text-halo-width": 1}},
+      {"target": "road_label", "paint": {"text-color": "#8A765C", "text-halo-color": "#FFF7E8", "text-halo-width": 0.8}}
     ]
   }
 }'''
 
-        safe_visual_example = _escape_prompt_braces(visual_example)
-        system_prompt = load_prompt("visual_structure.md").format(
-            visual_example=safe_visual_example
-        )
+        system_prompt = load_prompt("visual_structure.md").replace("{visual_example}", visual_example)
         
         self.system_prompt = system_prompt
     
@@ -110,6 +109,8 @@ class VisualStructureNode:
                     {"target": "water", "paint": {"fill-color": "#B9D7EA"}},
                     {"target": "road_primary", "paint": {"line-color": "#D7C7A3", "line-width": 1.2}},
                     {"target": "poi_label", "paint": {"text-color": "#222222", "text-halo-color": "#FFFFFF", "text-halo-width": 1}},
+                    {"target": "place_label", "paint": {"text-color": "#555555", "text-halo-color": "#FFFFFF", "text-halo-width": 1}},
+                    {"target": "road_label", "paint": {"text-color": "#8A7A64", "text-halo-color": "#FFFFFF", "text-halo-width": 0.8}},
                 ],
             },
         }

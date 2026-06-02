@@ -27,7 +27,7 @@
 - `icon_design`: 说明适合 POI 的图标图像风格，为后续图像生成提供依据。
 
 ## Stylesheet
-输出一份 Mapbox 样式映射 JSON，用于前端逐项映射地图元素。该字段必须保证信息有效性（Informative）和视觉吸引力（Visually appealing）。
+按照下方 JSON 示例输出一份 Mapbox 样式映射，用于前端逐项映射地图元素。该字段必须保证信息有效性（Informative）和视觉吸引力（Visually appealing）。
 结构如下：
 {
   "global": "light",
@@ -72,6 +72,22 @@
         "text-halo-color": "#FFF7E8",
         "text-halo-width": 1.2
       }
+    },
+    {
+      "target": "place_label",
+      "paint": {
+        "text-color": "#4E463D",
+        "text-halo-color": "#FFF7E8",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "target": "road_label",
+      "paint": {
+        "text-color": "#8A765C",
+        "text-halo-color": "#FFF7E8",
+        "text-halo-width": 0.8
+      }
     }
   ]
 }
@@ -79,9 +95,11 @@
 规则：
 - `global` 必须与 `Theme&Design.global` 一致。
 - `mapboxStyle` 可直接给出具体样式 URL；若参考图没有足够信息，就按 `global` 选择 `mapbox://styles/mapbox/light-v11` 或 `mapbox://styles/mapbox/dark-v11`。
-- `layers[].target` 使用稳定语义名称，前端会将其映射到实际 Mapbox 图层。
+- `layers[].target` 使用稳定语义名称，前端会先按 target 精确匹配 Mapbox 图层 ID，再按语义映射到实际图层。
+- 优先覆盖这些地图元素：`background`、`water`、`landuse_park`、`road_primary`、`road_secondary`、`road_label`、`poi_label`、`place_label`。参考图信息不足时也要给出与 Color 和 Theme&Design 一致的合理样式。
 - `paint` 尽量使用 Mapbox paint 属性名。
-- 不要输出旅游地点、参考图上的具体文字或业务内容。
+- Stylesheet 未列出的地图元素由前端按 `global` 使用 Mapbox light/dark 默认样式，因此 `layers` 只写对视觉风格有明确贡献的元素。
+- 输出内容只描述视觉风格、色彩和地图底图样式。
 
 ## 输出要求
 严格输出 JSON，不要输出 Markdown、解释文字或代码块。

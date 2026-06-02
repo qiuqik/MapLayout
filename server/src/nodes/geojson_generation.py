@@ -19,7 +19,7 @@ class GeoJSONGenerationNode:
     """
 
     PROMPT_NAME = "geojson_generation"
-    PROMPT_VERSION = "v0.3"
+    PROMPT_VERSION = "v0.4"
     
     def __init__(self, llm: ChatOpenAI, amap_service: AMapService = None):
         self.llm = llm
@@ -173,10 +173,8 @@ class GeoJSONGenerationNode:
   ]
 }'''
 
-        safe_geojson_example = _escape_prompt_braces(geojson_example)
-        system_prompt = load_prompt("geojson_generation.md").format(
-            geojson_example=safe_geojson_example
-        )
+        raw_system_prompt = load_prompt("geojson_generation.md").replace("{geojson_example}", geojson_example)
+        system_prompt = _escape_prompt_braces(raw_system_prompt)
         
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
@@ -239,7 +237,7 @@ class GeoJSONGenerationNode:
                     feat["geometry"]["coordinates"] = new_line_coords
                     valid_lines.append(feat)
 
-        # 3. 当前产品形态只保留具体 POI 和按天路线，避免区域信息混入 POI 层。
+        # 3. 当前产品形态只保留具体 POI 和按天路线，避免非具体地点混入 POI 层。
         geojson_data["features"] = valid_points + valid_lines
         return geojson_data
 
@@ -263,12 +261,9 @@ class GeoJSONGenerationNode:
                 normalized = normalized[: -len(suffix)]
         return normalized
 
-    def _is_region_like_point(self, feature: dict) -> bool:
+    def _is_non_poi_place(self, feature: dict) -> bool:
         props = feature.get("properties") or {}
         name = str(props.get("name") or props.get("label_title") or "")
-        role = str(props.get("semantic_role") or "").lower()
-        if role in {"area", "region", "district", "admin_area"}:
-            return True
         if name.endswith(("片区", "商圈", "街道", "区域", "范围", "新区", "城区")):
             return True
         if len(name) <= 4 and name.endswith(("区", "市", "县")):
@@ -431,7 +426,7 @@ class GeoJSONGenerationNode:
         for feature in features:
             if feature.get("geometry", {}).get("type") != "Point":
                 continue
-            if self._is_region_like_point(feature):
+            if self._is_non_poi_place(feature):
                 continue
             props = feature.setdefault("properties", {})
             day_num = self._normalize_day(props.get("day") or props.get("day_index") or props.get("name") or props.get("description"), fallback=1)
