@@ -19,14 +19,13 @@
 为每条 LineString `visual_id` 输出样式对象：
 - `visual_id`
 - `day`
-- `style`: 只能是 `"straight"`、`"bezier"`、`"navigation"`，分别控制直线、贝塞尔曲线、导航路线。
+- `style`: 只能是 `"straight"`、`"bezier"`、`"navigation"`，分别控制前端按点到点直线、点到点贝塞尔曲线、导航路线绘制 LineString。
 - `Color`: 十六进制色值。
 - `width`: 数字。
 - `linePattern`: 只能是 `"solid"` 或 `"dashed"`。
 - `dashArray`: 虚线时输出数字数组，例如 `[2, 2]`；实线时输出空数组。
 - `arrow`: 是否按 LineString 点顺序绘制箭头，布尔值。
 - `opacity`
-- `style` 控制前端连接 LineString 坐标点的方式：`straight` 为点到点直线，`bezier` 为点到点贝塞尔曲线，`navigation` 为导航路线。
 
 ## Label 样式
 不输出 HTML。为 `core`、`secondary`、`detail` 三个层级输出结构化样式：
