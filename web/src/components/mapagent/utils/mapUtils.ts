@@ -54,6 +54,12 @@ export const normalizeLabelContentType = (
   value: unknown,
   fallback: 'title' | 'title_script' | 'title_script_extra' = 'title_script',
 ) => {
+  if (value && typeof value === 'object') {
+    const content = value as Record<string, unknown>;
+    if (content.title && content.script && content.extra_info) return 'title_script_extra';
+    if (content.title && content.script) return 'title_script';
+    if (content.title) return 'title';
+  }
   const aliases: Record<string, 'title' | 'title_script' | 'title_script_extra'> = {
     title: 'title',
     '只包含title': 'title',
@@ -78,10 +84,10 @@ export const selectLabelStyleForFeature = (feature: any, labelStyles: any[]) => 
 
   return (
     labelStyles.find((style: any) =>
-      normalizeLabelHierarchy(style?.hierarchy) === hierarchy &&
-      normalizeLabelContentType(style?.content_type, contentType) === contentType
+      normalizeLabelHierarchy(style?.level ?? style?.hierarchy) === hierarchy &&
+      normalizeLabelContentType(style?.content ?? style?.content_type, contentType) === contentType
     ) ||
-    labelStyles.find((style: any) => normalizeLabelHierarchy(style?.hierarchy) === hierarchy) ||
+    labelStyles.find((style: any) => normalizeLabelHierarchy(style?.level ?? style?.hierarchy) === hierarchy) ||
     labelStyles[0]
   );
 };
@@ -91,9 +97,9 @@ export const getFeatureLabelId = (feature: any, labelStyle?: any) => {
   const base = props.feature_id || [feature?.geometry?.type, props.day, props.order, props.name || props.label_title]
     .filter(Boolean)
     .join('-');
-  const hierarchy = normalizeLabelHierarchy(props.label_level ?? props.hierarchy ?? labelStyle?.hierarchy);
+  const hierarchy = normalizeLabelHierarchy(props.label_level ?? props.hierarchy ?? labelStyle?.level ?? labelStyle?.hierarchy);
   const contentType = normalizeLabelContentType(
-    props.label_content_type ?? props.content_type ?? labelStyle?.content_type,
+    props.label_content_type ?? props.content_type ?? labelStyle?.content ?? labelStyle?.content_type,
     hierarchy === 'detail' ? 'title_script_extra' : 'title_script',
   );
   return `label-${base || 'poi'}-${hierarchy}-${contentType}`;
@@ -140,9 +146,9 @@ const styleSection = (style: any, section: string) => (
 
 export const buildLabelHtml = (feature: any, labelStyle: any) => {
   const props = feature?.properties || {};
-  const hierarchy = normalizeLabelHierarchy(props.label_level ?? props.hierarchy ?? labelStyle?.hierarchy);
+  const hierarchy = normalizeLabelHierarchy(props.label_level ?? props.hierarchy ?? labelStyle?.level ?? labelStyle?.hierarchy);
   const contentType = normalizeLabelContentType(
-    props.label_content_type ?? props.content_type ?? labelStyle?.content_type,
+    props.label_content_type ?? props.content_type ?? labelStyle?.content ?? labelStyle?.content_type,
     hierarchy === 'detail' ? 'title_script_extra' : 'title_script',
   );
   const title = props.label_title || props.name || '';

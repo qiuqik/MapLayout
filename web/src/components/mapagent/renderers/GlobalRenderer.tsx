@@ -38,11 +38,12 @@ const globalContent = (globalProps: any, index: number) => {
 
 const placementStyle = (element: any, index: number): CSSProperties => {
   const placement = element?.placement || {};
+  const slot = element?.slot;
   const isTop = index === 0;
   return {
     position: 'absolute',
-    top: placement.top ?? (isTop ? '15%' : undefined),
-    bottom: placement.bottom ?? (!isTop ? '10%' : undefined),
+    top: placement.top ?? (slot === 'top_15' || isTop ? '15%' : undefined),
+    bottom: placement.bottom ?? (slot === 'bottom_10' || !isTop ? '10%' : undefined),
     left: placement.left ?? 0,
     width: placement.width ?? '100%',
     display: 'flex',
@@ -57,6 +58,15 @@ const styleSection = (style: any, section: string) => (
     ? style[section]
     : {}
 );
+
+const contentTypeFromContent = (content: any, fallback: string) => {
+  if (content && typeof content === 'object') {
+    if (content.title && content.script && content.extra_info) return 'title_script_extra';
+    if (content.title && content.script) return 'title_script';
+    if (content.title) return 'title';
+  }
+  return fallback;
+};
 
 const panelStyle = (element: any, index: number): CSSProperties => {
   const style = element?.style && typeof element.style === 'object' ? element.style : {};
@@ -92,7 +102,10 @@ const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalP
     <div ref={containerRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
       {globalElements.slice(0, 2).map((element: any, index) => {
         const content = globalContent(globalProps, index);
-        const contentType = element.content_type || (index === 0 ? 'title_script_extra' : 'title_script');
+        const contentType = contentTypeFromContent(
+          element.content,
+          element.content_type || (index === 0 ? 'title_script_extra' : 'title_script'),
+        );
         const style = element?.style && typeof element.style === 'object' ? element.style : {};
         const titleStyle = styleSection(style, 'title');
         const scriptStyle = styleSection(style, 'script');

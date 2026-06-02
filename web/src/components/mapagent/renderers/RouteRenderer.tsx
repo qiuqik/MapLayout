@@ -14,14 +14,17 @@ const routeStyleAliases: Record<string, RouteRenderStyle> = {
   straight: 'straight',
   line: 'straight',
   direct: 'straight',
-  curve: 'bezier',
-  curved: 'bezier',
+  直线: 'straight',
   bezier: 'bezier',
+  贝塞尔: 'bezier',
+  曲线: 'bezier',
   navigation: 'navigation',
+  导航: 'navigation',
+  导航路线: 'navigation',
 };
 
 const normalizeRouteStyle = (value: unknown): RouteRenderStyle => {
-  const key = String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const key = String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, '');
   return routeStyleAliases[key] ?? 'bezier';
 };
 

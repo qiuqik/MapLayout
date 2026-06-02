@@ -72,16 +72,22 @@ function normalizeHierarchy(value: unknown, fallback: LayoutItemHierarchy = 'sec
 }
 
 function normalizeContentType(value: unknown, fallback: LayoutItemContentType = 'title_script'): LayoutItemContentType {
+  if (value && typeof value === 'object') {
+    const content = value as Record<string, unknown>;
+    if (content.title && content.script && content.extra_info) return 'title_script_extra';
+    if (content.title && content.script) return 'title_script';
+    if (content.title) return 'title';
+  }
   return contentTypeAliases[String(value ?? '').trim()] ?? fallback;
 }
 
 function getOverlayMeta(feature: any, style: any, fallbackHierarchy: LayoutItemHierarchy = 'secondary') {
   const hierarchy = normalizeHierarchy(
-    feature?.properties?.label_level ?? feature?.properties?.hierarchy ?? style?.hierarchy,
+    feature?.properties?.label_level ?? feature?.properties?.hierarchy ?? style?.level ?? style?.hierarchy,
     fallbackHierarchy,
   );
   const contentType = normalizeContentType(
-    feature?.properties?.label_content_type ?? feature?.properties?.content_type ?? style?.content_type,
+    feature?.properties?.label_content_type ?? feature?.properties?.content_type ?? style?.content ?? style?.content_type,
     hierarchy === 'detail' ? 'title_script_extra' : 'title_script',
   );
   return { hierarchy, contentType };

@@ -80,6 +80,15 @@ class StyleCodeGenerationNode:
         return aliases.get(str(value or "").strip(), fallback)
 
     def _normalize_label_content_type(self, value: Any, hierarchy: str) -> str:
+        if isinstance(value, dict):
+            title = bool(value.get("title", True))
+            script = bool(value.get("script", False))
+            extra = bool(value.get("extra_info", False))
+            if title and script and extra:
+                return "title_script_extra"
+            if title and script:
+                return "title_script"
+            return "title"
         aliases = {
             "只包含title": "title",
             "只包含 title": "title",
@@ -95,6 +104,13 @@ class StyleCodeGenerationNode:
         if normalized:
             return normalized
         return "title_script_extra" if hierarchy == "detail" else "title_script"
+
+    def _content_flags(self, content_type: str) -> dict:
+        return {
+            "title": True,
+            "script": content_type in {"title_script", "title_script_extra"},
+            "extra_info": content_type == "title_script_extra",
+        }
 
     def _number(self, value: Any, default: int, minimum: int, maximum: int) -> int:
         if isinstance(value, (int, float)):
@@ -187,19 +203,46 @@ class StyleCodeGenerationNode:
         }
         background, color, border, width, height = palette[hierarchy]
         return {
-            "backgroundColor": background,
-            "color": color,
-            "borderColor": border,
-            "borderWidth": 1,
-            "borderRadius": 6,
-            "padding": "8px 10px",
-            "boxShadow": "0 3px 10px rgba(0,0,0,0.14)",
-            "fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-            "fontSize": 13 if hierarchy == "core" else 12,
-            "lineHeight": 1.35,
+            "container": {
+                "backgroundColor": background,
+                "color": color,
+                "borderColor": border,
+                "borderWidth": 1,
+                "borderRadius": 6,
+                "padding": "8px 10px",
+                "boxShadow": "0 3px 10px rgba(0,0,0,0.14)",
+                "fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+            },
+            "title": {
+                "color": color,
+                "fontSize": 14 if hierarchy == "core" else 12,
+                "fontWeight": 800 if hierarchy == "core" else 700,
+                "lineHeight": 1.25,
+            },
+            "script": {
+                "color": color,
+                "fontSize": 12 if hierarchy == "core" else 11,
+                "lineHeight": 1.35,
+                "opacity": 0.82,
+            },
+            "extra_info": {
+                "color": color,
+                "fontSize": 10,
+                "lineHeight": 1.25,
+                "opacity": 0.72,
+            },
             "_defaultWidth": width,
             "_defaultHeight": height,
         }
+
+    def _normalize_sectioned_style(self, style: Any, default_style: dict) -> dict:
+        style = style if isinstance(style, dict) else {}
+        sections = {}
+        for section in ["container", "title", "script", "extra_info"]:
+            source = style.get(section) if isinstance(style.get(section), dict) else {}
+            default_section = default_style.get(section) if isinstance(default_style.get(section), dict) else {}
+            sections[section] = {**default_section, **source}
+        return sections
 
     def _normalize_label_styles(self, style_code: dict) -> list[dict]:
         labels = []
@@ -207,28 +250,36 @@ class StyleCodeGenerationNode:
         fallback_hierarchy = ["core", "secondary", "detail"]
         for index, item in enumerate(self._as_list(style_code.get("Label")), start=1):
             hierarchy = self._normalize_label_hierarchy(
-                item.get("hierarchy") or item.get("label_level"),
+                item.get("level") or item.get("hierarchy") or item.get("label_level"),
                 fallback_hierarchy[min(index - 1, len(fallback_hierarchy) - 1)],
             )
             visual_id = str(item.get("visual_id") or f"label_{hierarchy}")
             if visual_id in seen:
                 continue
             seen.add(visual_id)
-            style = item.get("style") if isinstance(item.get("style"), dict) else {}
-            if not style:
-                style = self._default_label_style(hierarchy)
+            default_style = self._default_label_style(hierarchy)
+            style = self._normalize_sectioned_style(item.get("style"), default_style)
+            content_type = self._normalize_label_content_type(
+                item.get("content") or item.get("content_type") or item.get("label_content_type"),
+                hierarchy,
+            )
+            collision = item.get("collision") if isinstance(item.get("collision"), dict) else {}
             normalized = dict(item)
             normalized.update(
                 {
                     "visual_id": visual_id,
+                    "level": hierarchy,
                     "hierarchy": hierarchy,
-                    "content_type": self._normalize_label_content_type(
-                        item.get("content_type") or item.get("label_content_type"),
-                        hierarchy,
-                    ),
-                    "width": self._number(item.get("width") or style.get("_defaultWidth"), 190, 96, 320),
-                    "height": self._number(item.get("height") or style.get("_defaultHeight"), 68, 32, 180),
-                    "style": {k: v for k, v in style.items() if not str(k).startswith("_default")},
+                    "content": self._content_flags(content_type),
+                    "content_type": content_type,
+                    "width": self._number(item.get("width") or default_style.get("_defaultWidth"), 190, 96, 320),
+                    "height": self._number(item.get("height") or default_style.get("_defaultHeight"), 68, 32, 180),
+                    "style": style,
+                    "collision": {
+                        "priority": collision.get("priority", 3 if hierarchy == "core" else 2 if hierarchy == "secondary" else 1),
+                        "canShrink": collision.get("canShrink", hierarchy != "core"),
+                        "canHide": collision.get("canHide", hierarchy == "detail"),
+                    },
                 }
             )
             labels.append(normalized)
@@ -239,47 +290,82 @@ class StyleCodeGenerationNode:
         return [
             {
                 "visual_id": f"label_{hierarchy}",
+                "level": hierarchy,
                 "hierarchy": hierarchy,
                 "content_type": "title_script_extra" if hierarchy == "detail" else "title_script",
+                "content": self._content_flags("title_script_extra" if hierarchy == "detail" else "title_script"),
                 "width": self._default_label_style(hierarchy)["_defaultWidth"],
                 "height": self._default_label_style(hierarchy)["_defaultHeight"],
-                "style": {k: v for k, v in self._default_label_style(hierarchy).items() if not k.startswith("_default")},
+                "style": self._normalize_sectioned_style({}, self._default_label_style(hierarchy)),
+                "collision": {
+                    "priority": 3 if hierarchy == "core" else 2 if hierarchy == "secondary" else 1,
+                    "canShrink": hierarchy != "core",
+                    "canHide": hierarchy == "detail",
+                },
             }
             for hierarchy in ["core", "secondary", "detail"]
         ]
+
+    def _default_global_style(self, index: int) -> dict:
+        return {
+            "container": {
+                "color": "#1F2937",
+                "fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+                "textAlign": "center",
+                "padding": "8px 16px" if index == 0 else "6px 14px",
+            },
+            "title": {
+                "fontWeight": 800 if index == 0 else 700,
+                "fontSize": 28 if index == 0 else 16,
+                "lineHeight": 1.15,
+            },
+            "script": {
+                "fontSize": 14 if index == 0 else 12,
+                "lineHeight": 1.35,
+                "opacity": 0.82,
+            },
+            "extra_info": {
+                "fontSize": 11,
+                "lineHeight": 1.35,
+                "opacity": 0.72,
+            },
+        }
 
     def _normalize_global_styles(self, style_code: dict) -> list[dict]:
         globals_out = []
         defaults = [
             {
                 "visual_id": "global_title",
+                "slot": "top_15",
                 "placement": {"position": "fixed", "top": "15%", "left": 0, "width": "100%"},
                 "content_type": "title_script_extra",
+                "content": self._content_flags("title_script_extra"),
             },
             {
                 "visual_id": "global_summary",
+                "slot": "bottom_10",
                 "placement": {"position": "fixed", "bottom": "10%", "left": 0, "width": "100%"},
                 "content_type": "title_script",
+                "content": self._content_flags("title_script"),
             },
         ]
         source_items = self._as_list(style_code.get("Global"))[:2]
         for index in range(max(len(source_items), 2)):
             source = source_items[index] if index < len(source_items) else {}
             default = defaults[index]
-            style = source.get("style") if isinstance(source.get("style"), dict) else {}
+            content_type = self._normalize_label_content_type(
+                source.get("content") or source.get("content_type"),
+                "detail" if index == 0 else "secondary",
+            )
             normalized = dict(source)
             normalized.update(
                 {
                     "visual_id": source.get("visual_id") or default["visual_id"],
+                    "slot": source.get("slot") or default["slot"],
                     "placement": default["placement"],
-                    "content_type": default["content_type"],
-                    "style": style
-                    or {
-                        "color": "#1F2937",
-                        "fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-                        "textAlign": "center",
-                        "fontWeight": 700 if index == 0 else 500,
-                    },
+                    "content": self._content_flags(content_type),
+                    "content_type": content_type,
+                    "style": self._normalize_sectioned_style(source.get("style"), self._default_global_style(index)),
                 }
             )
             globals_out.append(normalized)
