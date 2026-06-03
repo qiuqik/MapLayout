@@ -9,7 +9,7 @@ import { createSeededRandom } from './random';
 export type LayoutParams = {
   /** Seed for deterministic simulation tie-breaking. */
   seed: number;
-  /** Pull label/card center towards anchorPx */
+  /** Pull label center towards anchorPx */
   linkStrength: number;
   /** Rectangle collision strength */
   collideStrength: number;
@@ -308,12 +308,12 @@ export function runForceLayout(
 
   // Post-process: deterministically resolve any remaining overlaps that the
   // decayed force simulation could not fully eliminate.
-  // HARD CONSTRAINT: Never allow any overlaps between label/card/line/global
+  // HARD CONSTRAINT: Never allow any overlaps between label/line/global
   const MAX_POST_PASSES = 50;
   for (let pass = 0; pass < MAX_POST_PASSES; pass++) {
     let anyOverlap = false;
     
-    // 1. Resolve card/label vs card/label overlaps (HARD CONSTRAINT)
+    // 1. Resolve label vs label overlaps (HARD CONSTRAINT)
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
         const a = nodes[i];
@@ -338,7 +338,7 @@ export function runForceLayout(
       }
     }
     
-    // 2. Resolve card/label vs line/polygon segment overlaps (HARD CONSTRAINT)
+    // 2. Resolve label vs line/polygon segment overlaps (HARD CONSTRAINT)
     if (ctx.segments && ctx.segments.length > 0) {
       const segmentPadding = 12;
       for (const n of nodes) {
@@ -358,7 +358,7 @@ export function runForceLayout(
       }
     }
 
-    // 3. Resolve card/label vs global item rect overlaps (HARD CONSTRAINT)
+    // 3. Resolve label vs global item rect overlaps (HARD CONSTRAINT)
     if (ctx.globalRects && ctx.globalRects.length > 0) {
       const globalPadding = 8;
       for (const n of nodes) {

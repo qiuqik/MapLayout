@@ -94,9 +94,17 @@ export const selectLabelStyleForFeature = (feature: any, labelStyles: any[]) => 
 
 export const getFeatureLabelId = (feature: any, labelStyle?: any) => {
   const props = feature?.properties || {};
-  const base = props.feature_id || [feature?.geometry?.type, props.day, props.order, props.name || props.label_title]
-    .filter(Boolean)
-    .join('-');
+  const coord = Array.isArray(feature?.geometry?.coordinates)
+    ? feature.geometry.coordinates.slice(0, 2).map((value: unknown) => Number(value).toFixed(5)).join(',')
+    : '';
+  const base = [
+    props.feature_id,
+    feature?.geometry?.type,
+    props.day,
+    props.order,
+    props.name || props.label_title,
+    coord,
+  ].filter(Boolean).join('-');
   const hierarchy = normalizeLabelHierarchy(props.label_level ?? props.hierarchy ?? labelStyle?.level ?? labelStyle?.hierarchy);
   const contentType = normalizeLabelContentType(
     props.label_content_type ?? props.content_type ?? labelStyle?.content ?? labelStyle?.content_type,

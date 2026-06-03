@@ -107,45 +107,6 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     [routes, selectedRouteId],
   );
 
-  const applyPayloadLocally = (payload: any) => {
-    if (selectedAgentSelection?.kind === 'map_feature') {
-      updateMapFeaturePayload(payload);
-      return;
-    }
-    const nodeId = selectedAgentEvent?.node_id;
-    if (nodeId === 'intent') {
-      appendAgentEvent({
-        type: 'node_completed',
-        run_id: sessionId || 'local',
-        session_id: sessionId,
-        node_id: 'intent',
-        label: 'Intent edit applied',
-        status: 'completed',
-        payload: typeof payload === 'string' ? { intent_enriched: payload } : payload,
-        timestamp: new Date().toISOString(),
-      });
-    } else if (nodeId === 'visual') {
-      setVisualStructure(payload.visual_structure || payload);
-    } else if (nodeId === 'geojson') {
-      setGeojson(payload.geojson || payload);
-    } else if (nodeId === 'style' || nodeId === 'icon_generation') {
-      setManifest(payload.style_code || payload);
-    } else if (selectedAgentEvent?.type === 'workflow_completed') {
-      setGeojson(payload.geojson || null);
-      setManifest(payload.style_code || null);
-      setVisualStructure(payload.visual_structure || null);
-    }
-  };
-
-  const handleApply = () => {
-    try {
-      const parsed = JSON.parse(editorText);
-      applyPayloadLocally(parsed);
-    } catch (error: any) {
-      alert(error.message || 'Invalid JSON');
-    }
-  };
-
   const updateEditorJson = (updater: (draft: any) => void, applyVisual = false) => {
     if (!parsedEditor) return;
     const next = clone(parsedEditor);
@@ -581,7 +542,17 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
                 {dayPoints.map(({ feature, index }) => {
                   const props = feature.properties || {};
                   return (
-                    <details key={props.visual_id || props.id || index} className="rounded border border-gray-100 bg-gray-50 p-2">
+                    <details
+                      key={[
+                        props.feature_id,
+                        props.visual_id,
+                        props.day,
+                        props.order,
+                        props.name || props.label_title,
+                        index,
+                      ].filter(Boolean).join('-')}
+                      className="rounded border border-gray-100 bg-gray-50 p-2"
+                    >
                       <summary className="cursor-pointer truncate text-[10px] font-semibold text-gray-700">
                         {props.name || props.label_title || `POI ${index + 1}`}
                       </summary>
@@ -648,7 +619,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Label</summary>
             <div className="mt-2 space-y-3">
               {labels.map((item: any, index: number) => (
-                <div key={item.visual_id || `label-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
+                <div key={`label-${item.visual_id || 'item'}-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
                   <div className="truncate text-[10px] font-semibold text-gray-500">{item.visual_id || `label ${index + 1}`}</div>
                   <div className="grid grid-cols-2 gap-2">
                     {renderField('Width', item.width, (value) => updateStyleSection('Label', index, ['width'], numberValue(value, item.width)))}
@@ -679,7 +650,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Point</summary>
             <div className="mt-2 space-y-3">
               {points.map((item: any, index: number) => (
-                <div key={item.visual_id || `point-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
+                <div key={`point-${item.visual_id || item.icon || 'item'}-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
                   <div className="truncate text-[10px] font-semibold text-gray-500">{item.visual_id || item.icon || `point ${index + 1}`}</div>
                   <div className="grid grid-cols-2 gap-2">
                     {renderField('W', Array.isArray(item.size) ? item.size[0] : item.style?.size?.[0] || item.width, (value) => {
@@ -705,7 +676,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Route</summary>
             <div className="mt-2 space-y-3">
               {routesForStyle.map((item: any, index: number) => (
-                <div key={item.visual_id || `route-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
+                <div key={`route-${item.visual_id || 'item'}-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
                   <div className="truncate text-[10px] font-semibold text-gray-500">{item.visual_id || `route ${index + 1}`}</div>
                   {renderColorField('Color', item.Color || item.color, (value) => {
                     updateEditorJson((draft) => {

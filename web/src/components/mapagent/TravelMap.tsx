@@ -364,7 +364,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
 
         // Target: route occupies ~60% of the canvas on both axes.
         // → 20% padding on each side horizontally, 20% on each side vertically.
-        // Global components (title panel, overview card) typically sit at the top,
+        // Global components (title panel and summary label) typically sit at the top,
         // so shift the vertical center downward by adding extra top padding and
         // subtracting the same amount from the bottom, keeping total vPad constant.
         const raw = mapRef.current as any;
@@ -690,7 +690,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     const segments = buildObstacleSegments({ linesPx, polygonsPx: [] });
 
     // Include global item rects in the cost field so the Gaussian repulsion field
-    // pushes labels/cards away from them during the simulation.
+    // pushes labels away from them during the simulation.
     const allObstacles = [...obstacles, ...globalRectsRef.current];
 
     const mergedField = { ...DEFAULT_FIELD, ...fieldParams };
@@ -1017,12 +1017,20 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
         logging: false,
         ignoreElements: (element) => element.getAttribute('data-export-ignore') === 'true',
       });
-      const url = canvas.toDataURL('image/png');
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((nextBlob) => {
+          if (nextBlob) resolve(nextBlob);
+          else reject(new Error('Canvas export returned an empty image'));
+        }, 'image/png');
+      });
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `mapbox_view_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+      document.body.appendChild(link);
       link.click();
-      URL.revokeObjectURL(url);
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
       console.error('Export map PNG failed:', error);
       alert('Export PNG failed. Please try again after the map finishes rendering.');
@@ -1040,9 +1048,17 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   }, []);
 
       
-  // showHeatmap: standard map + line/point/polygon only, no label/card/global/background
+  // showHeatmap: standard map + line/point/polygon only, no label/global/background
   // normal/debug: all components
   const hideOverlays = showHeatmap;
+  const projectFeatureToScreen = (feature: any) => {
+    const raw = mapRef.current as any;
+    const map = raw?.getMap ? raw.getMap() : raw;
+    const coord = feature?.geometry?.coordinates;
+    if (!map || !Array.isArray(coord)) return null;
+    const point = map.project(coord);
+    return { x: point.x, y: point.y };
+  };
 
   const groundtruthLeaderLines = React.useMemo(() => {
     if (!mapRef.current || layoutState.outputs.length === 0) return [];
@@ -1265,6 +1281,45 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
                 overridePosition={groundtruthPx}
                 selectable={mapTool === 'select'}
                 onSelect={selectLayoutOutput}
+              />
+            );
+          })}
+          {mapTool === 'select' && transformedData.points.map((feature: any, index: number) => {
+            const point = projectFeatureToScreen(feature);
+            if (!point) return null;
+            const props = feature.properties || {};
+            return (
+              <button
+                key={[
+                  'point-hit',
+                  props.feature_id,
+                  props.visual_id,
+                  props.day,
+                  props.order,
+                  props.name || props.label_title,
+                  index,
+                ].filter(Boolean).join('-')}
+                type="button"
+                aria-label={`Select ${props.name || props.label_title || 'POI'}`}
+                className="map-feature-click-target"
+                data-map-feature-kind="point_hit"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  selectMapFeature(feature, 'point');
+                }}
+                style={{
+                  position: 'absolute',
+                  left: `${point.x - 10}px`,
+                  top: `${point.y - 10}px`,
+                  width: 20,
+                  height: 20,
+                  border: 0,
+                  padding: 0,
+                  background: 'transparent',
+                  pointerEvents: 'auto',
+                  cursor: 'pointer',
+                  zIndex: 20,
+                }}
               />
             );
           })}

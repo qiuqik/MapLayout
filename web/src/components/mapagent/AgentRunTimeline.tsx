@@ -179,6 +179,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
         timestamp: new Date().toISOString(),
       };
       setSelectedAgentEvent(event);
+      setSelectedAgentSelection(null);
       return;
     }
     const [kind, ...rest] = flowNodeId.split('-');
@@ -197,6 +198,8 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
         label: `${meta.label} Output`,
         payload: event.payload,
       });
+    } else {
+      setSelectedAgentSelection(null);
     }
   };
 

@@ -27,7 +27,7 @@ function rectsOverlap(a: NodeLike, b: NodeLike) {
 
 /**
  * Simple rectangle collision resolution force (O(n^2)).
- * Works well for dozens of labels/cards.
+ * Works well for dozens of labels.
  */
 export function rectCollideForce(strength = 1) {
   let nodes: NodeLike[] = [];
@@ -85,4 +85,3 @@ export function toNodeLike(items: LayoutItemOutput[]): NodeLike[] {
     padding: it.padding ?? 6,
   }));
 }
-

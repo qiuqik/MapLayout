@@ -92,6 +92,11 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, sele
             longitude={lng}
             latitude={lat}
             anchor={pointStyle.anchor || 'bottom'}
+            onClick={(event: any) => {
+              if (!selectable) return;
+              event?.originalEvent?.stopPropagation?.();
+              onFeatureSelect?.(feature, 'point');
+            }}
           >
             <div
               className="map-feature-click-target"

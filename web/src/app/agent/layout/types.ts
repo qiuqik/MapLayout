@@ -7,7 +7,7 @@ export type Rect = {
   height: number;
 };
 
-export type LayoutItemKind = 'label' | 'card';
+export type LayoutItemKind = 'label';
 export type LayoutItemHierarchy = 'core' | 'secondary' | 'detail';
 export type LayoutItemContentType = 'title' | 'title_script' | 'title_script_extra';
 

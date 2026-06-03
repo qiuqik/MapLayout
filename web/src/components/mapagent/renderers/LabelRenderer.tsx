@@ -41,6 +41,11 @@ const LabelRenderer: React.FC<LabelRendererProps> = ({ points, labelStyles, labe
             longitude={lng}
             latitude={lat}
             anchor="bottom"
+            onClick={(event: any) => {
+              if (!selectable) return;
+              event?.originalEvent?.stopPropagation?.();
+              onFeatureSelect?.(feature, 'label');
+            }}
           >
             <div
               className="map-feature-click-target"
