@@ -361,7 +361,7 @@ function AgentPageContent() {
           />
         </div>
         <div className="h-[230px] flex-none">
-          <AgentRunTimeline />
+          <AgentRunTimeline sessionId={currentSession?.session_id || activeRunId} />
         </div>
       </div>
       <AgentControlPanel

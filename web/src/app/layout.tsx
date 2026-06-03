@@ -11,11 +11,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN">
+    <html lang="zh-CN" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/logo2.svg" type="image/svg+xml" />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         {children}
       </body>
     </html>

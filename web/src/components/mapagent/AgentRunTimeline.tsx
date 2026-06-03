@@ -1,8 +1,9 @@
 'use client';
 
-import { AlertTriangleIcon, CheckCircle2Icon, CircleIcon, Code2Icon, GitBranchIcon, Loader2Icon } from 'lucide-react';
+import { AlertTriangleIcon, CheckCircle2Icon, CircleIcon, Code2Icon, GitBranchIcon, Loader2Icon, RefreshCwIcon, SaveIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAgentMap, type AgentRunEvent } from '@/lib/agentMapContext';
+import { API_BASE_URL } from '@/lib/api';
 
 const NODE_ORDER = [
   { id: 'intent', label: 'Intent' },
@@ -50,7 +51,7 @@ const summarizeEvent = (event?: AgentRunEvent) => {
 const nodeState = (events: AgentRunEvent[], nodeId: string) => {
   const nodeEvents = events.filter((event) => event.node_id === nodeId);
   const latest = nodeEvents[nodeEvents.length - 1];
-  const completed = findLastEvent(nodeEvents, (event) => event.type === 'node_completed' || event.type === 'node_validation');
+  const completed = findLastEvent(nodeEvents, (event) => event.type === 'node_completed' || event.type === 'node_validation' || event.type === 'user_edit');
   const failed = latest?.status === 'failed' || latest?.type === 'workflow_error';
   const running = latest?.type === 'node_started' || latest?.status === 'running' || latest?.status === 'retrying';
   return {
@@ -73,6 +74,7 @@ const eventPayload = (event: AgentRunEvent | null) => {
 };
 
 const jsonLines = (value: unknown) => JSON.stringify(value ?? {}, null, 2).split('\n');
+const asArray = (value: unknown) => (Array.isArray(value) ? value : []);
 
 const payloadForNode = (event: AgentRunEvent, value: unknown) => {
   if (event.node_id === 'visual') return { visual_structure: value };
@@ -82,7 +84,11 @@ const payloadForNode = (event: AgentRunEvent, value: unknown) => {
   return value as Record<string, unknown>;
 };
 
-const AgentRunTimeline = () => {
+interface AgentRunTimelineProps {
+  sessionId?: string | null;
+}
+
+const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
   const {
     agentEvents,
     activeRunId,
@@ -92,9 +98,13 @@ const AgentRunTimeline = () => {
     setVisualStructure,
     setGeojson,
     setManifest,
+    appendAgentEvent,
   } = useAgentMap();
   const [activeTab, setActiveTab] = useState<'flow' | 'code'>('flow');
   const [codeText, setCodeText] = useState('{}');
+  const [codeDirty, setCodeDirty] = useState(false);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [rerunBusy, setRerunBusy] = useState(false);
   const localCodeEditRef = useRef(false);
   const workflowError = findLastEvent(agentEvents, (event) => event.type === 'workflow_error');
   const workflowDone = findLastEvent(agentEvents, (event) => event.type === 'workflow_completed');
@@ -107,24 +117,92 @@ const AgentRunTimeline = () => {
       return;
     }
     setCodeText(JSON.stringify(selectedPayload ?? {}, null, 2));
+    setCodeDirty(false);
+    setCodeError(null);
   }, [selectedPayload]);
+
+  const applyParsedCode = (parsed: any) => {
+    if (!selectedAgentEvent) return;
+    const nextEvent = {
+      ...selectedAgentEvent,
+      payload: payloadForNode(selectedAgentEvent, parsed),
+    };
+    localCodeEditRef.current = true;
+    setSelectedAgentEvent(nextEvent);
+    if (selectedAgentEvent.node_id === 'visual') setVisualStructure(parsed);
+    if (selectedAgentEvent.node_id === 'geojson') setGeojson(parsed);
+    if (selectedAgentEvent.node_id === 'style' || selectedAgentEvent.node_id === 'icon_generation') setManifest(parsed);
+  };
 
   const handleCodeChange = (value: string) => {
     setCodeText(value);
-    if (!selectedAgentEvent) return;
+    setCodeDirty(true);
     try {
       const parsed = JSON.parse(value);
-      const nextEvent = {
-        ...selectedAgentEvent,
-        payload: payloadForNode(selectedAgentEvent, parsed),
-      };
-      localCodeEditRef.current = true;
-      setSelectedAgentEvent(nextEvent);
-      if (selectedAgentEvent.node_id === 'visual') setVisualStructure(parsed);
-      if (selectedAgentEvent.node_id === 'geojson') setGeojson(parsed);
-      if (selectedAgentEvent.node_id === 'style' || selectedAgentEvent.node_id === 'icon_generation') setManifest(parsed);
+      setCodeError(null);
+      applyParsedCode(parsed);
     } catch {
+      setCodeError('Invalid JSON');
       // Keep the draft in the editor; apply once it becomes valid JSON.
+    }
+  };
+
+  const selectedNodeId = selectedAgentEvent?.node_id || selectedAgentEvent?.type || null;
+  const canRerun = Boolean(sessionId && selectedAgentEvent && ['intent', 'visual', 'geojson', 'style', 'icon_generation', 'workflow_completed'].includes(selectedNodeId || ''));
+
+  const recordCodeEdit = () => {
+    if (!selectedAgentEvent) return;
+    try {
+      const parsed = JSON.parse(codeText);
+      setCodeError(null);
+      applyParsedCode(parsed);
+      appendAgentEvent({
+        type: 'user_edit',
+        run_id: activeRunId || sessionId || 'local',
+        session_id: sessionId || undefined,
+        node_id: selectedAgentEvent.node_id,
+        label: 'User edit',
+        status: 'edited',
+        payload: payloadForNode(selectedAgentEvent, parsed),
+        timestamp: new Date().toISOString(),
+      });
+      setCodeDirty(false);
+    } catch {
+      setCodeError('Invalid JSON');
+    }
+  };
+
+  const handleRerun = async () => {
+    if (!sessionId || !selectedAgentEvent) return;
+    let parsed: any;
+    try {
+      parsed = JSON.parse(codeText);
+      setCodeError(null);
+    } catch {
+      setCodeError('Invalid JSON');
+      return;
+    }
+    recordCodeEdit();
+    setRerunBusy(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/multimodal/session/${sessionId}/rerun-downstream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          node_id: selectedNodeId,
+          payload: parsed,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.error) throw new Error(data.error || 'Downstream rerun failed');
+      if (data.geojson) setGeojson(data.geojson);
+      if (data.style_code) setManifest(data.style_code);
+      if (data.visual_structure) setVisualStructure(data.visual_structure);
+      asArray(data.events).forEach((event: AgentRunEvent) => appendAgentEvent(event));
+    } catch (error: any) {
+      setCodeError(error.message || 'Downstream rerun failed');
+    } finally {
+      setRerunBusy(false);
     }
   };
 
@@ -137,7 +215,34 @@ const AgentRunTimeline = () => {
             {activeRunId || (agentEvents.length ? 'local run' : 'idle')}
           </div>
         </div>
-        <div className="flex rounded-md border border-gray-200 bg-gray-50 p-0.5">
+        <div className="flex items-center gap-2">
+          {activeTab === 'code' && (
+            <div className="flex items-center gap-1">
+              {codeError && <span className="max-w-[160px] truncate text-[10px] text-red-600">{codeError}</span>}
+              {codeDirty && !codeError && <span className="text-[10px] text-amber-600">edited</span>}
+              <button
+                type="button"
+                title="Record edit"
+                onClick={recordCodeEdit}
+                disabled={!selectedAgentEvent || Boolean(codeError)}
+                className="flex h-7 items-center gap-1 rounded border border-gray-200 px-2 text-[11px] text-gray-700 disabled:opacity-40"
+              >
+                <SaveIcon className="h-3.5 w-3.5" />
+                Apply
+              </button>
+              <button
+                type="button"
+                title="Rerun downstream"
+                onClick={handleRerun}
+                disabled={!canRerun || Boolean(codeError) || rerunBusy}
+                className="flex h-7 items-center gap-1 rounded bg-gray-900 px-2 text-[11px] text-white disabled:opacity-40"
+              >
+                <RefreshCwIcon className={`h-3.5 w-3.5 ${rerunBusy ? 'animate-spin' : ''}`} />
+                Rerun
+              </button>
+            </div>
+          )}
+          <div className="flex rounded-md border border-gray-200 bg-gray-50 p-0.5">
           <button
             type="button"
             onClick={() => setActiveTab('flow')}
@@ -154,6 +259,7 @@ const AgentRunTimeline = () => {
             <Code2Icon className="h-3.5 w-3.5" />
             Code
           </button>
+          </div>
         </div>
       </div>
 

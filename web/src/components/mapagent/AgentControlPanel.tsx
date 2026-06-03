@@ -23,6 +23,40 @@ const editablePayload = (event: AgentRunEvent | null) => {
   return payload;
 };
 
+const payloadForNode = (event: AgentRunEvent | null, value: any) => {
+  if (!event) return value;
+  if (event.node_id === 'visual') return { visual_structure: value };
+  if (event.node_id === 'geojson') return { geojson: value };
+  if (event.node_id === 'style' || event.node_id === 'icon_generation') return { style_code: value };
+  if (event.node_id === 'intent') return typeof value === 'string' ? { intent_enriched: value } : value;
+  return value;
+};
+
+const clone = (value: any) => JSON.parse(JSON.stringify(value ?? {}));
+const asArray = (value: any) => (Array.isArray(value) ? value : []);
+const isHex = (value: unknown) => typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value);
+
+const textValue = (value: any) => (value === undefined || value === null ? '' : String(value));
+
+const numberValue = (value: any, fallback = 0) => {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+};
+
+const setNestedValue = (target: any, path: (string | number)[], value: any) => {
+  let cursor = target;
+  path.forEach((key, index) => {
+    if (index === path.length - 1) {
+      cursor[key] = value;
+      return;
+    }
+    if (!cursor[key] || typeof cursor[key] !== 'object') cursor[key] = typeof path[index + 1] === 'number' ? [] : {};
+    cursor = cursor[key];
+  });
+};
+
+const getNodeTitle = (event: AgentRunEvent | null) => event?.node_id || event?.type || 'none';
+
 const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, selectedRouteId, onRouteSelect }) => {
   const {
     manifest,
@@ -31,6 +65,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     visualStructure,
     setVisualStructure,
     selectedAgentEvent,
+    setSelectedAgentEvent,
     appendAgentEvent,
   } = useAgentMap();
   const [editorText, setEditorText] = useState('');
@@ -49,6 +84,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   }, [editorText]);
 
   const routes = manifest?.Route || [];
+  const selectedNodeId = selectedAgentEvent?.node_id || selectedAgentEvent?.type || null;
   const canRerun = Boolean(
     selectedAgentEvent &&
     ['intent', 'visual', 'geojson', 'style', 'icon_generation', 'workflow_completed'].includes(
@@ -97,12 +133,42 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
 
   const updateEditorJson = (updater: (draft: any) => void, applyVisual = false) => {
     if (!parsedEditor) return;
-    const next = JSON.parse(JSON.stringify(parsedEditor));
+    const next = clone(parsedEditor);
     updater(next);
     setEditorText(JSON.stringify(next, null, 2));
+    if (selectedAgentEvent) {
+      setSelectedAgentEvent({
+        ...selectedAgentEvent,
+        payload: payloadForNode(selectedAgentEvent, next),
+      });
+    }
     if (applyVisual && selectedAgentEvent?.node_id === 'visual') {
       setVisualStructure(next.visual_structure || next);
+    } else if (selectedAgentEvent?.node_id === 'geojson') {
+      setGeojson(next.geojson || next);
+    } else if (selectedAgentEvent?.node_id === 'style' || selectedAgentEvent?.node_id === 'icon_generation') {
+      setManifest(next.style_code || next);
     }
+  };
+
+  const updateGeojsonFeature = (featureIndex: number, path: (string | number)[], value: any) => {
+    updateEditorJson((draft) => {
+      const feature = draft.features?.[featureIndex];
+      if (!feature) return;
+      setNestedValue(feature, path, value);
+    });
+  };
+
+  const updateStyleSection = (section: 'Point' | 'Route' | 'Label' | 'Global', index: number, path: (string | number)[], value: any) => {
+    updateEditorJson((draft) => {
+      if (!Array.isArray(draft[section])) draft[section] = [];
+      if (!draft[section][index]) draft[section][index] = {};
+      setNestedValue(draft[section][index], path, value);
+    });
+  };
+
+  const updateVisualPath = (path: (string | number)[], value: any) => {
+    updateEditorJson((draft) => setNestedValue(draft, path, value), true);
   };
 
   const handleRerun = async () => {
@@ -160,6 +226,280 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     ));
     setManifest({ ...manifest, Route: nextRoutes });
     if (routeId) onRouteSelect?.(routeId);
+  };
+
+  const renderField = (
+    label: string,
+    value: any,
+    onChange: (value: string) => void,
+    options?: { multiline?: boolean; placeholder?: string },
+  ) => (
+    <label className="block space-y-1 text-[10px] text-gray-600">
+      <span className="font-medium text-gray-700">{label}</span>
+      {options?.multiline ? (
+        <textarea
+          value={textValue(value)}
+          placeholder={options.placeholder}
+          onChange={(event) => onChange(event.target.value)}
+          className="min-h-[52px] w-full resize-y rounded border border-gray-200 px-2 py-1 text-[11px] leading-4"
+        />
+      ) : (
+        <input
+          value={textValue(value)}
+          placeholder={options?.placeholder}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-7 w-full rounded border border-gray-200 px-2 text-[11px]"
+        />
+      )}
+    </label>
+  );
+
+  const renderColorField = (label: string, value: any, onChange: (value: string) => void) => (
+    <label className="grid grid-cols-[76px_1fr_34px] items-center gap-2 text-[10px] text-gray-600">
+      <span className="font-medium text-gray-700">{label}</span>
+      <input
+        value={textValue(value)}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-7 rounded border border-gray-200 px-2 font-mono text-[10px]"
+      />
+      <input
+        type="color"
+        value={isHex(value) ? value : '#000000'}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-7 w-8 rounded border"
+      />
+    </label>
+  );
+
+  const renderVisualProperties = () => {
+    if (selectedNodeId !== 'visual' || !parsedEditor) return null;
+    const palette = asArray(parsedEditor.Color?.palette);
+    return (
+      <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
+        <div className="text-[11px] font-semibold text-gray-700">Visual</div>
+        {renderField('Theme', parsedEditor['Theme&Design']?.theme || parsedEditor.ThemeDesign?.theme, (value) => {
+          if (parsedEditor['Theme&Design']) updateVisualPath(['Theme&Design', 'theme'], value);
+          else updateVisualPath(['ThemeDesign', 'theme'], value);
+        })}
+        <div className="space-y-2">
+          {['background', 'water', 'road'].map((key) => (
+            <div key={key}>
+              {renderColorField(key, parsedEditor.Color?.[key], (value) => updateVisualPath(['Color', key], value))}
+            </div>
+          ))}
+        </div>
+        {palette.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-[10px] font-semibold text-gray-500">Palette</div>
+            {palette.slice(0, 10).map((item: any, index: number) => (
+              <label key={`${item.name || 'color'}-${index}`} className="grid grid-cols-[1fr_34px] items-center gap-2 text-[10px] text-gray-600">
+                <input
+                  value={textValue(item.name || `color ${index + 1}`)}
+                  onChange={(event) => updateVisualPath(['Color', 'palette', index, 'name'], event.target.value)}
+                  className="h-7 min-w-0 rounded border border-gray-200 px-2 text-[10px]"
+                />
+                <input
+                  type="color"
+                  value={isHex(item.hex) ? item.hex : '#000000'}
+                  onChange={(event) => updateVisualPath(['Color', 'palette', index, 'hex'], event.target.value)}
+                  className="h-7 w-8 rounded border"
+                />
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderGeojsonProperties = () => {
+    if (selectedNodeId !== 'geojson' || !parsedEditor) return null;
+    const features = asArray(parsedEditor.features);
+    const points = features
+      .map((feature: any, index: number) => ({ feature, index }))
+      .filter(({ feature }) => feature?.geometry?.type === 'Point');
+    const globals = asArray(parsedEditor.global_properties);
+    const days = Array.from(new Set(points.map(({ feature }) => feature.properties?.day).filter(Boolean)));
+    const orderedDayKeys = days.length ? days : ['POI'];
+
+    return (
+      <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-semibold text-gray-700">GeoJSON</div>
+          <div className="text-[10px] text-gray-500">{points.length} POI</div>
+        </div>
+        {globals.length > 0 && (
+          <details open className="rounded border border-gray-200 bg-white p-2">
+            <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Global</summary>
+            <div className="mt-2 space-y-2">
+              {globals.slice(0, 2).map((item: any, index: number) => (
+                <div key={`global-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
+                  {renderField('Title', item.title, (value) => updateEditorJson((draft) => { draft.global_properties[index].title = value; }))}
+                  {renderField('Script', item.script, (value) => updateEditorJson((draft) => { draft.global_properties[index].script = value; }), { multiline: true })}
+                  {renderField('Extra', item.extra_info, (value) => updateEditorJson((draft) => { draft.global_properties[index].extra_info = value; }), { multiline: true })}
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+        {orderedDayKeys.map((dayKey) => {
+          const dayPoints = days.length ? points.filter(({ feature }) => feature.properties?.day === dayKey) : points;
+          return (
+            <details key={String(dayKey)} open={orderedDayKeys.length <= 2} className="rounded border border-gray-200 bg-white p-2">
+              <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">{String(dayKey)}</summary>
+              <div className="mt-2 space-y-2">
+                {dayPoints.map(({ feature, index }) => {
+                  const props = feature.properties || {};
+                  return (
+                    <details key={props.visual_id || props.id || index} className="rounded border border-gray-100 bg-gray-50 p-2">
+                      <summary className="cursor-pointer truncate text-[10px] font-semibold text-gray-700">
+                        {props.name || props.label_title || `POI ${index + 1}`}
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        {renderField('Name', props.name, (value) => updateGeojsonFeature(index, ['properties', 'name'], value))}
+                        {renderField('Description', props.description, (value) => updateGeojsonFeature(index, ['properties', 'description'], value), { multiline: true })}
+                        {renderField('Icon', props.icon || props.icon_name, (value) => updateGeojsonFeature(index, ['properties', 'icon'], value))}
+                        {renderField('Label title', props.label_title, (value) => updateGeojsonFeature(index, ['properties', 'label_title'], value))}
+                        {renderField('Label script', props.label_script, (value) => updateGeojsonFeature(index, ['properties', 'label_script'], value), { multiline: true })}
+                        {renderField('Label extra', props.label_extra_info, (value) => updateGeojsonFeature(index, ['properties', 'label_extra_info'], value), { multiline: true })}
+                        <label className="block space-y-1 text-[10px] text-gray-600">
+                          <span className="font-medium text-gray-700">Level</span>
+                          <select
+                            value={props.label_level || props.hierarchy || 'secondary'}
+                            onChange={(event) => updateGeojsonFeature(index, ['properties', 'label_level'], event.target.value)}
+                            className="h-7 w-full rounded border border-gray-200 px-2 text-[11px]"
+                          >
+                            <option value="core">core</option>
+                            <option value="secondary">secondary</option>
+                            <option value="detail">detail</option>
+                          </select>
+                        </label>
+                      </div>
+                    </details>
+                  );
+                })}
+              </div>
+            </details>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderStyleProperties = () => {
+    if (!['style', 'icon_generation'].includes(selectedNodeId || '') || !parsedEditor) return null;
+    const points = asArray(parsedEditor.Point);
+    const labels = asArray(parsedEditor.Label);
+    const globals = asArray(parsedEditor.Global);
+    const routesForStyle = asArray(parsedEditor.Route);
+    const iconMeta = parsedEditor._icon_generation;
+
+    return (
+      <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
+        <div className="text-[11px] font-semibold text-gray-700">{selectedNodeId === 'icon_generation' ? 'Icons' : 'Style'}</div>
+        {globals.length > 0 && (
+          <details open className="rounded border border-gray-200 bg-white p-2">
+            <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Global</summary>
+            <div className="mt-2 space-y-3">
+              {globals.map((item: any, index: number) => (
+                <div key={`style-global-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
+                  {renderField('Title', item.content?.title, (value) => updateStyleSection('Global', index, ['content', 'title'], value))}
+                  {renderField('Script', item.content?.script, (value) => updateStyleSection('Global', index, ['content', 'script'], value), { multiline: true })}
+                  {renderField('Extra', item.content?.extra_info, (value) => updateStyleSection('Global', index, ['content', 'extra_info'], value), { multiline: true })}
+                  {renderColorField('Text', item.style?.title?.color || item.style?.container?.color, (value) => updateStyleSection('Global', index, ['style', 'title', 'color'], value))}
+                  {renderColorField('Panel', item.style?.container?.backgroundColor || item.style?.container?.background, (value) => updateStyleSection('Global', index, ['style', 'container', 'backgroundColor'], value))}
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+        {labels.length > 0 && (
+          <details open className="rounded border border-gray-200 bg-white p-2">
+            <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Label</summary>
+            <div className="mt-2 space-y-3">
+              {labels.map((item: any, index: number) => (
+                <div key={item.visual_id || `label-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
+                  <div className="truncate text-[10px] font-semibold text-gray-500">{item.visual_id || `label ${index + 1}`}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {renderField('Width', item.width, (value) => updateStyleSection('Label', index, ['width'], numberValue(value, item.width)))}
+                    {renderField('Height', item.height, (value) => updateStyleSection('Label', index, ['height'], numberValue(value, item.height)))}
+                  </div>
+                  <label className="block space-y-1 text-[10px] text-gray-600">
+                    <span className="font-medium text-gray-700">Level</span>
+                    <select
+                      value={item.hierarchy || item.level || 'secondary'}
+                      onChange={(event) => updateStyleSection('Label', index, ['hierarchy'], event.target.value)}
+                      className="h-7 w-full rounded border border-gray-200 px-2 text-[11px]"
+                    >
+                      <option value="core">core</option>
+                      <option value="secondary">secondary</option>
+                      <option value="detail">detail</option>
+                    </select>
+                  </label>
+                  {renderColorField('Title', item.style?.title?.color, (value) => updateStyleSection('Label', index, ['style', 'title', 'color'], value))}
+                  {renderColorField('Script', item.style?.script?.color, (value) => updateStyleSection('Label', index, ['style', 'script', 'color'], value))}
+                  {renderColorField('Extra', item.style?.extra_info?.color, (value) => updateStyleSection('Label', index, ['style', 'extra_info', 'color'], value))}
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+        {points.length > 0 && (
+          <details open={selectedNodeId === 'icon_generation'} className="rounded border border-gray-200 bg-white p-2">
+            <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Point</summary>
+            <div className="mt-2 space-y-3">
+              {points.map((item: any, index: number) => (
+                <div key={item.visual_id || `point-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
+                  <div className="truncate text-[10px] font-semibold text-gray-500">{item.visual_id || item.icon || `point ${index + 1}`}</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {renderField('W', Array.isArray(item.size) ? item.size[0] : item.style?.size?.[0] || item.width, (value) => {
+                      const next = numberValue(value, 28);
+                      if (Array.isArray(item.size)) updateStyleSection('Point', index, ['size', 0], next);
+                      else updateStyleSection('Point', index, ['style', 'size', 0], next);
+                    })}
+                    {renderField('H', Array.isArray(item.size) ? item.size[1] : item.style?.size?.[1] || item.height, (value) => {
+                      const next = numberValue(value, 28);
+                      if (Array.isArray(item.size)) updateStyleSection('Point', index, ['size', 1], next);
+                      else updateStyleSection('Point', index, ['style', 'size', 1], next);
+                    })}
+                  </div>
+                  {renderField('Icon prompt', item.icon_description || item.description, (value) => updateStyleSection('Point', index, ['icon_description'], value), { multiline: true })}
+                  {renderField('URL', item.url, (value) => updateStyleSection('Point', index, ['url'], value))}
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+        {routesForStyle.length > 0 && (
+          <details className="rounded border border-gray-200 bg-white p-2">
+            <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Route</summary>
+            <div className="mt-2 space-y-3">
+              {routesForStyle.map((item: any, index: number) => (
+                <div key={item.visual_id || `route-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
+                  <div className="truncate text-[10px] font-semibold text-gray-500">{item.visual_id || `route ${index + 1}`}</div>
+                  {renderColorField('Color', item.Color || item.color, (value) => {
+                    updateEditorJson((draft) => {
+                      if (!Array.isArray(draft.Route)) draft.Route = [];
+                      if (!draft.Route[index]) draft.Route[index] = {};
+                      draft.Route[index].Color = value;
+                      draft.Route[index].color = value;
+                    });
+                  })}
+                  {renderField('Width', item.width, (value) => updateStyleSection('Route', index, ['width'], numberValue(value, 4)))}
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+        {iconMeta && (
+          <div className="rounded border border-gray-200 bg-white p-2 text-[10px] text-gray-600">
+            <div className="font-semibold text-gray-700">Generation</div>
+            <div>generated: {iconMeta.generated_count ?? 0}</div>
+            <div>errors: {asArray(iconMeta.errors).length}</div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -232,45 +572,12 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
           <div className="mb-2 flex items-center justify-between">
             <div className="text-xs font-semibold text-gray-700">Agent Output</div>
             <div className="max-w-[130px] truncate text-[10px] text-gray-500">
-              {selectedAgentEvent?.label || selectedAgentEvent?.node_id || 'none'}
+              {selectedAgentEvent?.label || getNodeTitle(selectedAgentEvent)}
             </div>
           </div>
-          {selectedAgentEvent?.node_id === 'visual' && parsedEditor?.Color && (
-            <div className="mb-3 space-y-2 rounded border border-gray-200 bg-gray-50 p-2">
-              <div className="text-[11px] font-semibold text-gray-700">Visual Colors</div>
-              {['background', 'water', 'road'].map((key) => (
-                <label key={key} className="grid grid-cols-[76px_1fr_34px] items-center gap-2 text-[10px] text-gray-600">
-                  <span className="capitalize">{key}</span>
-                  <input
-                    value={parsedEditor.Color[key] || ''}
-                    onChange={(event) => updateEditorJson((draft) => { draft.Color[key] = event.target.value; }, true)}
-                    className="h-7 rounded border border-gray-200 px-2 font-mono text-[10px]"
-                  />
-                  <input
-                    type="color"
-                    value={/^#[0-9a-fA-F]{6}$/.test(parsedEditor.Color[key] || '') ? parsedEditor.Color[key] : '#000000'}
-                    onChange={(event) => updateEditorJson((draft) => { draft.Color[key] = event.target.value; }, true)}
-                    className="h-7 w-8 rounded border"
-                  />
-                </label>
-              ))}
-              {Array.isArray(parsedEditor.Color.palette) && (
-                <div className="space-y-1">
-                  {parsedEditor.Color.palette.slice(0, 8).map((item: any, index: number) => (
-                    <label key={`${item.name || 'color'}-${index}`} className="grid grid-cols-[1fr_34px] items-center gap-2 text-[10px] text-gray-600">
-                      <span className="truncate">{item.name || `color ${index + 1}`}</span>
-                      <input
-                        type="color"
-                        value={/^#[0-9a-fA-F]{6}$/.test(item.hex || '') ? item.hex : '#000000'}
-                        onChange={(event) => updateEditorJson((draft) => { draft.Color.palette[index].hex = event.target.value; }, true)}
-                        className="h-7 w-8 rounded border"
-                      />
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          {renderVisualProperties()}
+          {renderGeojsonProperties()}
+          {renderStyleProperties()}
           <textarea
             value={editorText}
             onChange={(event) => setEditorText(event.target.value)}
