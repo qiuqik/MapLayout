@@ -230,8 +230,8 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
                 onClick={() => handleDatasetChange(key)}
                 className={`flex-1 text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
                   activeDataset === key
-                    ? 'bg-blue-50 border-blue-300 text-blue-700 font-medium'
-                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                    ? 'bg-[#394150] border-[#394150] text-white font-medium'
+                    : 'bg-[#F2F2F2] border-gray-200 text-gray-600 hover:bg-white'
                 }`}
               >
                 {config.label}
@@ -244,40 +244,40 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
           <div className="grid grid-cols-2 gap-2">
             <button
               onClick={() => handleAlgorithmChange('force')}
-              className={`flex-1 text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
-                activeAlgorithm === 'force'
-                  ? 'bg-purple-50 border-purple-300 text-purple-700 font-medium'
-                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                className={`flex-1 text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
+                  activeAlgorithm === 'force'
+                  ? 'bg-[#394150] border-[#394150] text-white font-medium'
+                  : 'bg-[#F2F2F2] border-gray-200 text-gray-600 hover:bg-white'
               }`}
             >
               Force
             </button>
             <button
               onClick={() => handleAlgorithmChange('simulatedAnnealing')}
-              className={`flex-1 text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
-                activeAlgorithm === 'simulatedAnnealing'
-                  ? 'bg-purple-50 border-purple-300 text-purple-700 font-medium'
-                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                className={`flex-1 text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
+                  activeAlgorithm === 'simulatedAnnealing'
+                  ? 'bg-[#394150] border-[#394150] text-white font-medium'
+                  : 'bg-[#F2F2F2] border-gray-200 text-gray-600 hover:bg-white'
               }`}
             >
               SA
             </button>
             <button
               onClick={() => handleAlgorithmChange('weightedVoronoiDirect')}
-              className={`text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
-                activeAlgorithm === 'weightedVoronoiDirect'
-                  ? 'bg-purple-50 border-purple-300 text-purple-700 font-medium'
-                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                className={`text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
+                  activeAlgorithm === 'weightedVoronoiDirect'
+                  ? 'bg-[#394150] border-[#394150] text-white font-medium'
+                  : 'bg-[#F2F2F2] border-gray-200 text-gray-600 hover:bg-white'
               }`}
             >
               Voronoi Base
             </button>
             <button
               onClick={() => handleAlgorithmChange('weightedVoronoi')}
-              className={`text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
-                activeAlgorithm === 'weightedVoronoi'
-                  ? 'bg-purple-50 border-purple-300 text-purple-700 font-medium'
-                  : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                className={`text-[11px] px-2 py-1 rounded-md border font-semibold transition-all text-center ${
+                  activeAlgorithm === 'weightedVoronoi'
+                  ? 'bg-[#394150] border-[#394150] text-white font-medium'
+                  : 'bg-[#F2F2F2] border-gray-200 text-gray-600 hover:bg-white'
               }`}
             >
               Force + Voronoi
@@ -307,8 +307,8 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
           />
         </div>
 
-        <div className="pl-3 py-2 bg-amber-50 rounded-md border border-amber-100">
-          <p className="text-[10px] text-amber-600">
+        <div className="pl-3 py-2 bg-[#F2F2F2] rounded-md border border-gray-200">
+          <p className="text-[10px] text-gray-600">
             Output File: <span className="font-mono font-medium">{filename}_{DATASET_CONFIG[activeDataset].suffix}</span>
           </p>
         </div>
@@ -324,27 +324,6 @@ const DatasetPanel: React.FC<DatasetPanelProps> = ({
           </Button>
         )}
 
-        <Separator />
-
-        <div className="space-y-2">
-          <p className="text-xs text-gray-500">Dataset Description:</p>
-          <div className="space-y-2">
-            {Object.entries(DATASET_CONFIG).map(([key, config]) => (
-              <div
-                key={key}
-                className={`p-2 rounded-md border text-[10px] ${
-                  activeDataset === key
-                    ? 'bg-blue-50 border-blue-200 text-blue-700'
-                    : 'bg-gray-50 border-gray-100 text-gray-600'
-                }`}
-              >
-                <p className="font-medium">{config.label}</p>
-                <p className="mt-0.5">{config.description}</p>
-                <p className="mt-0.5 text-gray-400 font-mono">{config.suffix}</p>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -355,7 +355,7 @@ function AgentPageContent() {
       {/* 左侧控制栏 */}
       <div className="flex flex-col flex-shrink-0 w-[21%] min-w-[300px] h-full bg-white shadow-lg z-10 border-r">
         {/* 固定头部 */}
-        <div className="sticky top-0 z-10 bg-gray-900 shadow-sm pl-3 py-1.5">
+        <div className="sticky top-0 z-10 bg-[#131722] shadow-sm pl-3 py-1.5">
           <h1 className="text-base font-semibold text-white">AgentMap Layout</h1>
         </div>
 
@@ -377,8 +377,8 @@ function AgentPageContent() {
                     <button
                       className={`w-full text-[12px] text-left px-1 rounded-md transition-colors truncate ${
                         currentSession?.session_id === s.session_id
-                          ? 'bg-blue-50 text-black font-medium'
-                          : 'text-gray-600 hover:bg-gray-100'
+                          ? 'bg-[#394150] text-white font-medium'
+                          : 'text-gray-600 hover:bg-[#F2F2F2]'
                       }`}
                       onClick={() => loadSession(s.session_id)}
                     >
@@ -399,31 +399,31 @@ function AgentPageContent() {
               onClick={() => setShowHeatmap(v => !v)}
               className={`flex-1 px-2 py-1.5 rounded-md border-[1.5px] text-[11px] font-semibold transition-all ${
                 showHeatmap
-                  ? 'border-amber-500 bg-amber-50 text-amber-700'
-                  : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+                  ? 'border-[#394150] bg-[#394150] text-white'
+                  : 'border-gray-200 bg-[#F2F2F2] text-gray-600 hover:bg-white'
               }`}
             >
-              {showHeatmap ? '🟠 Heatmap ON' : '🌡 Heatmap'}
+              {showHeatmap ? 'Heatmap ON' : 'Heatmap'}
             </button>
             <button
               onClick={() => setShowDebugPanel(v => !v)}
               className={`flex-1 px-2 py-1.5 rounded-md border-[1.5px] text-[11px] font-semibold transition-all ${
                 showDebugPanel
-                  ? 'border-blue-500 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+                  ? 'border-[#394150] bg-[#394150] text-white'
+                  : 'border-gray-200 bg-[#F2F2F2] text-gray-600 hover:bg-white'
               }`}
             >
-              {showDebugPanel ? '🔵 Debug ON' : '⚙ Debug'}
+              {showDebugPanel ? 'Debug ON' : 'Debug'}
             </button>
             <button
               onClick={() => setMapDraggable(v => !v)}
               className={`flex-1 px-2 py-1.5 rounded-md border-[1.5px] text-[11px] font-semibold transition-all ${
                 mapDraggable
-                  ? 'border-green-500 bg-green-50 text-green-700'
-                  : 'border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100'
+                  ? 'border-[#394150] bg-[#394150] text-white'
+                  : 'border-gray-200 bg-[#F2F2F2] text-gray-600 hover:bg-white'
               }`}
             >
-              {mapDraggable ? '📌 Anchored' : '⛓ Draggable'}
+              {mapDraggable ? 'Anchored' : 'Draggable'}
             </button>
           </div>
 

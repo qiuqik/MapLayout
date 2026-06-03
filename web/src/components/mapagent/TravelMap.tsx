@@ -263,10 +263,12 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const { setSelectedAgentSelection } = useAgentMap();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapRef>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
   const [viewportSize, setViewportSize] = useState<{ width: number; height: number } | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapTool, setMapTool] = useState<'select' | 'pan'>('select');
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [mapLabelMatches, setMapLabelMatches] = useState<MapSearchResult[]>([]);
   const [placeMatches, setPlaceMatches] = useState<MapSearchResult[]>([]);
@@ -338,6 +340,11 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     };
     return calculateMapViewState(dataForCalc);
   }, [transformedData, displayLines]);
+
+  useEffect(() => {
+    if (!isSearchOpen) return;
+    searchInputRef.current?.focus();
+  }, [isSearchOpen]);
 
   useEffect(() => {
     // Fit map view to data
@@ -1149,7 +1156,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
             type="button"
             title="Select map elements"
             onClick={() => setMapTool('select')}
-            className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'select' ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+            className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'select' ? 'bg-[#131722] text-white' : 'text-gray-700 hover:bg-gray-100'}`}
           >
             <MousePointer2Icon className="h-4 w-4" />
           </button>
@@ -1157,7 +1164,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
             type="button"
             title="Pan map"
             onClick={() => setMapTool('pan')}
-            className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'pan' ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+            className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'pan' ? 'bg-[#131722] text-white' : 'text-gray-700 hover:bg-gray-100'}`}
           >
             <HandIcon className="h-4 w-4" />
           </button>
@@ -1196,40 +1203,52 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
           >
             <DownloadIcon className={`h-4 w-4 ${isExportingPng ? 'animate-pulse' : ''}`} />
           </button>
+          <div className="mx-1 h-5 w-px bg-gray-200" />
+          <button
+            type="button"
+            title="Search map or trip"
+            onClick={() => setIsSearchOpen((open) => !open)}
+            className={`grid h-8 w-8 place-items-center rounded ${isSearchOpen ? 'bg-[#131722] text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            <SearchIcon className="h-4 w-4" />
+          </button>
         </div>
 
-        <div className="rounded-md border border-gray-200 bg-white/95 shadow-sm backdrop-blur">
-          <div className="flex items-center gap-2 px-2 py-1.5">
-            <SearchIcon className="h-4 w-4 flex-none text-gray-500" />
-            <input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search map or trip"
-              className="min-w-0 flex-1 bg-transparent text-xs outline-none"
-            />
-          </div>
-          {(searchMatches.length > 0 || isSearchingPlaces) && (
-            <div className="max-h-44 overflow-y-auto border-t border-gray-100 py-1">
-              {searchMatches.map((item: MapSearchResult) => (
-                <button
-                  key={`${item.source}-${item.id}`}
-                  type="button"
-                  onClick={() => flyToSearchResult(item)}
-                  className="block w-full px-2 py-1.5 text-left hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-1">
-                    <span className="rounded bg-gray-100 px-1 py-0.5 text-[9px] uppercase text-gray-500">{item.source}</span>
-                    <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-800">{item.name}</span>
-                  </div>
-                  <div className="truncate text-[10px] text-gray-500">{item.description || 'Map location'}</div>
-                </button>
-              ))}
-              {isSearchingPlaces && (
-                <div className="px-2 py-1 text-[10px] text-gray-500">Searching map...</div>
-              )}
+        {isSearchOpen && (
+          <div className="rounded-md border border-gray-200 bg-white/95 shadow-sm backdrop-blur">
+            <div className="flex items-center gap-2 px-2 py-1.5">
+              <SearchIcon className="h-4 w-4 flex-none text-gray-500" />
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search map or trip"
+                className="min-w-0 flex-1 bg-transparent text-xs outline-none"
+              />
             </div>
-          )}
-        </div>
+            {(searchMatches.length > 0 || isSearchingPlaces) && (
+              <div className="max-h-44 overflow-y-auto border-t border-gray-100 py-1">
+                {searchMatches.map((item: MapSearchResult) => (
+                  <button
+                    key={`${item.source}-${item.id}`}
+                    type="button"
+                    onClick={() => flyToSearchResult(item)}
+                    className="block w-full px-2 py-1.5 text-left hover:bg-gray-50"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="rounded bg-gray-100 px-1 py-0.5 text-[9px] uppercase text-gray-500">{item.source}</span>
+                      <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-800">{item.name}</span>
+                    </div>
+                    <div className="truncate text-[10px] text-gray-500">{item.description || 'Map location'}</div>
+                  </button>
+                ))}
+                {isSearchingPlaces && (
+                  <div className="px-2 py-1 text-[10px] text-gray-500">Searching map...</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Cost field heat map overlay */}
