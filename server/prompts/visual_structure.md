@@ -15,6 +15,10 @@
 - `text`: 主文字、次文字、反白文字色。
 - `accent`: 强调色，用于路线、重点 POI 或标签。
 - 所有颜色必须是标准十六进制色值，如 `#000000`，不要只写颜色名称。
+- 底图颜色必须低饱和、低对比，作为信息承载层，不能比路线、POI、label、global 信息更抢眼。
+- 底图颜色必须与旅行内容层拉开层次：不要让陆地、建筑、道路颜色与卡片填充色、标签底色、路线色、标题字色过于接近。
+- 文本可读性优先：如果标签或标题使用粉色、绿色、橙色等高个性色，必须确保其底色与文字有清晰明度对比，避免“粉字配绿底”这类低可读组合。
+- 整体配色要和谐统一：地图元素之间、地图与 label/global/route 之间都要具有一致审美，避免单个元素颜色突兀跳出。
 
 ## Theme&Design
 对图像主题风格和设计特点进行定性分析，输出：
@@ -96,7 +100,13 @@
 - `global` 必须与 `Theme&Design.global` 一致。
 - `mapboxStyle` 可直接给出具体样式 URL；若参考图没有足够信息，就按 `global` 选择 `mapbox://styles/mapbox/light-v11` 或 `mapbox://styles/mapbox/dark-v11`。
 - `layers[].target` 使用稳定语义名称，前端会先按 target 精确匹配 Mapbox 图层 ID，再按语义映射到实际图层。
-- 优先覆盖这些地图元素：`background`、`water`、`landuse_park`、`road_primary`、`road_secondary`、`road_label`、`poi_label`、`place_label`。参考图信息不足时也要给出与 Color 和 Theme&Design 一致的合理样式。
+- 必须把地图当作“底图”处理，不要让陆地、道路、建筑的颜色压过 route/point/label/global 信息。
+- 不要依赖 Mapbox 默认道路颜色来完成最终视觉。若主干路、次干路或普通道路会显示成纯白、亮白或非常突兀的浅色，必须主动覆盖。
+- 为了避免地图局部默认样式过强，参考图信息不足时也必须尽量覆盖完整底图层级，至少给出以下 target 的合理样式：
+  `background`、`land`、`water`、`landuse_park`、`building`、`road_primary`、`road_secondary`、`road_label`、`poi_label`、`place_label`。
+- `land` / `building` / `road_primary` / `road_secondary` 的颜色必须彼此可区分，但整体保持低饱和，不得与卡片底色或标签背景几乎相同。
+- `poi_label`、`place_label`、`road_label` 必须保证文字与 halo 有足够对比度，提升在复杂底图上的可读性。
+- 如果前景 label / global 卡片已经使用暖色、粉色、绿色等较显眼颜色，底图必须退后到更中性、更去饱和的配色，不要发生视觉冲突。
 - `paint` 尽量使用 Mapbox paint 属性名。
 - Stylesheet 未列出的地图元素由前端按 `global` 使用 Mapbox light/dark 默认样式，因此 `layers` 只写对视觉风格有明确贡献的元素。
 - 输出内容只描述视觉风格、色彩和地图底图样式。
