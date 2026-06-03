@@ -1082,6 +1082,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const fallbackOverlayCount = transformedData.points.length;
   const fallbackLabelScale = getResponsiveOverlayScale('secondary', viewportSize, fallbackOverlayCount);
   const hideDetailLabels = shouldHideOverlay('detail', viewportSize, fallbackOverlayCount);
+  const mapOverlayReady = mapLoaded && Boolean((mapRef.current as any)?.getMap ? (mapRef.current as any).getMap() : mapRef.current);
 
   return (
     <div ref={rootRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -1104,14 +1105,16 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
         preserveDrawingBuffer
       >
         <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} selectedRouteId={selectedRouteId} />
-        <PointRenderer
-          points={transformedData.points}
-          pointStyles={pointStyles}
-          globalProps={transformedData.globalProps}
-          selectable={mapTool === 'select'}
-          onFeatureSelect={selectMapFeature}
-        />
-        {!hideOverlays && layoutState.outputs.length === 0 && (
+        {mapOverlayReady && (
+          <PointRenderer
+            points={transformedData.points}
+            pointStyles={pointStyles}
+            globalProps={transformedData.globalProps}
+            selectable={mapTool === 'select'}
+            onFeatureSelect={selectMapFeature}
+          />
+        )}
+        {mapOverlayReady && !hideOverlays && layoutState.outputs.length === 0 && (
           <LabelRenderer
             points={transformedData.points}
             labelStyles={labelStyles}

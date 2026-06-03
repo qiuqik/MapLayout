@@ -555,6 +555,7 @@ async def get_multimodal_session(session_id: str):
     if not base:
         return JSONResponse(status_code=404, content={"error": "会话不存在"})
 
+    manifest_path = os.path.join(base, 'session_manifest.json')
     node3_path = os.path.join(base, 'node3')
     node4_path = os.path.join(base, 'node4')
     node2_path = os.path.join(base, 'node2')
@@ -583,25 +584,31 @@ async def get_multimodal_session(session_id: str):
     groundtruth_files.sort(key=lambda x: x['filename'])
     origin_files.sort(key=lambda x: x['filename'])
 
-    style_code = None
-    if os.path.exists(node4_path):
-        files = sorted([f for f in os.listdir(node4_path) if f.endswith('.json')])
-        if files:
-            try:
-                with open(os.path.join(node4_path, files[-1]), "r", encoding="utf-8") as f:
-                    style_code = json.load(f)
-            except Exception as e:
-                print(f"⚠️ 读取 node4 失败: {e}")
+    session_manifest = None
+    if os.path.exists(manifest_path):
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                session_manifest = json.load(f)
+        except Exception as e:
+            print(f"⚠️ 读取 session_manifest 失败: {e}")
+
+    intent = None
+    try:
+        intent = _load_latest_session_json(base, 'node1')
+    except Exception as e:
+        print(f"⚠️ 读取 node1 失败: {e}")
 
     visual_structure = None
-    if os.path.exists(node2_path):
-        files = sorted([f for f in os.listdir(node2_path) if f.endswith('.json')])
-        if files:
-            try:
-                with open(os.path.join(node2_path, files[-1]), "r", encoding="utf-8") as f:
-                    visual_structure = json.load(f)
-            except Exception as e:
-                print(f"⚠️ 读取 node2 失败: {e}")
+    try:
+        visual_structure = _load_latest_session_json(base, 'node2')
+    except Exception as e:
+        print(f"⚠️ 读取 node2 失败: {e}")
+
+    style_code = None
+    try:
+        style_code = _load_latest_session_json(base, 'node4')
+    except Exception as e:
+        print(f"⚠️ 读取 node4 失败: {e}")
 
     # 处理 GeoJSON 数据：转换坐标并根据 style_code 判断是否获取步行路线
     origin_processed = None
@@ -618,6 +625,9 @@ async def get_multimodal_session(session_id: str):
 
     return {
         "session_id": session_id,
+        "session_manifest": session_manifest,
+        "intent": intent,
+        "validation": session_manifest.get("workflow") if isinstance(session_manifest, dict) else None,
         "style_code": style_code,
         "visual_structure": visual_structure,
         "origin_file": {"filename": origin_files[-1]['filename'], "data": origin_processed} if origin_files else None,

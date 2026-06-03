@@ -24,10 +24,23 @@ const NODE_ORDER = [
   { id: 'icon_generation', label: 'Icons' },
 ];
 
-const EDGE_LABELS = ['intent', 'visual', 'geojson', 'qa', 'style'];
-const NODE_WIDTH = 132;
-const OUTPUT_WIDTH = 128;
-const NODE_GAP = 36;
+const NODE_WIDTH = 116;
+const OUTPUT_WIDTH = 112;
+
+const FLOW_POSITIONS: Record<string, { x: number; y: number }> = {
+  input: { x: 0, y: 74 },
+  intent: { x: 180, y: 18 },
+  visual: { x: 180, y: 116 },
+  geojson: { x: 428, y: 67 },
+  validation: { x: 656, y: 67 },
+  style: { x: 884, y: 67 },
+  icon_generation: { x: 1112, y: 67 },
+};
+
+const outputPositionFor = (nodeId: string) => {
+  const base = FLOW_POSITIONS[nodeId];
+  return { x: base.x + NODE_WIDTH + 26, y: base.y + 5 };
+};
 
 const compactText = (value: unknown, max = 86) => {
   const text = typeof value === 'string' ? value : JSON.stringify(value ?? '');
@@ -155,6 +168,19 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
   const selectedLines = useMemo(() => codeText.split('\n'), [codeText]);
 
   const selectFlowNodeById = (flowNodeId: string) => {
+    if (flowNodeId === 'input') {
+      const event = findLastEvent(agentEvents, (item) => item.type === 'workflow_started') || {
+        type: 'workflow_started',
+        run_id: activeRunId || sessionId || 'local',
+        node_id: 'input',
+        label: 'Input',
+        status: agentEvents.length ? 'completed' : 'waiting',
+        payload: {},
+        timestamp: new Date().toISOString(),
+      };
+      setSelectedAgentEvent(event);
+      return;
+    }
     const [kind, ...rest] = flowNodeId.split('-');
     const nodeId = rest.join('-');
     const meta = NODE_ORDER.find((item) => item.id === nodeId);
@@ -177,13 +203,74 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
   const flowGraph = useMemo(() => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
+    const statesByNode = new Map(NODE_ORDER.map((node) => [node.id, nodeState(agentEvents, node.id)]));
+    const runningNodeId = NODE_ORDER.find((node) => statesByNode.get(node.id)?.running)?.id;
+    const completedNodeIds = new Set(
+      NODE_ORDER.filter((node) => Boolean(statesByNode.get(node.id)?.completed)).map((node) => node.id),
+    );
+    const hasRunInput = agentEvents.length > 0 || Boolean(activeRunId);
+
+    nodes.push({
+      id: 'input',
+      type: 'input',
+      position: FLOW_POSITIONS.input,
+      sourcePosition: Position.Right,
+      data: {
+        label: (
+          <button
+            type="button"
+            data-flow-node-id="input"
+            onClick={(event) => {
+              event.stopPropagation();
+              selectFlowNodeById('input');
+            }}
+            className="w-[96px] text-left"
+          >
+            <div className="truncate text-xs font-semibold text-gray-900">Input</div>
+            <div className="mt-1 line-clamp-2 text-[9px] leading-3 text-gray-500">{activeRunId || 'Waiting'}</div>
+          </button>
+        ),
+      },
+      style: {
+        width: 112,
+        minHeight: 58,
+        borderRadius: 8,
+        borderWidth: selectedAgentEvent?.node_id === 'input' ? 2 : 1,
+        borderColor: selectedAgentEvent?.node_id === 'input' ? '#111827' : undefined,
+      },
+      className: hasRunInput ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white',
+    });
+
+    const addFlowEdge = (
+      id: string,
+      source: string,
+      target: string,
+      options: { label?: string; active?: boolean; complete?: boolean; dashed?: boolean; type?: Edge['type'] } = {},
+    ) => {
+      edges.push({
+        id,
+        source,
+        target,
+        label: options.label,
+        type: options.type || 'smoothstep',
+        animated: Boolean(options.active),
+        markerEnd: { type: MarkerType.ArrowClosed },
+        style: {
+          stroke: options.active ? '#2563eb' : options.complete ? '#10b981' : '#9ca3af',
+          strokeWidth: options.active ? 2.2 : 1.4,
+          strokeDasharray: options.dashed ? '7 6' : undefined,
+        },
+        labelStyle: { fontSize: 9, fill: options.active ? '#1d4ed8' : '#6b7280' },
+      });
+    };
 
     NODE_ORDER.forEach((node, index) => {
-      const state = nodeState(agentEvents, node.id);
+      const state = statesByNode.get(node.id) || nodeState(agentEvents, node.id);
       const event = state.completed || state.latest || placeholderEvent(node.id, node.label, activeRunId);
       const isComplete = Boolean(state.completed);
       const isSelectedAgent = selectedAgentSelection?.kind !== 'agent_output' && selectedAgentEvent?.node_id === node.id;
-      const x = index * (NODE_WIDTH + OUTPUT_WIDTH + NODE_GAP);
+      const position = FLOW_POSITIONS[node.id];
+      const outputPosition = outputPositionFor(node.id);
       const statusClass = state.failed
         ? 'border-red-300 bg-red-50'
         : state.running
@@ -195,7 +282,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       nodes.push({
         id: `agent-${node.id}`,
         type: 'default',
-        position: { x, y: 28 },
+        position,
         sourcePosition: Position.Right,
         targetPosition: Position.Left,
         data: {
@@ -207,7 +294,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
                 event.stopPropagation();
                 selectFlowNodeById(`agent-${node.id}`);
               }}
-              className="w-[112px] text-left"
+              className="w-[96px] text-left"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate text-xs font-semibold text-gray-900">{node.label}</span>
@@ -219,7 +306,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
         },
         style: {
           width: NODE_WIDTH,
-          minHeight: 72,
+          minHeight: 62,
           borderRadius: 8,
           borderWidth: isSelectedAgent ? 2 : 1,
           borderColor: isSelectedAgent ? '#111827' : undefined,
@@ -230,7 +317,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       nodes.push({
         id: `output-${node.id}`,
         type: 'default',
-        position: { x: x + NODE_WIDTH + 34, y: 36 },
+        position: outputPosition,
         sourcePosition: Position.Right,
         targetPosition: Position.Left,
         data: {
@@ -258,40 +345,69 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
         },
         style: {
           width: OUTPUT_WIDTH,
-          minHeight: 58,
+          minHeight: 52,
           borderRadius: 8,
           borderWidth: selectedAgentSelection?.kind === 'agent_output' && selectedAgentSelection.node_id === node.id ? 2 : 1,
           borderColor: selectedAgentSelection?.kind === 'agent_output' && selectedAgentSelection.node_id === node.id ? '#111827' : undefined,
           background: '#f9fafb',
         },
       });
+    });
 
-      edges.push({
-        id: `edge-${node.id}-output`,
-        source: `agent-${node.id}`,
-        target: `output-${node.id}`,
+    NODE_ORDER.forEach((node) => {
+      const state = statesByNode.get(node.id);
+      addFlowEdge(`edge-${node.id}-output`, `agent-${node.id}`, `output-${node.id}`, {
         label: 'output',
-        markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: '#9ca3af' },
-        labelStyle: { fontSize: 9, fill: '#6b7280' },
+        active: isAgentRunning && runningNodeId === node.id,
+        complete: completedNodeIds.has(node.id),
       });
+    });
 
-      if (index < NODE_ORDER.length - 1) {
-        const nextNode = NODE_ORDER[index + 1];
-        edges.push({
-          id: `edge-${node.id}-${nextNode.id}`,
-          source: `output-${node.id}`,
-          target: `agent-${nextNode.id}`,
-          label: EDGE_LABELS[index],
-          markerEnd: { type: MarkerType.ArrowClosed },
-          style: { stroke: '#9ca3af' },
-          labelStyle: { fontSize: 9, fill: '#6b7280' },
-        });
-      }
+    addFlowEdge('edge-input-intent', 'input', 'agent-intent', {
+      active: isAgentRunning && runningNodeId === 'intent',
+      complete: completedNodeIds.has('intent'),
+      dashed: true,
+    });
+    addFlowEdge('edge-input-visual', 'input', 'agent-visual', {
+      active: isAgentRunning && runningNodeId === 'visual',
+      complete: completedNodeIds.has('visual'),
+      dashed: true,
+    });
+    addFlowEdge('edge-intent-geojson', 'output-intent', 'agent-geojson', {
+      active: isAgentRunning && runningNodeId === 'geojson' && completedNodeIds.has('intent'),
+      complete: completedNodeIds.has('intent') && completedNodeIds.has('geojson'),
+      dashed: true,
+    });
+    addFlowEdge('edge-visual-geojson', 'output-visual', 'agent-geojson', {
+      active: isAgentRunning && runningNodeId === 'geojson' && completedNodeIds.has('visual'),
+      complete: completedNodeIds.has('visual') && completedNodeIds.has('geojson'),
+      dashed: true,
+    });
+    addFlowEdge('edge-geojson-validation', 'output-geojson', 'agent-validation', {
+      active: isAgentRunning && runningNodeId === 'validation' && completedNodeIds.has('geojson'),
+      complete: completedNodeIds.has('geojson') && completedNodeIds.has('validation'),
+      dashed: true,
+    });
+    addFlowEdge('edge-validation-style', 'output-validation', 'agent-style', {
+      active: isAgentRunning && runningNodeId === 'style' && completedNodeIds.has('validation'),
+      complete: completedNodeIds.has('validation') && completedNodeIds.has('style'),
+      dashed: true,
+    });
+    addFlowEdge('edge-style-icons', 'output-style', 'agent-icon_generation', {
+      active: isAgentRunning && runningNodeId === 'icon_generation' && completedNodeIds.has('style'),
+      complete: completedNodeIds.has('style') && completedNodeIds.has('icon_generation'),
+      dashed: true,
+    });
+    addFlowEdge('edge-validation-retry-geojson', 'output-validation', 'agent-geojson', {
+      label: 'retry',
+      active: isAgentRunning && runningNodeId === 'geojson' && Boolean(statesByNode.get('validation')?.failed),
+      complete: false,
+      dashed: true,
+      type: 'smoothstep',
     });
 
     return { nodes, edges };
-  }, [activeRunId, agentEvents, selectedAgentEvent, selectedAgentSelection]);
+  }, [activeRunId, agentEvents, isAgentRunning, selectedAgentEvent, selectedAgentSelection]);
 
   useEffect(() => {
     if (localCodeEditRef.current) {

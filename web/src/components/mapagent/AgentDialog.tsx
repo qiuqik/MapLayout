@@ -8,9 +8,10 @@ import { API_BASE_URL, buildFileUrl } from '@/lib/api';
 
 interface AgentDialogProps {
   className?: string;
+  onRunCompleted?: (sessionId: string) => void;
 }
 
-const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
+const AgentDialog: React.FC<AgentDialogProps> = ({ className, onRunCompleted }) => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState('');
@@ -149,10 +150,12 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
           }
           if (parsed.type === 'workflow_completed') {
             const result = parsed.payload || {};
+            const completedSessionId = result.session_id || runId;
             setGeojson(result.geojson || null);
             setManifest(result.style_code || null);
             setVisualStructure(result.visual_structure || null);
-            setSpecfilename(result.session_id || runId);
+            setSpecfilename(completedSessionId);
+            onRunCompleted?.(completedSessionId);
             setProgress('Processing completed!');
             finish(resolve);
           }

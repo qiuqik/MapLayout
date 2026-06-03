@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import AgentDialog from '@/components/mapagent/AgentDialog';
 import AgentRunTimeline from '@/components/mapagent/AgentRunTimeline';
 import AgentControlPanel from '@/components/mapagent/AgentControlPanel';
-import { AgentMapProvider, useAgentMap } from '@/lib/agentMapContext';
+import { AgentMapProvider, useAgentMap, type AgentRunEvent } from '@/lib/agentMapContext';
 import { Separator } from '@/components/ui/separator';
 import dynamic from 'next/dynamic';
 import { getFeatureLabelId, transformSingleCoordinate } from '@/components/mapagent/utils/mapUtils';
@@ -35,6 +35,97 @@ const DEFAULT_FIELD_OVERRIDE: FieldParamsOverride = {
   cellSize: 24,
 };
 
+const countPointIcons = (styleCode: any) => {
+  const generated = styleCode?._icon_generation?.generated_count;
+  if (Number.isFinite(Number(generated))) return Number(generated);
+  const points = Array.isArray(styleCode?.Point) ? styleCode.Point : [];
+  return points.filter((point: any) => Boolean(point?.url)).length;
+};
+
+const buildSessionAgentEvents = (data: any): AgentRunEvent[] => {
+  const sessionId = data?.session_id || 'history';
+  const runId = data?.session_manifest?.session_id || sessionId;
+  const timestamp = data?.session_manifest?.finished_at || new Date().toISOString();
+  const events: AgentRunEvent[] = [];
+  const pushCompleted = (nodeId: string, label: string, payload: Record<string, any>) => {
+    events.push({
+      type: 'node_completed',
+      run_id: runId,
+      session_id: sessionId,
+      node_id: nodeId,
+      label,
+      status: 'completed',
+      payload,
+      timestamp,
+    });
+  };
+
+  const manifestWorkflow = data?.session_manifest?.workflow || {};
+  const outputs = data?.session_manifest?.outputs || {};
+  const geojson = data?.origin_file?.data || data?.layout_file?.data || null;
+
+  if (data?.intent || data?.session_manifest?.input) {
+    pushCompleted('intent', 'Intent', {
+      ...(data.intent || {}),
+      user_text: data?.session_manifest?.input?.user_text,
+    });
+  }
+  if (data?.visual_structure) {
+    pushCompleted('visual', 'Visual Structure', { visual_structure: data.visual_structure });
+  }
+  if (geojson) {
+    pushCompleted('geojson', 'GeoJSON', {
+      geojson,
+      feature_count: geojson?.features?.length ?? outputs.feature_count ?? 0,
+    });
+  }
+  if (geojson || data?.validation) {
+    events.push({
+      type: 'node_validation',
+      run_id: runId,
+      session_id: sessionId,
+      node_id: 'validation',
+      label: 'Validation',
+      status: manifestWorkflow.is_valid === false ? 'failed' : 'completed',
+      payload: {
+        is_valid: manifestWorkflow.is_valid !== false,
+        failed_node: manifestWorkflow.failed_node || 'none',
+        validation_feedback: manifestWorkflow.validation_feedback || '',
+        retry_count: manifestWorkflow.retry_count || 0,
+      },
+      timestamp,
+    });
+  }
+  if (data?.style_code) {
+    pushCompleted('style', 'Style Code', {
+      style_code: data.style_code,
+      style_sections: outputs.style_sections || Object.keys(data.style_code || {}).filter((key) => !key.startsWith('_')),
+    });
+    pushCompleted('icon_generation', 'Icon Generation', {
+      style_code: data.style_code,
+      icon_generation: data.style_code?._icon_generation || { generated_count: countPointIcons(data.style_code), errors: [] },
+    });
+  }
+
+  if (events.length > 0) {
+    events.push({
+      type: 'workflow_completed',
+      run_id: runId,
+      session_id: sessionId,
+      label: 'Workflow completed',
+      status: 'completed',
+      payload: {
+        session_id: sessionId,
+        visual_structure: data?.visual_structure || null,
+        geojson,
+        style_code: data?.style_code || null,
+      },
+      timestamp,
+    });
+  }
+  return events;
+};
+
 function AgentPageContent() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [currentSession, setCurrentSession] = useState<any>(null);
@@ -59,6 +150,7 @@ function AgentPageContent() {
   const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('force');
   const [layoutSeed, setLayoutSeed] = useState(1);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const loadingHistoricalGeojsonRef = useRef(false);
 
   const handleDatasetChange = useCallback((type: DatasetType) => {
     if (type === 'groundtruth' && !hasGroundtruthFile) {
@@ -87,9 +179,15 @@ function AgentPageContent() {
     setManifest,
     manifest,
     geojson: contextGeojson,
+    setGeojson,
     setVisualStructure,
     visualStructure,
     activeRunId,
+    setActiveRunId,
+    setIsAgentRunning,
+    setAgentEvents,
+    setSelectedAgentEvent,
+    setSelectedAgentSelection,
   } = useAgentMap();
 
   const processFeature = (feature: any) => {
@@ -105,7 +203,7 @@ function AgentPageContent() {
     }];
   }
 
-  const loadSession = async (sessionId: string) => {
+  const loadSession = useCallback(async (sessionId: string) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/multimodal/session/${sessionId}`);
       const data = await res.json();
@@ -118,9 +216,14 @@ function AgentPageContent() {
       setHasLayoutFile(data.has_layout || false);
       setHasGroundtruthFile(data.has_groundtruth || false);
       setVisualStructure(data.visual_structure || null);
+      setActiveRunId(data.session_manifest?.session_id || data.session_id || sessionId);
+      setIsAgentRunning(false);
+      setSelectedAgentSelection(null);
 
       if (data.origin_file?.data?.features) {
         setOriginGeojson(data.origin_file.data);
+        loadingHistoricalGeojsonRef.current = true;
+        setGeojson(data.origin_file.data);
         const positions: LayoutItemPosition[] = [];
         data.origin_file.data.features.forEach((feature: any) => {
           const positionList = processFeature(feature);
@@ -131,6 +234,11 @@ function AgentPageContent() {
 
         console.log('[Load] originPositions:', positions);
         setOriginPositions(positions.length > 0 ? positions : null);
+      } else {
+        setOriginGeojson(null);
+        loadingHistoricalGeojsonRef.current = true;
+        setGeojson(null);
+        setOriginPositions(null);
       }
 
       if (data.layout_file?.data?.features) {
@@ -158,33 +266,55 @@ function AgentPageContent() {
       }
 
       setManifest(data.style_code);
+      const events = buildSessionAgentEvents(data);
+      setAgentEvents(events);
+      const firstSelectable = events.find((event) => event.node_id);
+      setSelectedAgentEvent(firstSelectable || null);
     } catch (error) {
       console.error('Error loading session:', error);
     }
-  };
+  }, [
+    setActiveRunId,
+    setAgentEvents,
+    setGeojson,
+    setIsAgentRunning,
+    setManifest,
+    setSelectedAgentEvent,
+    setSelectedAgentSelection,
+    setVisualStructure,
+  ]);
+
+  const refreshSessions = useCallback(async (selectSessionId?: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/multimodal/sessions`);
+      const data = await res.json();
+      const sessionList = (data.sessions || []).sort((a: any, b: any) => b.session_id.localeCompare(a.session_id));
+      setSessions(sessionList);
+      console.log("sessionList:", sessionList);
+      const targetSessionId = selectSessionId || sessionList[0]?.session_id;
+      if (targetSessionId) {
+        const match = sessionList.find((session: any) => session.session_id === targetSessionId || session.session_id.endsWith(`_${targetSessionId}`));
+        await loadSession(match?.session_id || targetSessionId);
+      }
+    } catch (err) {
+      console.error('Error fetching historical sessions:', err);
+    }
+  }, [loadSession]);
 
   // 初始化获取会话列表并排序
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/multimodal/sessions`)
-      .then(res => res.json())
-      .then(data => {
-        let sessionList = data.sessions || [];
-        
-        // 按照 session_id 降序排列 (保证最新的排在最前)
-        sessionList = sessionList.sort((a: any, b: any) => 
-          b.session_id.localeCompare(a.session_id)
-        );
-        setSessions(sessionList);
-        console.log("sessionList:",sessionList);
-        if (sessionList.length > 0) {
-          loadSession(sessionList[0].session_id);
-        }
-      })
-      .catch(err => console.error('Error fetching historical sessions:', err));
-  }, []);
+    refreshSessions();
+  }, [refreshSessions]);
 
   useEffect(() => {
-    if (!contextGeojson?.features) return;
+    if (!contextGeojson?.features) {
+      loadingHistoricalGeojsonRef.current = false;
+      return;
+    }
+    if (loadingHistoricalGeojsonRef.current) {
+      loadingHistoricalGeojsonRef.current = false;
+      return;
+    }
     setCurrentSession(null);
     setCurrentDataset('layout');
     setOriginGeojson(contextGeojson);
@@ -214,7 +344,7 @@ function AgentPageContent() {
 
         {/* 可滚动内容区域 */}
         <div className="flex-1 overflow-y-auto pl-4 pr-2 pt-4 pb-4 custom-scrollbar">
-          <AgentDialog />
+          <AgentDialog onRunCompleted={refreshSessions} />
 
           <Separator className="my-3 bg-gray-400" />
 
