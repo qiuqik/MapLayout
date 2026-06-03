@@ -39,9 +39,47 @@ const globalContent = (globalProps: any, index: number) => {
   return globalProps || {};
 };
 
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
+const globalScale = (viewportSize?: { width: number; height: number } | null) => {
+  if (!viewportSize?.width || !viewportSize.height) return 1;
+  return clamp(Math.min(viewportSize.width / 1100, viewportSize.height / 720), 0.58, 1.15);
+};
+
+const scaleLength = (value: unknown, scale: number) => {
+  if (typeof value === 'number') return Math.round(value * scale);
+  if (typeof value !== 'string') return value;
+  const match = value.trim().match(/^(-?\d+(?:\.\d+)?)px$/);
+  if (!match) return value;
+  return `${Math.round(Number(match[1]) * scale)}px`;
+};
+
+const scaleBoxStyle = (style: Record<string, any> = {}, scale: number) => {
+  const scaled = { ...style };
+  [
+    'width',
+    'height',
+    'minHeight',
+    'maxWidth',
+    'padding',
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
+    'borderRadius',
+    'fontSize',
+    'marginTop',
+    'marginBottom',
+  ].forEach((key) => {
+    if (scaled[key] !== undefined) scaled[key] = scaleLength(scaled[key], scale);
+  });
+  return scaled;
+};
+
 const placementStyle = (element: any, index: number, viewportSize?: { width: number; height: number } | null): CSSProperties => {
   const isWide = !viewportSize || viewportSize.width >= viewportSize.height;
-  const gap = 16;
+  const scale = globalScale(viewportSize);
+  const gap = Math.round(16 * scale);
   const isFirst = index === 0;
   const width = viewportSize?.width || 1100;
   const wideWidth = Math.round(Math.min(isFirst ? 520 : 420, Math.max(isFirst ? 280 : 240, width * (isFirst ? 0.42 : 0.34))));
@@ -89,13 +127,15 @@ const contentTypeFromContent = (content: any, fallback: string) => {
 
 const panelStyle = (element: any, index: number, viewportSize?: { width: number; height: number } | null): CSSProperties => {
   const style = element?.style && typeof element.style === 'object' ? element.style : {};
-  const containerStyle = style.container && typeof style.container === 'object' ? style.container : style;
+  const scale = globalScale(viewportSize);
+  const rawContainerStyle = style.container && typeof style.container === 'object' ? style.container : style;
+  const containerStyle = scaleBoxStyle(rawContainerStyle, scale);
   const isWide = !viewportSize || viewportSize.width >= viewportSize.height;
   const defaultSize: CSSProperties = containerStyle.width || containerStyle.height
     ? {}
     : {
         width: '100%',
-        minHeight: index === 0 ? 96 : 64,
+        minHeight: Math.round((index === 0 ? 96 : 64) * scale),
       };
   return {
     maxWidth: '100%',
@@ -134,9 +174,10 @@ const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalP
           element.content_type || (index === 0 ? 'title_script_extra' : 'title_script'),
         );
         const style = element?.style && typeof element.style === 'object' ? element.style : {};
-        const titleStyle = styleSection(style, 'title');
-        const scriptStyle = styleSection(style, 'script');
-        const extraStyle = styleSection(style, 'extra_info');
+        const scale = globalScale(viewportSize);
+        const titleStyle = scaleBoxStyle(styleSection(style, 'title'), scale);
+        const scriptStyle = scaleBoxStyle(styleSection(style, 'script'), scale);
+        const extraStyle = scaleBoxStyle(styleSection(style, 'extra_info'), scale);
         return (
           <div
             key={element.visual_id || `global-${index}`}
@@ -160,17 +201,17 @@ const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalP
               }}
             >
               {content.title && (
-                <div style={{ fontSize: index === 0 ? 28 : 16, fontWeight: index === 0 ? 800 : 700, lineHeight: 1.15, ...titleStyle }}>
+                <div style={{ fontSize: Math.round((index === 0 ? 28 : 16) * scale), fontWeight: index === 0 ? 800 : 700, lineHeight: 1.15, ...titleStyle }}>
                   {content.title}
                 </div>
               )}
               {contentType !== 'title' && content.script && (
-                <div style={{ marginTop: 6, fontSize: index === 0 ? 14 : 12, lineHeight: 1.35, opacity: 0.82, ...scriptStyle }}>
+                <div style={{ marginTop: Math.round(6 * scale), fontSize: Math.round((index === 0 ? 14 : 12) * scale), lineHeight: 1.35, opacity: 0.82, ...scriptStyle }}>
                   {content.script}
                 </div>
               )}
               {contentType === 'title_script_extra' && content.extra_info && (
-                <div style={{ marginTop: 4, fontSize: 11, lineHeight: 1.35, opacity: 0.72, ...extraStyle }}>
+                <div style={{ marginTop: Math.round(4 * scale), fontSize: Math.round(11 * scale), lineHeight: 1.35, opacity: 0.72, ...extraStyle }}>
                   {content.extra_info}
                 </div>
               )}

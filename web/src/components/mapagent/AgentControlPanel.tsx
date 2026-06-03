@@ -59,6 +59,19 @@ const setNestedValue = (target: any, path: (string | number)[], value: any) => {
   });
 };
 
+const escapeSelectorValue = (value: string) => {
+  if (typeof window !== 'undefined' && window.CSS?.escape) return window.CSS.escape(value);
+  return value.replace(/["\\]/g, '\\$&');
+};
+
+const openAncestorDetails = (element: HTMLElement | null, boundary: HTMLElement | null) => {
+  let cursor: HTMLElement | null = element;
+  while (cursor && cursor !== boundary) {
+    if (cursor instanceof HTMLDetailsElement) cursor.open = true;
+    cursor = cursor.parentElement;
+  }
+};
+
 const getNodeTitle = (event: AgentRunEvent | null) => event?.node_id || event?.type || 'none';
 
 const inputPayloadFromEvent = (event: AgentRunEvent | null) => {
@@ -180,6 +193,68 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     });
   };
 
+  const updateManifestStyleSection = (
+    section: 'Point' | 'Route' | 'Label' | 'Global',
+    index: number,
+    updater: (item: any) => void,
+  ) => {
+    const nextManifest = clone(manifest || {});
+    if (!Array.isArray(nextManifest[section])) nextManifest[section] = [];
+    if (!nextManifest[section][index]) nextManifest[section][index] = {};
+    updater(nextManifest[section][index]);
+    setManifest(nextManifest);
+
+    if (selectedAgentSelection?.kind === 'map_feature') {
+      const styleKey = section === 'Global'
+        ? 'globalStyle'
+        : section === 'Label'
+          ? 'labelStyle'
+          : section === 'Route'
+            ? 'routeStyle'
+            : 'pointStyle';
+      const nextPayload = {
+        ...selectedAgentSelection.payload,
+        styleSection: section,
+        styleIndex: index,
+        [styleKey]: nextManifest[section][index],
+      };
+      setSelectedAgentSelection({
+        ...selectedAgentSelection,
+        payload: nextPayload,
+      });
+      setEditorText(JSON.stringify(nextPayload, null, 2));
+    }
+  };
+
+  const updateStyleSectionLive = (
+    section: 'Point' | 'Route' | 'Label' | 'Global',
+    index: number,
+    path: (string | number)[],
+    value: any,
+  ) => {
+    if (selectedAgentSelection?.kind === 'map_feature') {
+      updateManifestStyleSection(section, index, (item) => setNestedValue(item, path, value));
+      return;
+    }
+    updateStyleSection(section, index, path, value);
+  };
+
+  const updateRouteColor = (index: number, value: string) => {
+    if (selectedAgentSelection?.kind === 'map_feature') {
+      updateManifestStyleSection('Route', index, (item) => {
+        item.Color = value;
+        item.color = value;
+      });
+      return;
+    }
+    updateEditorJson((draft) => {
+      if (!Array.isArray(draft.Route)) draft.Route = [];
+      if (!draft.Route[index]) draft.Route[index] = {};
+      draft.Route[index].Color = value;
+      draft.Route[index].color = value;
+    });
+  };
+
   const updateSelectedManifestStyle = (path: (string | number)[], value: any) => {
     const section = selectedAgentSelection?.payload?.styleSection as 'Label' | 'Global' | undefined;
     const index = Number(selectedAgentSelection?.payload?.styleIndex);
@@ -234,10 +309,32 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   useEffect(() => {
     if (!isMapFeatureSelected) return;
     const timer = window.setTimeout(() => {
+      const payload = selectedAgentSelection?.payload || {};
+      const section = payload.styleSection;
+      const index = Number(payload.styleIndex);
+      const visualId = payload.feature?.properties?.visual_id || payload.routeStyle?.visual_id || selectedRouteId;
+      let target: HTMLElement | null = null;
+
+      if (selectedAgentSelection?.node_id === 'map_line' && visualId) {
+        target = scrollRootRef.current?.querySelector(
+          `[data-route-control-id="${escapeSelectorValue(String(visualId))}"]`,
+        ) as HTMLElement | null;
+      } else if (section && Number.isInteger(index) && index >= 0) {
+        target = scrollRootRef.current?.querySelector(
+          `[data-style-section="${escapeSelectorValue(String(section))}"][data-style-index="${index}"]`,
+        ) as HTMLElement | null;
+      }
+
+      if (target) {
+        openAncestorDetails(target, scrollRootRef.current);
+        target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return;
+      }
+
       mapFeatureRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-    }, 50);
+    }, 80);
     return () => window.clearTimeout(timer);
-  }, [isMapFeatureSelected, selectedAgentSelection?.node_id, selectedAgentSelection?.label]);
+  }, [isMapFeatureSelected, selectedAgentSelection, selectedRouteId]);
 
   const handleRerun = async () => {
     if (!sessionId || !selectedAgentEvent) return;
@@ -718,48 +815,79 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   };
 
   const renderStyleProperties = () => {
-    if (!['style', 'icon_generation'].includes(selectedNodeId || '') || !parsedEditor) return null;
-    const points = asArray(parsedEditor.Point);
-    const labels = asArray(parsedEditor.Label);
-    const globals = asArray(parsedEditor.Global);
-    const routesForStyle = asArray(parsedEditor.Route);
-    const iconMeta = parsedEditor._icon_generation;
+    const selectedStyleSection = selectedAgentSelection?.payload?.styleSection;
+    const isMapStyleSelection = selectedAgentSelection?.kind === 'map_feature' &&
+      ['Route', 'Label', 'Global', 'Point'].includes(String(selectedStyleSection));
+    if (!['style', 'icon_generation'].includes(selectedNodeId || '') && !isMapStyleSelection) return null;
+    const styleSource = isMapStyleSelection ? manifest : parsedEditor;
+    if (!styleSource) return null;
+    const points = asArray(styleSource.Point);
+    const labels = asArray(styleSource.Label);
+    const globals = asArray(styleSource.Global);
+    const routesForStyle = asArray(styleSource.Route);
+    const iconMeta = isMapStyleSelection ? null : parsedEditor?._icon_generation;
+    const openGlobalSection = selectedStyleSection === 'Global';
+    const openLabelSection = selectedStyleSection === 'Label';
+    const openPointSection = selectedStyleSection === 'Point';
+    const openRouteSection = selectedStyleSection === 'Route' || Boolean(selectedRouteId);
 
     return (
       <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
         <div className="text-[11px] font-semibold text-gray-700">{selectedNodeId === 'icon_generation' ? 'Icons' : 'Style'}</div>
         {globals.length > 0 && (
-          <details className="rounded border border-gray-200 bg-white p-2">
+          <details open={openGlobalSection} className="rounded border border-gray-200 bg-white p-2">
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Global</summary>
             <div className="mt-2 space-y-3">
               {globals.map((item: any, index: number) => (
-                <div key={`style-global-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
-                  {renderField('Title', item.content?.title, (value) => updateStyleSection('Global', index, ['content', 'title'], value))}
-                  {renderField('Script', item.content?.script, (value) => updateStyleSection('Global', index, ['content', 'script'], value), { multiline: true })}
-                  {renderField('Extra', item.content?.extra_info, (value) => updateStyleSection('Global', index, ['content', 'extra_info'], value), { multiline: true })}
-                  {renderColorField('Text', item.style?.title?.color || item.style?.container?.color, (value) => updateStyleSection('Global', index, ['style', 'title', 'color'], value))}
-                  {renderColorField('Panel', item.style?.container?.backgroundColor || item.style?.container?.background, (value) => updateStyleSection('Global', index, ['style', 'container', 'backgroundColor'], value))}
+                <div
+                  key={`style-global-${index}`}
+                  data-style-section="Global"
+                  data-style-index={index}
+                  className={`scroll-mt-4 space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0 ${
+                    openGlobalSection && Number(selectedAgentSelection?.payload?.styleIndex) === index
+                      ? 'rounded border border-[#131722] bg-[#F2F2F2] p-2'
+                      : ''
+                  }`}
+                >
+                  {renderField('Title', item.content?.title, (value) => updateStyleSectionLive('Global', index, ['content', 'title'], value))}
+                  {renderField('Script', item.content?.script, (value) => updateStyleSectionLive('Global', index, ['content', 'script'], value), { multiline: true })}
+                  {renderField('Extra', item.content?.extra_info, (value) => updateStyleSectionLive('Global', index, ['content', 'extra_info'], value), { multiline: true })}
+                  <div className="grid grid-cols-2 gap-2">
+                    {renderField('Width', item.style?.container?.width, (value) => updateStyleSectionLive('Global', index, ['style', 'container', 'width'], numberValue(value, item.style?.container?.width)))}
+                    {renderField('Height', item.style?.container?.height, (value) => updateStyleSectionLive('Global', index, ['style', 'container', 'height'], numberValue(value, item.style?.container?.height)))}
+                  </div>
+                  {renderColorField('Text', item.style?.title?.color || item.style?.container?.color, (value) => updateStyleSectionLive('Global', index, ['style', 'title', 'color'], value))}
+                  {renderColorField('Panel', item.style?.container?.backgroundColor || item.style?.container?.background, (value) => updateStyleSectionLive('Global', index, ['style', 'container', 'backgroundColor'], value))}
                 </div>
               ))}
             </div>
           </details>
         )}
         {labels.length > 0 && (
-          <details className="rounded border border-gray-200 bg-white p-2">
+          <details open={openLabelSection} className="rounded border border-gray-200 bg-white p-2">
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Label</summary>
             <div className="mt-2 space-y-3">
               {labels.map((item: any, index: number) => (
-                <div key={`label-${item.visual_id || 'item'}-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
+                <div
+                  key={`label-${item.visual_id || 'item'}-${index}`}
+                  data-style-section="Label"
+                  data-style-index={index}
+                  className={`scroll-mt-4 space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0 ${
+                    openLabelSection && Number(selectedAgentSelection?.payload?.styleIndex) === index
+                      ? 'rounded border border-[#131722] bg-[#F2F2F2] p-2'
+                      : ''
+                  }`}
+                >
                   <div className="truncate text-[10px] font-semibold text-gray-500">{item.visual_id || `label ${index + 1}`}</div>
                   <div className="grid grid-cols-2 gap-2">
-                    {renderField('Width', item.width, (value) => updateStyleSection('Label', index, ['width'], numberValue(value, item.width)))}
-                    {renderField('Height', item.height, (value) => updateStyleSection('Label', index, ['height'], numberValue(value, item.height)))}
+                    {renderField('Width', item.width, (value) => updateStyleSectionLive('Label', index, ['width'], numberValue(value, item.width)))}
+                    {renderField('Height', item.height, (value) => updateStyleSectionLive('Label', index, ['height'], numberValue(value, item.height)))}
                   </div>
                   <label className="block space-y-1 text-[10px] text-gray-600">
                     <span className="font-medium text-gray-700">Level</span>
                     <select
                       value={item.hierarchy || item.level || 'secondary'}
-                      onChange={(event) => updateStyleSection('Label', index, ['hierarchy'], event.target.value)}
+                      onChange={(event) => updateStyleSectionLive('Label', index, ['hierarchy'], event.target.value)}
                       className="h-7 w-full rounded border border-gray-200 px-2 text-[11px]"
                     >
                       <option value="core">core</option>
@@ -767,46 +895,63 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
                       <option value="detail">detail</option>
                     </select>
                   </label>
-                  {renderColorField('Title', item.style?.title?.color, (value) => updateStyleSection('Label', index, ['style', 'title', 'color'], value))}
-                  {renderColorField('Script', item.style?.script?.color, (value) => updateStyleSection('Label', index, ['style', 'script', 'color'], value))}
-                  {renderColorField('Extra', item.style?.extra_info?.color, (value) => updateStyleSection('Label', index, ['style', 'extra_info', 'color'], value))}
+                  {renderColorField('Title', item.style?.title?.color, (value) => updateStyleSectionLive('Label', index, ['style', 'title', 'color'], value))}
+                  {renderColorField('Script', item.style?.script?.color, (value) => updateStyleSectionLive('Label', index, ['style', 'script', 'color'], value))}
+                  {renderColorField('Extra', item.style?.extra_info?.color, (value) => updateStyleSectionLive('Label', index, ['style', 'extra_info', 'color'], value))}
                 </div>
               ))}
             </div>
           </details>
         )}
         {points.length > 0 && (
-          <details className="rounded border border-gray-200 bg-white p-2">
+          <details open={openPointSection} className="rounded border border-gray-200 bg-white p-2">
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Point</summary>
             <div className="mt-2 space-y-3">
               {points.map((item: any, index: number) => (
-                <div key={`point-${item.visual_id || item.icon || 'item'}-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
+                <div
+                  key={`point-${item.visual_id || item.icon || 'item'}-${index}`}
+                  data-style-section="Point"
+                  data-style-index={index}
+                  className="scroll-mt-4 space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0"
+                >
                   <div className="truncate text-[10px] font-semibold text-gray-500">{item.visual_id || item.icon || `point ${index + 1}`}</div>
                   <div className="grid grid-cols-2 gap-2">
                     {renderField('W', Array.isArray(item.size) ? item.size[0] : item.style?.size?.[0] || item.width, (value) => {
                       const next = numberValue(value, 28);
-                      if (Array.isArray(item.size)) updateStyleSection('Point', index, ['size', 0], next);
-                      else updateStyleSection('Point', index, ['style', 'size', 0], next);
+                      if (Array.isArray(item.size)) updateStyleSectionLive('Point', index, ['size', 0], next);
+                      else updateStyleSectionLive('Point', index, ['style', 'size', 0], next);
                     })}
                     {renderField('H', Array.isArray(item.size) ? item.size[1] : item.style?.size?.[1] || item.height, (value) => {
                       const next = numberValue(value, 28);
-                      if (Array.isArray(item.size)) updateStyleSection('Point', index, ['size', 1], next);
-                      else updateStyleSection('Point', index, ['style', 'size', 1], next);
+                      if (Array.isArray(item.size)) updateStyleSectionLive('Point', index, ['size', 1], next);
+                      else updateStyleSectionLive('Point', index, ['style', 'size', 1], next);
                     })}
                   </div>
-                  {renderField('Icon prompt', item.icon_description || item.description, (value) => updateStyleSection('Point', index, ['icon_description'], value), { multiline: true })}
-                  {renderField('URL', item.url, (value) => updateStyleSection('Point', index, ['url'], value))}
+                  {renderField('Icon prompt', item.icon_description || item.description, (value) => updateStyleSectionLive('Point', index, ['icon_description'], value), { multiline: true })}
+                  {renderField('URL', item.url, (value) => updateStyleSectionLive('Point', index, ['url'], value))}
                 </div>
               ))}
             </div>
           </details>
         )}
         {routesForStyle.length > 0 && (
-          <details className="rounded border border-gray-200 bg-white p-2">
+          <details open={openRouteSection} className="rounded border border-gray-200 bg-white p-2">
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Route</summary>
             <div className="mt-2 space-y-3">
-              {routesForStyle.map((item: any, index: number) => (
-                <div key={`route-${item.visual_id || 'item'}-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
+              {routesForStyle.map((item: any, index: number) => {
+                const isSelectedRoute = selectedRouteId === item.visual_id ||
+                  (selectedAgentSelection?.node_id === 'map_line' &&
+                    selectedAgentSelection.payload?.feature?.properties?.visual_id === item.visual_id);
+                return (
+                <div
+                  key={`route-${item.visual_id || 'item'}-${index}`}
+                  data-route-control-id={item.visual_id || ''}
+                  data-style-section="Route"
+                  data-style-index={index}
+                  className={`scroll-mt-4 space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0 ${
+                    isSelectedRoute ? 'rounded border border-[#131722] bg-[#F2F2F2] p-2' : ''
+                  }`}
+                >
                   <button
                     type="button"
                     onClick={() => item.visual_id && onRouteSelect?.(item.visual_id)}
@@ -818,14 +963,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
                   >
                     {item.visual_id || `route ${index + 1}`}
                   </button>
-                  {renderColorField('Color', item.Color || item.color, (value) => {
-                    updateEditorJson((draft) => {
-                      if (!Array.isArray(draft.Route)) draft.Route = [];
-                      if (!draft.Route[index]) draft.Route[index] = {};
-                      draft.Route[index].Color = value;
-                      draft.Route[index].color = value;
-                    });
-                  })}
+                  {renderColorField('Color', item.Color || item.color, (value) => updateRouteColor(index, value))}
                   <div className="space-y-1">
                     <div className="text-[10px] font-medium text-gray-700">Curve</div>
                     <div className="grid grid-cols-3 gap-1">
@@ -833,7 +971,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
                         <button
                           key={style}
                           type="button"
-                          onClick={() => updateStyleSection('Route', index, ['style'], style)}
+                          onClick={() => updateStyleSectionLive('Route', index, ['style'], style)}
                           className={`min-w-0 truncate rounded border px-1.5 py-1 text-[10px] ${
                             (item.style || 'bezier') === style
                               ? 'border-gray-900 bg-gray-900 text-white'
@@ -850,7 +988,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
                       <button
                         key={linePattern}
                         type="button"
-                        onClick={() => updateStyleSection('Route', index, ['linePattern'], linePattern)}
+                        onClick={() => updateStyleSectionLive('Route', index, ['linePattern'], linePattern)}
                         className={`min-w-0 truncate rounded border px-1.5 py-1 text-[10px] ${
                           (item.linePattern || (item.dashArray ? 'dashed' : 'solid')) === linePattern
                             ? 'border-gray-900 bg-gray-900 text-white'
@@ -868,7 +1006,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
                       min={1}
                       max={12}
                       value={Number(item.width || 4)}
-                      onChange={(event) => updateStyleSection('Route', index, ['width'], Number(event.target.value))}
+                      onChange={(event) => updateStyleSectionLive('Route', index, ['width'], Number(event.target.value))}
                       className="min-w-0"
                     />
                     <span className="text-right text-gray-500">{Number(item.width || 4)}</span>
@@ -878,12 +1016,13 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
                     <input
                       type="checkbox"
                       checked={Boolean(item.arrow)}
-                      onChange={(event) => updateStyleSection('Route', index, ['arrow'], event.target.checked)}
+                      onChange={(event) => updateStyleSectionLive('Route', index, ['arrow'], event.target.checked)}
                       className="h-3.5 w-3.5"
                     />
                   </label>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </details>
         )}

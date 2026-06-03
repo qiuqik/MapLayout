@@ -313,7 +313,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
       const raw = mapRef.current as any;
       const map = raw?.getMap ? raw.getMap() : raw;
       map?.resize?.();
-      fitMapToContentRef.current(0);
+      if (!resizeDragRef.current) fitMapToContentRef.current(0);
       const refreshOverlays = () => {
         recomputeLayoutRef.current();
         setMapRevision((revision) => revision + 1);
@@ -388,10 +388,14 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const fitMapToContent = useCallback((duration = 700) => {
     const raw = mapRef.current as any;
     const map = raw?.getMap ? raw.getMap() : raw;
-    if (!map || transformedData.points.length === 0) return;
+    if (!map) return;
 
-    const coords = transformedData.points
-      .map((feature: any) => feature.geometry?.coordinates)
+    const pointCoords = transformedData.points
+      .map((feature: any) => feature.geometry?.coordinates);
+    const lineCoords = displayLines.flatMap((feature: any) => (
+      Array.isArray(feature.geometry?.coordinates) ? feature.geometry.coordinates : []
+    ));
+    const coords = [...pointCoords, ...lineCoords]
       .filter((coord: any): coord is [number, number] => (
         Array.isArray(coord) &&
         typeof coord[0] === 'number' &&
@@ -409,24 +413,56 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     const { width, height } = map.getContainer().getBoundingClientRect();
     if (!width || !height) return;
 
-    const basePad = Math.round(Math.min(width, height) * 0.12);
+    const basePad = Math.round(Math.min(width, height) * 0.08);
+    const safeGap = Math.round(Math.min(width, height) * 0.035);
     const padding = {
       top: basePad,
       bottom: basePad,
       left: basePad,
       right: basePad,
     };
+    globalRectsRef.current.forEach((rect) => {
+      const centerX = rect.x + rect.width / 2;
+      const centerY = rect.y + rect.height / 2;
+      if (centerY < height / 2) {
+        padding.top = Math.max(padding.top, Math.ceil(rect.y + rect.height + safeGap));
+      } else {
+        padding.bottom = Math.max(padding.bottom, Math.ceil(height - rect.y + safeGap));
+      }
+      if (centerX < width / 2) {
+        padding.left = Math.max(padding.left, Math.ceil(rect.x + rect.width + safeGap));
+      } else {
+        padding.right = Math.max(padding.right, Math.ceil(width - rect.x + safeGap));
+      }
+    });
+
+    const normalizeAxisPadding = (start: number, end: number, total: number) => {
+      const maxSide = total * 0.46;
+      let nextStart = Math.min(start, maxSide);
+      let nextEnd = Math.min(end, maxSide);
+      const maxSum = total * 0.82;
+      const sum = nextStart + nextEnd;
+      if (sum > maxSum && sum > 0) {
+        const scale = maxSum / sum;
+        nextStart *= scale;
+        nextEnd *= scale;
+      }
+      return [Math.round(nextStart), Math.round(nextEnd)] as const;
+    };
+
+    const [safeTop, safeBottom] = normalizeAxisPadding(padding.top, padding.bottom, height);
+    const [safeLeft, safeRight] = normalizeAxisPadding(padding.left, padding.right, width);
 
     map.fitBounds(bounds, {
       padding: {
-        top: Math.min(Math.round(height * 0.42), padding.top),
-        bottom: Math.min(Math.round(height * 0.42), padding.bottom),
-        left: Math.min(Math.round(width * 0.42), padding.left),
-        right: Math.min(Math.round(width * 0.42), padding.right),
+        top: safeTop,
+        bottom: safeBottom,
+        left: safeLeft,
+        right: safeRight,
       },
       duration,
     });
-  }, [transformedData.points]);
+  }, [displayLines, transformedData.points]);
 
   useEffect(() => {
     fitMapToContentRef.current = fitMapToContent;
@@ -1033,7 +1069,8 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     const feature = event.features?.find((item: any) => item.geometry?.type === 'LineString');
     if (feature?.properties?.visual_id) {
       onRouteSelect?.(feature.properties.visual_id);
-      const routeStyle = routeStyles.find((route: any) => route.visual_id === feature.properties.visual_id);
+      const routeStyleIndex = routeStyles.findIndex((route: any) => route.visual_id === feature.properties.visual_id);
+      const routeStyle = routeStyleIndex >= 0 ? routeStyles[routeStyleIndex] : undefined;
       setSelectedAgentSelection({
         kind: 'map_feature',
         node_id: 'map_line',
@@ -1045,6 +1082,9 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
             properties: feature.properties,
           },
           routeStyle,
+          routeStyleIndex,
+          styleSection: 'Route',
+          styleIndex: routeStyleIndex,
           geometryType: 'LineString',
         },
       });
