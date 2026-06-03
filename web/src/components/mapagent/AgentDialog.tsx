@@ -133,6 +133,19 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className }) => {
           }
           if (parsed.type === 'node_completed') {
             setProgress(`${parsed.label || parsed.node_id} completed`);
+            const payload = parsed.payload || {};
+            if (parsed.node_id === 'visual' && payload.visual_structure) {
+              setVisualStructure(payload.visual_structure);
+            }
+            if (parsed.node_id === 'geojson' && payload.geojson) {
+              setGeojson(payload.geojson);
+            }
+            if (parsed.node_id === 'style' && payload.style_code) {
+              setManifest(payload.style_code);
+            }
+            if (parsed.node_id === 'icon_generation' && payload.style_code) {
+              setManifest(payload.style_code);
+            }
           }
           if (parsed.type === 'workflow_completed') {
             const result = parsed.payload || {};

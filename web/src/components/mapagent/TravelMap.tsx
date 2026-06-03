@@ -1,6 +1,7 @@
 'use client';
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import MapGL, { MapRef } from 'react-map-gl/mapbox';
+import { HandIcon, MousePointer2Icon, SearchIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
 // @ts-ignore
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
@@ -125,14 +126,29 @@ const MAPBOX_LAYER_TARGETS: Record<string, string[]> = {
   park: ['landuse-park', 'national-park', 'park', 'landuse'],
   building: ['building', 'building-top', 'building-outline'],
   road_primary: ['road-primary', 'road-motorway-trunk', 'road-major-link'],
-  road_secondary: ['road-secondary-tertiary', 'road-street', 'road-minor', 'road-path'],
-  road: ['road-motorway-trunk', 'road-primary', 'road-secondary-tertiary', 'road-street', 'road-minor', 'road-path'],
-  road_label: ['road-label'],
+  road_secondary: ['road-secondary-tertiary', 'road-street', 'road-minor', 'road-path', 'road-steps'],
+  road: ['road-motorway-trunk', 'road-primary', 'road-secondary-tertiary', 'road-street', 'road-minor', 'road-path', 'road-steps'],
+  road_label: [
+    'road-label',
+    'road-label-simple',
+    'road-number-shield',
+    'road-exit-shield',
+    'road-intersection',
+    'road-label-navigation',
+  ],
   poi_label: ['poi-label', 'transit-label', 'airport-label'],
-  place_label: ['settlement-major-label', 'settlement-minor-label', 'state-label', 'country-label'],
+  place_label: [
+    'place-label',
+    'settlement-major-label',
+    'settlement-minor-label',
+    'settlement-subdivision-label',
+    'state-label',
+    'country-label',
+    'continent-label',
+  ],
   water_label: ['water-line-label', 'water-point-label'],
   natural_label: ['natural-line-label', 'natural-point-label'],
-  label: ['poi-label', 'transit-label', 'airport-label', 'settlement-major-label', 'settlement-minor-label', 'state-label', 'country-label'],
+  label: ['poi-label', 'transit-label', 'airport-label', 'road-label', 'road-label-simple', 'settlement-major-label', 'settlement-minor-label', 'state-label', 'country-label'],
 };
 
 function getVisualStylesheet(visualStructure: any) {
@@ -214,6 +230,8 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
   const [viewportSize, setViewportSize] = useState<{ width: number; height: number } | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapTool, setMapTool] = useState<'select' | 'pan'>('select');
+  const [searchQuery, setSearchQuery] = useState('');
   // Bounding rects of global items in map-container px space (set via onMeasured callback).
   const globalRectsRef = useRef<Rect[]>([]);
   // Always points to the latest recomputeLayout closure so handleGlobalMeasured can call it.
@@ -238,6 +256,28 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
 
   // 后端已返回处理好的步行路线，直接使用
   const displayLines = transformedData.lines;
+  const effectiveMapDrag = draggable || mapTool === 'pan';
+
+  const searchablePois = useMemo(() => (
+    transformedData.points.map((feature: any) => {
+      const props = feature.properties || {};
+      return {
+        id: props.feature_id || props.name || props.label_title,
+        name: props.name || props.label_title || '',
+        day: props.day || '',
+        description: props.label_script || props.description || props.label_extra_info || '',
+        coordinates: feature.geometry?.coordinates,
+      };
+    }).filter((item: any) => item.name && Array.isArray(item.coordinates))
+  ), [transformedData.points]);
+
+  const searchMatches = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return [];
+    return searchablePois.filter((item: any) => (
+      `${item.name} ${item.day} ${item.description}`.toLowerCase().includes(query)
+    )).slice(0, 6);
+  }, [searchQuery, searchablePois]);
 
   const getMapViewState = useMemo(() => {
     const dataForCalc: TransformedMapData = {
@@ -770,11 +810,20 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   }, [recomputeLayout, onMapInfoChange]);
 
   const onMapClick = useCallback((event: any) => {
+    if (mapTool === 'pan') return;
     const feature = event.features?.find((item: any) => item.geometry?.type === 'LineString');
     if (feature?.properties?.visual_id) {
       onRouteSelect?.(feature.properties.visual_id);
     }
-  }, [onRouteSelect]);
+  }, [mapTool, onRouteSelect]);
+
+  const flyToSearchResult = useCallback((item: any) => {
+    const raw = mapRef.current as any;
+    const map = raw?.getMap ? raw.getMap() : raw;
+    if (!map || !Array.isArray(item.coordinates)) return;
+    map.flyTo({ center: item.coordinates, zoom: Math.max(map.getZoom(), 13), duration: 900 });
+    setSearchQuery(item.name);
+  }, []);
 
       
   // showHeatmap: standard map + line/point/polygon only, no label/card/global/background
@@ -833,11 +882,11 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
         onClick={onMapClick}
         onMoveEnd={onMoveEnd}
         interactiveLayerIds={routeLayerIds}
-        scrollZoom={draggable}
-        dragPan={draggable}
-        dragRotate={draggable}
-        keyboard={draggable}
-        doubleClickZoom={draggable}
+        scrollZoom={effectiveMapDrag}
+        dragPan={effectiveMapDrag}
+        dragRotate={effectiveMapDrag}
+        keyboard={effectiveMapDrag}
+        doubleClickZoom={effectiveMapDrag}
       >
         <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} selectedRouteId={selectedRouteId} />
         <PointRenderer points={transformedData.points} pointStyles={pointStyles} globalProps={transformedData.globalProps} />
@@ -851,6 +900,79 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
           />
         )}
       </MapGL>
+
+      <div className="absolute right-3 top-3 z-20 flex w-[260px] flex-col gap-2">
+        <div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white/95 p-1 shadow-sm backdrop-blur">
+          <button
+            type="button"
+            title="Select map elements"
+            onClick={() => setMapTool('select')}
+            className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'select' ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            <MousePointer2Icon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            title="Pan map"
+            onClick={() => setMapTool('pan')}
+            className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'pan' ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            <HandIcon className="h-4 w-4" />
+          </button>
+          <div className="mx-1 h-5 w-px bg-gray-200" />
+          <button
+            type="button"
+            title="Zoom in"
+            onClick={() => {
+              const raw = mapRef.current as any;
+              const map = raw?.getMap ? raw.getMap() : raw;
+              map?.zoomIn?.({ duration: 250 });
+            }}
+            className="grid h-8 w-8 place-items-center rounded text-gray-700 hover:bg-gray-100"
+          >
+            <ZoomInIcon className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            title="Zoom out"
+            onClick={() => {
+              const raw = mapRef.current as any;
+              const map = raw?.getMap ? raw.getMap() : raw;
+              map?.zoomOut?.({ duration: 250 });
+            }}
+            className="grid h-8 w-8 place-items-center rounded text-gray-700 hover:bg-gray-100"
+          >
+            <ZoomOutIcon className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="rounded-md border border-gray-200 bg-white/95 shadow-sm backdrop-blur">
+          <div className="flex items-center gap-2 px-2 py-1.5">
+            <SearchIcon className="h-4 w-4 flex-none text-gray-500" />
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search trip POI"
+              className="min-w-0 flex-1 bg-transparent text-xs outline-none"
+            />
+          </div>
+          {searchMatches.length > 0 && (
+            <div className="max-h-44 overflow-y-auto border-t border-gray-100 py-1">
+              {searchMatches.map((item: any) => (
+                <button
+                  key={`${item.id}-${item.day}`}
+                  type="button"
+                  onClick={() => flyToSearchResult(item)}
+                  className="block w-full px-2 py-1.5 text-left hover:bg-gray-50"
+                >
+                  <div className="truncate text-xs font-semibold text-gray-800">{item.name}</div>
+                  <div className="truncate text-[10px] text-gray-500">{[item.day, item.description].filter(Boolean).join(' · ')}</div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Cost field heat map overlay */}
       {showHeatmap && <DebugOverlay costField={debugCostField} />}

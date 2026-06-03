@@ -40,6 +40,14 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     setEditorText(JSON.stringify(editablePayload(selectedAgentEvent), null, 2));
   }, [selectedAgentEvent]);
 
+  const parsedEditor = useMemo(() => {
+    try {
+      return JSON.parse(editorText || '{}');
+    } catch {
+      return null;
+    }
+  }, [editorText]);
+
   const routes = manifest?.Route || [];
   const canRerun = Boolean(
     selectedAgentEvent &&
@@ -84,6 +92,16 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
       applyPayloadLocally(parsed);
     } catch (error: any) {
       alert(error.message || 'Invalid JSON');
+    }
+  };
+
+  const updateEditorJson = (updater: (draft: any) => void, applyVisual = false) => {
+    if (!parsedEditor) return;
+    const next = JSON.parse(JSON.stringify(parsedEditor));
+    updater(next);
+    setEditorText(JSON.stringify(next, null, 2));
+    if (applyVisual && selectedAgentEvent?.node_id === 'visual') {
+      setVisualStructure(next.visual_structure || next);
     }
   };
 
@@ -217,6 +235,42 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
               {selectedAgentEvent?.label || selectedAgentEvent?.node_id || 'none'}
             </div>
           </div>
+          {selectedAgentEvent?.node_id === 'visual' && parsedEditor?.Color && (
+            <div className="mb-3 space-y-2 rounded border border-gray-200 bg-gray-50 p-2">
+              <div className="text-[11px] font-semibold text-gray-700">Visual Colors</div>
+              {['background', 'water', 'road'].map((key) => (
+                <label key={key} className="grid grid-cols-[76px_1fr_34px] items-center gap-2 text-[10px] text-gray-600">
+                  <span className="capitalize">{key}</span>
+                  <input
+                    value={parsedEditor.Color[key] || ''}
+                    onChange={(event) => updateEditorJson((draft) => { draft.Color[key] = event.target.value; }, true)}
+                    className="h-7 rounded border border-gray-200 px-2 font-mono text-[10px]"
+                  />
+                  <input
+                    type="color"
+                    value={/^#[0-9a-fA-F]{6}$/.test(parsedEditor.Color[key] || '') ? parsedEditor.Color[key] : '#000000'}
+                    onChange={(event) => updateEditorJson((draft) => { draft.Color[key] = event.target.value; }, true)}
+                    className="h-7 w-8 rounded border"
+                  />
+                </label>
+              ))}
+              {Array.isArray(parsedEditor.Color.palette) && (
+                <div className="space-y-1">
+                  {parsedEditor.Color.palette.slice(0, 8).map((item: any, index: number) => (
+                    <label key={`${item.name || 'color'}-${index}`} className="grid grid-cols-[1fr_34px] items-center gap-2 text-[10px] text-gray-600">
+                      <span className="truncate">{item.name || `color ${index + 1}`}</span>
+                      <input
+                        type="color"
+                        value={/^#[0-9a-fA-F]{6}$/.test(item.hex || '') ? item.hex : '#000000'}
+                        onChange={(event) => updateEditorJson((draft) => { draft.Color.palette[index].hex = event.target.value; }, true)}
+                        className="h-7 w-8 rounded border"
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <textarea
             value={editorText}
             onChange={(event) => setEditorText(event.target.value)}

@@ -215,7 +215,6 @@ function AgentPageContent() {
         {/* 可滚动内容区域 */}
         <div className="flex-1 overflow-y-auto pl-4 pr-2 pt-4 pb-4 custom-scrollbar">
           <AgentDialog />
-          <AgentRunTimeline />
 
           <Separator className="my-3 bg-gray-400" />
 
@@ -314,51 +313,56 @@ function AgentPageContent() {
       </div>
 
       {/* 右侧地图主视图 */}
-      <div className="relative flex-1 overflow-hidden">
-        <TravelMapWithNoSSR
-          geojson={originGeojson}
-          styleCode={manifest}
-          visualStructure={visualStructure}
-          showHeatmap={showHeatmap}
-          forceParams={forceParams}
-          fieldParams={fieldParams}
-          draggable={mapDraggable}
-          currentDataset={currentDataset}
-          originPositions={originPositions}
-          layoutPositions={layoutPositions}
-          groundtruthPositions={groundtruthPositions}
-          onLayoutOutput={handleLayoutOutput}
-          onGroundtruthChange={(posMap) => {
-            setGroundtruthPositions(prev => {
-              const currentPositions = prev || [];
-              const newPositions = [...currentPositions];
-              Object.entries(posMap).forEach(([id, pos]) => {
-                const existingIndex = newPositions.findIndex(p => p.id === id);
-                const existing = newPositions[existingIndex];
-                const anchorLngLat = existing?.anchorLngLat || { lng: pos.lng, lat: pos.lat };
-                if (existingIndex >= 0) {
-                  newPositions[existingIndex] = {
-                    ...newPositions[existingIndex],
-                    centerLngLat: { lng: pos.lng, lat: pos.lat },
-                  };
-                } else {
-                  newPositions.push({
-                    id,
-                    anchorLngLat,
-                    centerLngLat: { lng: pos.lng, lat: pos.lat },
-                  });
-                }
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <TravelMapWithNoSSR
+            geojson={originGeojson}
+            styleCode={manifest}
+            visualStructure={visualStructure}
+            showHeatmap={showHeatmap}
+            forceParams={forceParams}
+            fieldParams={fieldParams}
+            draggable={mapDraggable}
+            currentDataset={currentDataset}
+            originPositions={originPositions}
+            layoutPositions={layoutPositions}
+            groundtruthPositions={groundtruthPositions}
+            onLayoutOutput={handleLayoutOutput}
+            onGroundtruthChange={(posMap) => {
+              setGroundtruthPositions(prev => {
+                const currentPositions = prev || [];
+                const newPositions = [...currentPositions];
+                Object.entries(posMap).forEach(([id, pos]) => {
+                  const existingIndex = newPositions.findIndex(p => p.id === id);
+                  const existing = newPositions[existingIndex];
+                  const anchorLngLat = existing?.anchorLngLat || { lng: pos.lng, lat: pos.lat };
+                  if (existingIndex >= 0) {
+                    newPositions[existingIndex] = {
+                      ...newPositions[existingIndex],
+                      centerLngLat: { lng: pos.lng, lat: pos.lat },
+                    };
+                  } else {
+                    newPositions.push({
+                      id,
+                      anchorLngLat,
+                      centerLngLat: { lng: pos.lng, lat: pos.lat },
+                    });
+                  }
+                });
+                return newPositions;
               });
-              return newPositions;
-            });
-          }}
-          onMapInfoChange={setMapInfo}
-          onRouteSelect={setSelectedRouteId}
-          selectedRouteId={selectedRouteId}
-          rerunLayoutTrigger={rerunLayoutTrigger}
-          layoutAlgorithm={layoutAlgorithm}
-          layoutSeed={layoutSeed}
-        />
+            }}
+            onMapInfoChange={setMapInfo}
+            onRouteSelect={setSelectedRouteId}
+            selectedRouteId={selectedRouteId}
+            rerunLayoutTrigger={rerunLayoutTrigger}
+            layoutAlgorithm={layoutAlgorithm}
+            layoutSeed={layoutSeed}
+          />
+        </div>
+        <div className="h-[230px] flex-none">
+          <AgentRunTimeline />
+        </div>
       </div>
       <AgentControlPanel
         sessionId={currentSession?.session_id || activeRunId || undefined}
