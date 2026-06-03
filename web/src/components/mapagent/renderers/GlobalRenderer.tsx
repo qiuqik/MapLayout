@@ -43,13 +43,15 @@ const placementStyle = (element: any, index: number, viewportSize?: { width: num
   const isWide = !viewportSize || viewportSize.width >= viewportSize.height;
   const gap = 16;
   const isFirst = index === 0;
+  const width = viewportSize?.width || 1100;
+  const wideWidth = Math.round(Math.min(isFirst ? 520 : 420, Math.max(isFirst ? 280 : 240, width * (isFirst ? 0.42 : 0.34))));
   const defaultPosition: CSSProperties = isWide
     ? {
         top: isFirst ? gap : undefined,
         bottom: isFirst ? undefined : gap,
         left: isFirst ? gap : undefined,
         right: isFirst ? undefined : gap,
-        width: 'min(42%, 460px)',
+        width: wideWidth,
         justifyContent: isFirst ? 'flex-start' : 'flex-end',
       }
     : {
@@ -89,9 +91,16 @@ const panelStyle = (element: any, index: number, viewportSize?: { width: number;
   const style = element?.style && typeof element.style === 'object' ? element.style : {};
   const containerStyle = style.container && typeof style.container === 'object' ? style.container : style;
   const isWide = !viewportSize || viewportSize.width >= viewportSize.height;
+  const defaultSize: CSSProperties = containerStyle.width || containerStyle.height
+    ? {}
+    : {
+        width: '100%',
+        minHeight: index === 0 ? 96 : 64,
+      };
   return {
     maxWidth: '100%',
     pointerEvents: 'none',
+    ...defaultSize,
     ...containerStyle,
     textAlign: isWide ? (index === 0 ? 'left' : 'right') : 'center',
   };

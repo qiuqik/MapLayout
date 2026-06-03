@@ -295,6 +295,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSizePanelOpen, setIsSizePanelOpen] = useState(false);
   const [mapFrameSize, setMapFrameSize] = useState<{ width: number; height: number }>(initialMapFrameSize);
+  const [mapRevision, setMapRevision] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [mapLabelMatches, setMapLabelMatches] = useState<MapSearchResult[]>([]);
   const [placeMatches, setPlaceMatches] = useState<MapSearchResult[]>([]);
@@ -304,6 +305,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const globalRectsRef = useRef<Rect[]>([]);
   // Always points to the latest recomputeLayout closure so handleGlobalMeasured can call it.
   const recomputeLayoutRef = useRef<() => void>(() => {});
+  const fitMapToContentRef = useRef<(duration?: number) => void>(() => {});
   const scheduleMapResize = useCallback(() => {
     if (resizeMapFrameRef.current !== null) return;
     resizeMapFrameRef.current = window.requestAnimationFrame(() => {
@@ -311,7 +313,13 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
       const raw = mapRef.current as any;
       const map = raw?.getMap ? raw.getMap() : raw;
       map?.resize?.();
-      recomputeLayoutRef.current();
+      fitMapToContentRef.current(0);
+      const refreshOverlays = () => {
+        recomputeLayoutRef.current();
+        setMapRevision((revision) => revision + 1);
+      };
+      window.requestAnimationFrame(refreshOverlays);
+      window.setTimeout(refreshOverlays, 120);
     });
   }, []);
   const [layoutState, setLayoutState] = useState<{
@@ -409,23 +417,6 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
       right: basePad,
     };
 
-    globalRectsRef.current.forEach((rect) => {
-      const leftOverlap = Math.max(0, Math.min(rect.x + rect.width, width) - Math.max(rect.x, 0));
-      const topOverlap = Math.max(0, Math.min(rect.y + rect.height, height) - Math.max(rect.y, 0));
-      if (leftOverlap === 0 || topOverlap === 0) return;
-
-      const centerX = rect.x + rect.width / 2;
-      const centerY = rect.y + rect.height / 2;
-      const extraX = Math.ceil(rect.width + 28);
-      const extraY = Math.ceil(rect.height + 28);
-
-      if (centerX < width / 2) padding.left = Math.max(padding.left, extraX);
-      else padding.right = Math.max(padding.right, extraX);
-
-      if (centerY < height / 2) padding.top = Math.max(padding.top, extraY);
-      else padding.bottom = Math.max(padding.bottom, extraY);
-    });
-
     map.fitBounds(bounds, {
       padding: {
         top: Math.min(Math.round(height * 0.42), padding.top),
@@ -438,13 +429,31 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   }, [transformedData.points]);
 
   useEffect(() => {
+    fitMapToContentRef.current = fitMapToContent;
+  }, [fitMapToContent]);
+
+  useEffect(() => {
     if (!isSearchOpen) return;
     searchInputRef.current?.focus();
   }, [isSearchOpen]);
 
   useEffect(() => {
-    fitMapToContent(900);
-  }, [fitMapToContent, mapFrameSize]);
+    if (!mapLoaded) return;
+    const refreshMapSize = () => {
+      const raw = mapRef.current as any;
+      const map = raw?.getMap ? raw.getMap() : raw;
+      map?.resize?.();
+      fitMapToContent(0);
+      recomputeLayoutRef.current();
+      setMapRevision((revision) => revision + 1);
+    };
+    const frame = window.requestAnimationFrame(refreshMapSize);
+    const timer = window.setTimeout(refreshMapSize, 120);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [fitMapToContent, mapFrameSize, mapLoaded]);
 
   useEffect(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -1015,6 +1024,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
       onMapInfoChange(correctMapInfo);
     }
     recomputeLayout();
+    setMapRevision((revision) => revision + 1);
     console.log("onMoveEnd:",layoutState.inputs, layoutState.outputs);
   }, [recomputeLayout, onMapInfoChange]);
 
@@ -1139,14 +1149,14 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   // showHeatmap: standard map + line/point/polygon only, no label/global/background
   // normal/debug: all components
   const hideOverlays = showHeatmap;
-  const projectFeatureToScreen = (feature: any) => {
+  const projectFeatureToScreen = useCallback((feature: any) => {
     const raw = mapRef.current as any;
     const map = raw?.getMap ? raw.getMap() : raw;
     const coord = feature?.geometry?.coordinates;
     if (!map || !Array.isArray(coord)) return null;
     const point = map.project(coord);
     return { x: point.x, y: point.y };
-  };
+  }, [mapRevision]);
 
   const groundtruthLeaderLines = React.useMemo(() => {
     if (!mapRef.current || layoutState.outputs.length === 0) return [];
@@ -1178,7 +1188,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
         y2: cy,
       };
     });
-  }, [layoutState.outputs, groundtruthPositions, mapRef]);
+  }, [layoutState.outputs, groundtruthPositions, mapRef, mapRevision]);
 
   const displayLeaderLines = currentDataset === 'groundtruth' && groundtruthLeaderLines.length > 0
     ? groundtruthLeaderLines
@@ -1297,6 +1307,159 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   }, [scheduleMapResize, updateMapFrameSize]);
 
   const resizeHandleClass = "absolute z-30 bg-transparent transition-colors hover:bg-black/10";
+  const mapToolbar = (
+    <div data-export-ignore="true" className="absolute right-3 top-3 z-40 flex w-[260px] flex-col gap-2">
+      <div className="agent-theme-map-toolbar flex items-center gap-1 rounded-md border p-1 shadow-sm backdrop-blur">
+        <button
+          type="button"
+          title="Select map elements"
+          onClick={() => setMapTool('select')}
+          className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'select' ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
+        >
+          <MousePointer2Icon className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          title="Pan map"
+          onClick={() => setMapTool('pan')}
+          className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'pan' ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
+        >
+          <HandIcon className="h-4 w-4" />
+        </button>
+        <div className="mx-1 h-5 w-px bg-gray-200" />
+        <button
+          type="button"
+          title="Zoom in"
+          onClick={() => {
+            const raw = mapRef.current as any;
+            const map = raw?.getMap ? raw.getMap() : raw;
+            map?.zoomIn?.({ duration: 250 });
+          }}
+          className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded"
+        >
+          <ZoomInIcon className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          title="Zoom out"
+          onClick={() => {
+            const raw = mapRef.current as any;
+            const map = raw?.getMap ? raw.getMap() : raw;
+            map?.zoomOut?.({ duration: 250 });
+          }}
+          className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded"
+        >
+          <ZoomOutIcon className="h-4 w-4" />
+        </button>
+        <div className="mx-1 h-5 w-px bg-gray-200" />
+        <button
+          type="button"
+          title="Export current map view as PNG"
+          onClick={exportViewportPng}
+          disabled={isExportingPng}
+          className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded disabled:opacity-50"
+        >
+          <DownloadIcon className={`h-4 w-4 ${isExportingPng ? 'animate-pulse' : ''}`} />
+        </button>
+        <div className="mx-1 h-5 w-px bg-gray-200" />
+        <button
+          type="button"
+          title="Resize map frame"
+          onClick={() => setIsSizePanelOpen((open) => !open)}
+          className={`grid h-8 w-8 place-items-center rounded ${isSizePanelOpen ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
+        >
+          <Maximize2Icon className="h-4 w-4" />
+        </button>
+        <div className="mx-1 h-5 w-px bg-gray-200" />
+        <button
+          type="button"
+          title="Search map or trip"
+          onClick={() => setIsSearchOpen((open) => !open)}
+          className={`grid h-8 w-8 place-items-center rounded ${isSearchOpen ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
+        >
+          <SearchIcon className="h-4 w-4" />
+        </button>
+      </div>
+
+      {isSizePanelOpen && (
+        <div className="agent-theme-map-toolbar rounded-md border p-2 text-[11px] shadow-sm backdrop-blur">
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1 text-gray-600">
+              W
+              <input
+                type="number"
+                min={360}
+                max={2400}
+                step={20}
+                value={mapFrameSize.width}
+                onChange={(event) => {
+                  hasCustomFrameSizeRef.current = true;
+                  updateMapFrameSize({ width: Number(event.target.value) });
+                }}
+                className="h-7 w-16 rounded border border-gray-200 px-1.5 text-gray-800 outline-none"
+              />
+            </label>
+            <label className="flex items-center gap-1 text-gray-600">
+              H
+              <input
+                type="number"
+                min={280}
+                max={1800}
+                step={20}
+                value={mapFrameSize.height}
+                onChange={(event) => {
+                  hasCustomFrameSizeRef.current = true;
+                  updateMapFrameSize({ height: Number(event.target.value) });
+                }}
+                className="h-7 w-16 rounded border border-gray-200 px-1.5 text-gray-800 outline-none"
+              />
+            </label>
+          </div>
+          <div className="mt-2 flex gap-1">
+            <button type="button" className="flex-1 rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => setMapFrameRatio(16, 10)}>16:10</button>
+            <button type="button" className="flex-1 rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => setMapFrameRatio(1, 1)}>1:1</button>
+            <button type="button" className="flex-1 rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => setMapFrameRatio(9, 14)}>9:14</button>
+          </div>
+        </div>
+      )}
+
+      {isSearchOpen && (
+        <div className="agent-theme-map-toolbar rounded-md border shadow-sm backdrop-blur">
+          <div className="flex items-center gap-2 px-2 py-1.5">
+            <SearchIcon className="h-4 w-4 flex-none text-gray-500" />
+            <input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search map or trip"
+              className="min-w-0 flex-1 bg-transparent text-xs outline-none"
+            />
+          </div>
+          {(searchMatches.length > 0 || isSearchingPlaces) && (
+            <div className="max-h-44 overflow-y-auto border-t border-gray-100 py-1">
+              {searchMatches.map((item: MapSearchResult) => (
+                <button
+                  key={`${item.source}-${item.id}`}
+                  type="button"
+                  onClick={() => flyToSearchResult(item)}
+                  className="block w-full px-2 py-1.5 text-left hover:bg-gray-50"
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="rounded bg-gray-100 px-1 py-0.5 text-[9px] uppercase text-gray-500">{item.source}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-800">{item.name}</span>
+                  </div>
+                  <div className="truncate text-[10px] text-gray-500">{item.description || 'Map location'}</div>
+                </button>
+              ))}
+              {isSearchingPlaces && (
+                <div className="px-2 py-1 text-[10px] text-gray-500">Searching map...</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="relative h-full w-full overflow-auto bg-gray-100">
@@ -1379,158 +1542,6 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
             />
           )}
         </MapGL>
-
-      <div data-export-ignore="true" className="absolute right-3 top-3 z-20 flex w-[260px] flex-col gap-2">
-        <div className="agent-theme-map-toolbar flex items-center gap-1 rounded-md border p-1 shadow-sm backdrop-blur">
-          <button
-            type="button"
-            title="Select map elements"
-            onClick={() => setMapTool('select')}
-            className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'select' ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
-          >
-            <MousePointer2Icon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            title="Pan map"
-            onClick={() => setMapTool('pan')}
-            className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'pan' ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
-          >
-            <HandIcon className="h-4 w-4" />
-          </button>
-          <div className="mx-1 h-5 w-px bg-gray-200" />
-          <button
-            type="button"
-            title="Zoom in"
-            onClick={() => {
-              const raw = mapRef.current as any;
-              const map = raw?.getMap ? raw.getMap() : raw;
-              map?.zoomIn?.({ duration: 250 });
-            }}
-            className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded"
-          >
-            <ZoomInIcon className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            title="Zoom out"
-            onClick={() => {
-              const raw = mapRef.current as any;
-              const map = raw?.getMap ? raw.getMap() : raw;
-              map?.zoomOut?.({ duration: 250 });
-            }}
-            className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded"
-          >
-            <ZoomOutIcon className="h-4 w-4" />
-          </button>
-          <div className="mx-1 h-5 w-px bg-gray-200" />
-          <button
-            type="button"
-            title="Export current map view as PNG"
-            onClick={exportViewportPng}
-            disabled={isExportingPng}
-            className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded disabled:opacity-50"
-          >
-            <DownloadIcon className={`h-4 w-4 ${isExportingPng ? 'animate-pulse' : ''}`} />
-          </button>
-          <div className="mx-1 h-5 w-px bg-gray-200" />
-          <button
-            type="button"
-            title="Resize map frame"
-            onClick={() => setIsSizePanelOpen((open) => !open)}
-            className={`grid h-8 w-8 place-items-center rounded ${isSizePanelOpen ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
-          >
-            <Maximize2Icon className="h-4 w-4" />
-          </button>
-          <div className="mx-1 h-5 w-px bg-gray-200" />
-          <button
-            type="button"
-            title="Search map or trip"
-            onClick={() => setIsSearchOpen((open) => !open)}
-            className={`grid h-8 w-8 place-items-center rounded ${isSearchOpen ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
-          >
-            <SearchIcon className="h-4 w-4" />
-          </button>
-        </div>
-
-        {isSizePanelOpen && (
-          <div className="agent-theme-map-toolbar rounded-md border p-2 text-[11px] shadow-sm backdrop-blur">
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1 text-gray-600">
-                W
-                <input
-                  type="number"
-                  min={360}
-                  max={2400}
-                  step={20}
-                  value={mapFrameSize.width}
-                  onChange={(event) => {
-                    hasCustomFrameSizeRef.current = true;
-                    updateMapFrameSize({ width: Number(event.target.value) });
-                  }}
-                  className="h-7 w-16 rounded border border-gray-200 px-1.5 text-gray-800 outline-none"
-                />
-              </label>
-              <label className="flex items-center gap-1 text-gray-600">
-                H
-                <input
-                  type="number"
-                  min={280}
-                  max={1800}
-                  step={20}
-                  value={mapFrameSize.height}
-                  onChange={(event) => {
-                    hasCustomFrameSizeRef.current = true;
-                    updateMapFrameSize({ height: Number(event.target.value) });
-                  }}
-                  className="h-7 w-16 rounded border border-gray-200 px-1.5 text-gray-800 outline-none"
-                />
-              </label>
-            </div>
-            <div className="mt-2 flex gap-1">
-              <button type="button" className="flex-1 rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => setMapFrameRatio(16, 10)}>16:10</button>
-              <button type="button" className="flex-1 rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => setMapFrameRatio(1, 1)}>1:1</button>
-              <button type="button" className="flex-1 rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => setMapFrameRatio(9, 14)}>9:14</button>
-            </div>
-          </div>
-        )}
-
-        {isSearchOpen && (
-          <div className="agent-theme-map-toolbar rounded-md border shadow-sm backdrop-blur">
-            <div className="flex items-center gap-2 px-2 py-1.5">
-              <SearchIcon className="h-4 w-4 flex-none text-gray-500" />
-              <input
-                ref={searchInputRef}
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search map or trip"
-                className="min-w-0 flex-1 bg-transparent text-xs outline-none"
-              />
-            </div>
-            {(searchMatches.length > 0 || isSearchingPlaces) && (
-              <div className="max-h-44 overflow-y-auto border-t border-gray-100 py-1">
-                {searchMatches.map((item: MapSearchResult) => (
-                  <button
-                    key={`${item.source}-${item.id}`}
-                    type="button"
-                    onClick={() => flyToSearchResult(item)}
-                    className="block w-full px-2 py-1.5 text-left hover:bg-gray-50"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="rounded bg-gray-100 px-1 py-0.5 text-[9px] uppercase text-gray-500">{item.source}</span>
-                      <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-800">{item.name}</span>
-                    </div>
-                    <div className="truncate text-[10px] text-gray-500">{item.description || 'Map location'}</div>
-                  </button>
-                ))}
-                {isSearchingPlaces && (
-                  <div className="px-2 py-1 text-[10px] text-gray-500">Searching map...</div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
 
       {/* Cost field heat map overlay */}
       {showHeatmap && <DebugOverlay costField={debugCostField} />}
@@ -1669,6 +1680,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
       )}
       </div>
     </div>
+    {mapToolbar}
     </div>
   );
 }
