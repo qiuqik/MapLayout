@@ -206,7 +206,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
         borderWidth: selectedAgentEvent?.node_id === 'input' ? 2 : 1,
         borderColor: selectedAgentEvent?.node_id === 'input' ? '#111827' : undefined,
       },
-      className: hasRunInput ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white',
+      className: hasRunInput ? 'border-[#131722] bg-[#F2F2F2]' : 'border-gray-200 bg-white',
     });
 
     const addFlowEdge = (
@@ -224,11 +224,11 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
         animated: Boolean(options.active),
         markerEnd: { type: MarkerType.ArrowClosed },
         style: {
-          stroke: options.active ? '#2563eb' : options.complete ? '#10b981' : '#9ca3af',
+          stroke: options.active ? '#131722' : options.complete ? '#4b5563' : '#9ca3af',
           strokeWidth: options.active ? 2.2 : 1.4,
           strokeDasharray: options.dashed ? '7 6' : undefined,
         },
-        labelStyle: { fontSize: 9, fill: options.active ? '#1d4ed8' : '#6b7280' },
+        labelStyle: { fontSize: 9, fill: options.active ? '#131722' : '#6b7280' },
       });
     };
 
@@ -239,11 +239,11 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       const isSelectedAgent = selectedAgentSelection?.kind !== 'map_feature' && selectedAgentEvent?.node_id === node.id;
       const position = FLOW_POSITIONS[node.id];
       const statusClass = state.failed
-        ? 'border-red-300 bg-red-50'
+        ? 'border-[#131722] bg-[#F2F2F2]'
         : state.running
-          ? 'border-blue-300 bg-blue-50'
+          ? 'border-[#131722] bg-white'
           : isComplete
-            ? 'border-emerald-200 bg-emerald-50'
+            ? 'border-[#131722] bg-[#F2F2F2]'
             : 'border-gray-200 bg-white';
 
       nodes.push({
@@ -435,8 +435,8 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
         <div className="flex items-center gap-2">
           {activeTab === 'code' && (
             <div className="flex items-center gap-1">
-              {codeError && <span className="max-w-[160px] truncate text-[10px] text-red-600">{codeError}</span>}
-              {codeDirty && !codeError && <span className="text-[10px] text-amber-600">edited</span>}
+              {codeError && <span className="max-w-[160px] truncate text-[10px] text-[#131722]">{codeError}</span>}
+              {codeDirty && !codeError && <span className="text-[10px] text-gray-600">edited</span>}
               <button
                 type="button"
                 title="Record edit"
@@ -452,7 +452,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
                 title="Rerun downstream"
                 onClick={handleRerun}
                 disabled={!canRerun || Boolean(codeError) || rerunBusy}
-                className="flex h-7 items-center gap-1 rounded bg-gray-900 px-2 text-[11px] text-white disabled:opacity-40"
+                className="flex h-7 items-center gap-1 rounded bg-[#131722] px-2 text-[11px] text-white disabled:opacity-40"
               >
                 <RefreshCwIcon className={`h-3.5 w-3.5 ${rerunBusy ? 'animate-spin' : ''}`} />
                 Rerun
@@ -463,7 +463,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
           <button
             type="button"
             onClick={() => setActiveTab('flow')}
-            className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] ${activeTab === 'flow' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-white'}`}
+            className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] ${activeTab === 'flow' ? 'bg-[#131722] text-white' : 'text-gray-600 hover:bg-white'}`}
           >
             <GitBranchIcon className="h-3.5 w-3.5" />
             Flow
@@ -471,7 +471,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
           <button
             type="button"
             onClick={() => setActiveTab('code')}
-            className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] ${activeTab === 'code' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-white'}`}
+            className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] ${activeTab === 'code' ? 'bg-[#131722] text-white' : 'text-gray-600 hover:bg-white'}`}
           >
             <Code2Icon className="h-3.5 w-3.5" />
             Code
@@ -517,7 +517,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
 
       {(workflowDone || workflowError || isAgentRunning) && (
         <div className={`border-t px-3 py-1 text-[10px] ${
-          workflowError ? 'bg-red-50 text-red-700' : workflowDone ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'
+          workflowError ? 'bg-[#F2F2F2] text-[#131722]' : workflowDone ? 'bg-[#F2F2F2] text-[#131722]' : 'bg-[#F2F2F2] text-[#131722]'
         }`}>
           {workflowError ? summarizeEvent(workflowError) : workflowDone ? 'Ready to render' : 'Running current agent'}
         </div>

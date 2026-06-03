@@ -281,7 +281,7 @@ const AgentDialog: React.FC<AgentDialogProps> = ({ className, onRunCompleted }) 
       />
       
       {progress && (
-        <div className="text-sm text-blue-700 bg-blue-50 p-2 rounded-md animate-in fade-in slide-in-from-top-1">
+        <div className="rounded-md bg-[#F2F2F2] p-2 text-sm text-[#131722] animate-in fade-in slide-in-from-top-1">
           {progress}
         </div>
       )}

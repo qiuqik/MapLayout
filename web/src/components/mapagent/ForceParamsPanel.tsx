@@ -113,20 +113,20 @@ return (
       <span className="font-semibold text-gray-800 text-sm">⚙ Layout Debug</span>
     </div>
     <div className="p-2.5">
-      <div className="mb-1.5 text-[10px] text-sky-800 uppercase tracking-wider font-semibold">Force Simulation</div>
+      <div className="mb-1.5 text-[10px] text-[#131722] uppercase tracking-wider font-semibold">Force Simulation</div>
       {FORCE_SLIDERS.map(({ key, label, min, max, step }) => (
         <SliderRow
           key={key} label={label} min={min} max={max} step={step}
-          value={forceParams[key]} color="oklch(44.3% 0.11 240.79)"
+          value={forceParams[key]} color="#131722"
           onChange={v => onForceChange({ [key]: v })}
         />
       ))}
 
-      <div className="mt-2.5 mb-1.5 text-[10px] text-teal-700 uppercase tracking-wider font-semibold">Repulsion Field</div>
+      <div className="mt-2.5 mb-1.5 text-[10px] text-[#131722] uppercase tracking-wider font-semibold">Repulsion Field</div>
       {FIELD_SLIDERS.map(({ key, label, min, max, step }) => (
         <SliderRow
           key={key} label={label} min={min} max={max} step={step}
-          value={fieldParams[key]} color="oklch(51.1% 0.096 186.391)"
+          value={fieldParams[key]} color="#131722"
           onChange={v => onFieldChange({ [key]: v })}
         />
       ))}
