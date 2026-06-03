@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { RefreshCwIcon, SaveIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { API_BASE_URL } from '@/lib/api';
-import { useAgentMap, type AgentRunEvent } from '@/lib/agentMapContext';
+import { useAgentMap, type AgentRunEvent, type AgentSelection } from '@/lib/agentMapContext';
 
 interface AgentControlPanelProps {
   sessionId?: string;
@@ -12,7 +12,13 @@ interface AgentControlPanelProps {
   onRouteSelect?: (routeId: string | null) => void;
 }
 
-const editablePayload = (event: AgentRunEvent | null) => {
+const editablePayload = (event: AgentRunEvent | null, selection?: AgentSelection | null) => {
+  if (selection?.kind === 'map_feature') return selection.payload || {};
+  if (selection?.kind === 'agent_output') return eventPayloadFromEvent(selection.event || event);
+  return eventPayloadFromEvent(event);
+};
+
+const eventPayloadFromEvent = (event: AgentRunEvent | null) => {
   if (!event) return {};
   const payload = event.payload || {};
   if (event.node_id === 'intent') return payload.intent_enriched ? payload : payload.intent || payload;
@@ -61,19 +67,21 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   const {
     manifest,
     setManifest,
+    geojson,
     setGeojson,
-    visualStructure,
     setVisualStructure,
     selectedAgentEvent,
     setSelectedAgentEvent,
+    selectedAgentSelection,
+    setSelectedAgentSelection,
     appendAgentEvent,
   } = useAgentMap();
   const [editorText, setEditorText] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setEditorText(JSON.stringify(editablePayload(selectedAgentEvent), null, 2));
-  }, [selectedAgentEvent]);
+    setEditorText(JSON.stringify(editablePayload(selectedAgentEvent, selectedAgentSelection), null, 2));
+  }, [selectedAgentEvent, selectedAgentSelection]);
 
   const parsedEditor = useMemo(() => {
     try {
@@ -84,7 +92,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   }, [editorText]);
 
   const routes = manifest?.Route || [];
-  const selectedNodeId = selectedAgentEvent?.node_id || selectedAgentEvent?.type || null;
+  const selectedNodeId = selectedAgentSelection?.node_id || selectedAgentEvent?.node_id || selectedAgentEvent?.type || null;
   const canRerun = Boolean(
     selectedAgentEvent &&
     ['intent', 'visual', 'geojson', 'style', 'icon_generation', 'workflow_completed'].includes(
@@ -97,6 +105,10 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   );
 
   const applyPayloadLocally = (payload: any) => {
+    if (selectedAgentSelection?.kind === 'map_feature') {
+      updateMapFeaturePayload(payload);
+      return;
+    }
     const nodeId = selectedAgentEvent?.node_id;
     if (nodeId === 'intent') {
       appendAgentEvent({
@@ -136,11 +148,23 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     const next = clone(parsedEditor);
     updater(next);
     setEditorText(JSON.stringify(next, null, 2));
+    if (selectedAgentSelection?.kind === 'map_feature') {
+      updateMapFeaturePayload(next);
+      return;
+    }
     if (selectedAgentEvent) {
-      setSelectedAgentEvent({
+      const nextEvent = {
         ...selectedAgentEvent,
         payload: payloadForNode(selectedAgentEvent, next),
-      });
+      };
+      setSelectedAgentEvent(nextEvent);
+      if (selectedAgentSelection?.kind === 'agent_output') {
+        setSelectedAgentSelection({
+          ...selectedAgentSelection,
+          event: nextEvent,
+          payload: nextEvent.payload,
+        });
+      }
     }
     if (applyVisual && selectedAgentEvent?.node_id === 'visual') {
       setVisualStructure(next.visual_structure || next);
@@ -149,6 +173,32 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     } else if (selectedAgentEvent?.node_id === 'style' || selectedAgentEvent?.node_id === 'icon_generation') {
       setManifest(next.style_code || next);
     }
+  };
+
+  const updateMapFeaturePayload = (payload: any) => {
+    if (selectedAgentSelection?.kind !== 'map_feature') return;
+    const feature = payload.feature || payload;
+    const props = feature.properties || {};
+    const featureId = props.feature_id || selectedAgentSelection.payload?.feature?.properties?.feature_id;
+    const visualId = props.visual_id || selectedAgentSelection.payload?.feature?.properties?.visual_id;
+    const name = props.name || selectedAgentSelection.payload?.feature?.properties?.name;
+    if (geojson?.features && feature?.type === 'Feature') {
+      const nextGeojson = {
+        ...geojson,
+        features: geojson.features.map((item: any) => {
+          const itemProps = item.properties || {};
+          const same = (featureId && itemProps.feature_id === featureId) ||
+            (visualId && itemProps.visual_id === visualId && itemProps.name === name);
+          return same ? feature : item;
+        }),
+      };
+      setGeojson(nextGeojson);
+    }
+    setSelectedAgentSelection({
+      ...selectedAgentSelection,
+      label: props.name || props.label_title || selectedAgentSelection.label,
+      payload: { ...selectedAgentSelection.payload, ...payload, feature },
+    });
   };
 
   const updateGeojsonFeature = (featureIndex: number, path: (string | number)[], value: any) => {
@@ -272,18 +322,76 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   );
 
   const renderNodeInfo = () => {
-    if (!selectedAgentEvent) return null;
+    if (!selectedAgentEvent && !selectedAgentSelection) return null;
     return (
       <div className="mb-3 space-y-1 rounded border border-gray-200 bg-gray-50 p-2 text-[10px] text-gray-600">
         <div className="text-[11px] font-semibold text-gray-700">Node Info</div>
         <div className="grid grid-cols-[52px_1fr] gap-1">
           <span>ID</span>
-          <span className="truncate font-mono">{selectedAgentEvent.node_id || selectedAgentEvent.type}</span>
+          <span className="truncate font-mono">{selectedAgentSelection?.node_id || selectedAgentEvent?.node_id || selectedAgentEvent?.type}</span>
           <span>Name</span>
-          <span className="truncate">{selectedAgentEvent.label || getNodeTitle(selectedAgentEvent)}</span>
+          <span className="truncate">{selectedAgentSelection?.label || selectedAgentEvent?.label || getNodeTitle(selectedAgentEvent)}</span>
           <span>Status</span>
-          <span className="truncate">{selectedAgentEvent.status || selectedAgentEvent.type}</span>
+          <span className="truncate">{selectedAgentSelection?.kind || selectedAgentEvent?.status || selectedAgentEvent?.type}</span>
         </div>
+      </div>
+    );
+  };
+
+  const renderMapFeatureProperties = () => {
+    if (selectedAgentSelection?.kind !== 'map_feature' || !parsedEditor) return null;
+    const feature = parsedEditor.feature || parsedEditor;
+    const props = feature.properties || {};
+    const geometryType = feature.geometry?.type || selectedAgentSelection.payload?.geometryType;
+    return (
+      <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-semibold text-gray-700">Map Feature</div>
+          <div className="text-[10px] text-gray-500">{geometryType || selectedAgentSelection.node_id}</div>
+        </div>
+        {renderField('Name', props.name || props.label_title || props.visual_id, (value) => updateEditorJson((draft) => {
+          const target = draft.feature || draft;
+          if (!target.properties) target.properties = {};
+          target.properties.name = value;
+          target.properties.label_title = target.properties.label_title ?? value;
+        }))}
+        {renderField('Description', props.description || props.label_script, (value) => updateEditorJson((draft) => {
+          const target = draft.feature || draft;
+          if (!target.properties) target.properties = {};
+          target.properties.description = value;
+          target.properties.label_script = target.properties.label_script ?? value;
+        }), { multiline: true })}
+        {renderField('Icon', props.icon || props.icon_name, (value) => updateEditorJson((draft) => {
+          const target = draft.feature || draft;
+          if (!target.properties) target.properties = {};
+          target.properties.icon = value;
+        }))}
+        {renderField('Label title', props.label_title, (value) => updateEditorJson((draft) => {
+          const target = draft.feature || draft;
+          if (!target.properties) target.properties = {};
+          target.properties.label_title = value;
+        }))}
+        {renderField('Label script', props.label_script, (value) => updateEditorJson((draft) => {
+          const target = draft.feature || draft;
+          if (!target.properties) target.properties = {};
+          target.properties.label_script = value;
+        }), { multiline: true })}
+        <label className="block space-y-1 text-[10px] text-gray-600">
+          <span className="font-medium text-gray-700">Level</span>
+          <select
+            value={props.label_level || props.hierarchy || 'secondary'}
+            onChange={(event) => updateEditorJson((draft) => {
+              const target = draft.feature || draft;
+              if (!target.properties) target.properties = {};
+              target.properties.label_level = event.target.value;
+            })}
+            className="h-7 w-full rounded border border-gray-200 px-2 text-[11px]"
+          >
+            <option value="core">core</option>
+            <option value="secondary">secondary</option>
+            <option value="detail">detail</option>
+          </select>
+        </label>
       </div>
     );
   };
@@ -627,6 +735,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
             </div>
           </div>
           {renderNodeInfo()}
+          {renderMapFeatureProperties()}
           {renderIntentProperties()}
           {renderValidationProperties()}
           {renderVisualProperties()}

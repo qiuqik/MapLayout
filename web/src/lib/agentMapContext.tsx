@@ -19,6 +19,15 @@ export interface AgentRunEvent {
   timestamp?: string;
 }
 
+export interface AgentSelection {
+  kind: 'agent_event' | 'agent_output' | 'map_feature';
+  event?: AgentRunEvent;
+  node_id?: string | null;
+  outputKey?: string;
+  label?: string | null;
+  payload?: Record<string, any>;
+}
+
 interface AgentMapContextType {
   specfilename: string | null;
   setSpecfilename: (name: string | null) => void;
@@ -38,6 +47,8 @@ interface AgentMapContextType {
   setIsAgentRunning: (running: boolean) => void;
   selectedAgentEvent: AgentRunEvent | null;
   setSelectedAgentEvent: (event: AgentRunEvent | null) => void;
+  selectedAgentSelection: AgentSelection | null;
+  setSelectedAgentSelection: (selection: AgentSelection | null) => void;
 }
 
 const AgentMapContext = createContext<AgentMapContextType | undefined>(undefined);
@@ -51,6 +62,11 @@ export const AgentMapProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [isAgentRunning, setIsAgentRunning] = useState(false);
   const [selectedAgentEvent, setSelectedAgentEvent] = useState<AgentRunEvent | null>(null);
+  const [selectedAgentSelection, setSelectedAgentSelection] = useState<AgentSelection | null>(null);
+  const selectAgentEvent = useCallback((event: AgentRunEvent | null) => {
+    setSelectedAgentEvent(event);
+    setSelectedAgentSelection(event ? { kind: 'agent_event', event, node_id: event.node_id, label: event.label, payload: event.payload } : null);
+  }, []);
   const appendAgentEvent = useCallback((event: AgentRunEvent) => {
     setAgentEvents((events) => [...events, event]);
   }, []);
@@ -75,7 +91,9 @@ export const AgentMapProvider: React.FC<{ children: ReactNode }> = ({ children }
       isAgentRunning,
       setIsAgentRunning,
       selectedAgentEvent,
-      setSelectedAgentEvent,
+      setSelectedAgentEvent: selectAgentEvent,
+      selectedAgentSelection,
+      setSelectedAgentSelection,
     }}>
       {children}
     </AgentMapContext.Provider>

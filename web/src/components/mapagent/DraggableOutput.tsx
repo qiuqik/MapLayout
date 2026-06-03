@@ -10,6 +10,8 @@ interface DraggableOutputProps {
   mapRef: React.RefObject<MapRef>;
   onPositionChange: (id: string, lng: number, lat: number) => void;
   overridePosition?: { lng: number; lat: number } | { x: number; y: number };
+  selectable?: boolean;
+  onSelect?: (output: LayoutItemOutput) => void;
 }
 
 const DraggableOutput: React.FC<DraggableOutputProps> = ({
@@ -18,6 +20,8 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
   mapRef,
   onPositionChange,
   overridePosition,
+  selectable = false,
+  onSelect,
 }) => {
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: outputPosition.x, y: outputPosition.y });
   const [isDragging, setIsDragging] = useState(false);
@@ -50,7 +54,14 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
   }, [overridePosition, enabled, outputPosition]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (!enabled) return;
+    if (!enabled) {
+      if (selectable) {
+        e.preventDefault();
+        e.stopPropagation();
+        onSelect?.(outputPosition);
+      }
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
 
@@ -62,7 +73,7 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
     };
 
     setIsDragging(true);
-  }, [enabled, position.x, position.y]);
+  }, [enabled, selectable, onSelect, outputPosition, position.x, position.y]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging || !dragStartRef.current || !enabled) return;
@@ -116,8 +127,8 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
     position: 'absolute',
     left: `${position.x}px`,
     top: `${position.y}px`,
-    pointerEvents: enabled ? 'auto' : 'none',
-    cursor: enabled ? (isDragging ? 'grabbing' : 'grab') : 'default',
+    pointerEvents: enabled || selectable ? 'auto' : 'none',
+    cursor: enabled ? (isDragging ? 'grabbing' : 'grab') : selectable ? 'pointer' : 'default',
     zIndex: isDragging ? 1000 : 5,
     transform: `scale(${visualScale})`,
     transformOrigin: 'center center',
@@ -126,6 +137,8 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
 
   return (
     <div
+      className="map-feature-click-target"
+      data-map-feature-kind="layout_label"
       style={positionStyle}
       onMouseDown={handleMouseDown}
       dangerouslySetInnerHTML={{ __html: outputPosition.html }}

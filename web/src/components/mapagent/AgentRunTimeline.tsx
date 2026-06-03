@@ -1,7 +1,17 @@
 'use client';
 
-import { AlertTriangleIcon, CheckCircle2Icon, CircleIcon, Code2Icon, GitBranchIcon, Loader2Icon, RefreshCwIcon, SaveIcon } from 'lucide-react';
+import { Code2Icon, GitBranchIcon, RefreshCwIcon, SaveIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Background,
+  Controls,
+  MarkerType,
+  Position,
+  ReactFlow,
+  type Edge,
+  type Node,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import { useAgentMap, type AgentRunEvent } from '@/lib/agentMapContext';
 import { API_BASE_URL } from '@/lib/api';
 
@@ -15,6 +25,9 @@ const NODE_ORDER = [
 ];
 
 const EDGE_LABELS = ['intent', 'visual', 'geojson', 'qa', 'style'];
+const NODE_WIDTH = 132;
+const OUTPUT_WIDTH = 128;
+const NODE_GAP = 36;
 
 const compactText = (value: unknown, max = 86) => {
   const text = typeof value === 'string' ? value : JSON.stringify(value ?? '');
@@ -72,6 +85,16 @@ const visualPalette = (event?: AgentRunEvent) => {
   return [visual.Color?.background, visual.Color?.water, visual.Color?.road].filter(Boolean).slice(0, 5);
 };
 
+const outputKeyForNode = (nodeId: string) => {
+  if (nodeId === 'intent') return 'intent_enriched';
+  if (nodeId === 'visual') return 'visual_structure';
+  if (nodeId === 'geojson') return 'geojson';
+  if (nodeId === 'validation') return 'validation_feedback';
+  if (nodeId === 'style') return 'style_code';
+  if (nodeId === 'icon_generation') return 'style_code';
+  return 'payload';
+};
+
 const eventPayload = (event: AgentRunEvent | null) => {
   const payload = event?.payload || {};
   if (!event) return {};
@@ -82,7 +105,6 @@ const eventPayload = (event: AgentRunEvent | null) => {
   return payload;
 };
 
-const jsonLines = (value: unknown) => JSON.stringify(value ?? {}, null, 2).split('\n');
 const asArray = (value: unknown) => (Array.isArray(value) ? value : []);
 
 const payloadForNode = (event: AgentRunEvent, value: unknown) => {
@@ -92,6 +114,16 @@ const payloadForNode = (event: AgentRunEvent, value: unknown) => {
   if (event.node_id === 'intent') return typeof value === 'string' ? { intent_enriched: value } : value as Record<string, unknown>;
   return value as Record<string, unknown>;
 };
+
+const placeholderEvent = (nodeId: string, label: string, runId?: string | null): AgentRunEvent => ({
+  type: 'node_pending',
+  run_id: runId || 'local',
+  node_id: nodeId,
+  label,
+  status: 'waiting',
+  payload: {},
+  timestamp: new Date().toISOString(),
+});
 
 interface AgentRunTimelineProps {
   sessionId?: string | null;
@@ -104,6 +136,8 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
     isAgentRunning,
     selectedAgentEvent,
     setSelectedAgentEvent,
+    selectedAgentSelection,
+    setSelectedAgentSelection,
     setVisualStructure,
     setGeojson,
     setManifest,
@@ -119,6 +153,145 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
   const workflowDone = findLastEvent(agentEvents, (event) => event.type === 'workflow_completed');
   const selectedPayload = useMemo(() => eventPayload(selectedAgentEvent), [selectedAgentEvent]);
   const selectedLines = useMemo(() => codeText.split('\n'), [codeText]);
+
+  const selectFlowNodeById = (flowNodeId: string) => {
+    const [kind, ...rest] = flowNodeId.split('-');
+    const nodeId = rest.join('-');
+    const meta = NODE_ORDER.find((item) => item.id === nodeId);
+    if (!meta) return;
+    const state = nodeState(agentEvents, nodeId);
+    const event = state.completed || state.latest || placeholderEvent(nodeId, meta.label, activeRunId);
+    setSelectedAgentEvent(event);
+    if (kind === 'output') {
+      setSelectedAgentSelection({
+        kind: 'agent_output',
+        event,
+        node_id: nodeId,
+        outputKey: outputKeyForNode(nodeId),
+        label: `${meta.label} Output`,
+        payload: event.payload,
+      });
+    }
+  };
+
+  const flowGraph = useMemo(() => {
+    const nodes: Node[] = [];
+    const edges: Edge[] = [];
+
+    NODE_ORDER.forEach((node, index) => {
+      const state = nodeState(agentEvents, node.id);
+      const event = state.completed || state.latest || placeholderEvent(node.id, node.label, activeRunId);
+      const isComplete = Boolean(state.completed);
+      const isSelectedAgent = selectedAgentSelection?.kind !== 'agent_output' && selectedAgentEvent?.node_id === node.id;
+      const x = index * (NODE_WIDTH + OUTPUT_WIDTH + NODE_GAP);
+      const statusClass = state.failed
+        ? 'border-red-300 bg-red-50'
+        : state.running
+          ? 'border-blue-300 bg-blue-50'
+          : isComplete
+            ? 'border-emerald-200 bg-emerald-50'
+            : 'border-gray-200 bg-white';
+
+      nodes.push({
+        id: `agent-${node.id}`,
+        type: 'default',
+        position: { x, y: 28 },
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
+        data: {
+          label: (
+            <button
+              type="button"
+              data-flow-node-id={`agent-${node.id}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                selectFlowNodeById(`agent-${node.id}`);
+              }}
+              className="w-[112px] text-left"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate text-xs font-semibold text-gray-900">{node.label}</span>
+                <span className="text-[9px] text-gray-500">{event.status || 'wait'}</span>
+              </div>
+              <div className="mt-1 line-clamp-2 text-[9px] leading-3 text-gray-500">{state.summary || 'Waiting for input'}</div>
+            </button>
+          ),
+        },
+        style: {
+          width: NODE_WIDTH,
+          minHeight: 72,
+          borderRadius: 8,
+          borderWidth: isSelectedAgent ? 2 : 1,
+          borderColor: isSelectedAgent ? '#111827' : undefined,
+        },
+        className: statusClass,
+      });
+
+      nodes.push({
+        id: `output-${node.id}`,
+        type: 'default',
+        position: { x: x + NODE_WIDTH + 34, y: 36 },
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
+        data: {
+          label: (
+            <button
+              type="button"
+              data-flow-node-id={`output-${node.id}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                selectFlowNodeById(`output-${node.id}`);
+              }}
+              className="w-[108px] text-left"
+            >
+              <div className="truncate text-[10px] font-semibold text-gray-800">{outputKeyForNode(node.id)}</div>
+              <div className="mt-1 line-clamp-2 text-[9px] leading-3 text-gray-500">{summarizeEvent(event) || 'No output yet'}</div>
+              {node.id === 'visual' && visualPalette(event).length > 0 && (
+                <div className="mt-1 flex gap-1">
+                  {visualPalette(event).map((color) => (
+                    <span key={color} className="h-3 w-3 rounded-sm border border-gray-200" style={{ backgroundColor: color }} />
+                  ))}
+                </div>
+              )}
+            </button>
+          ),
+        },
+        style: {
+          width: OUTPUT_WIDTH,
+          minHeight: 58,
+          borderRadius: 8,
+          borderWidth: selectedAgentSelection?.kind === 'agent_output' && selectedAgentSelection.node_id === node.id ? 2 : 1,
+          borderColor: selectedAgentSelection?.kind === 'agent_output' && selectedAgentSelection.node_id === node.id ? '#111827' : undefined,
+          background: '#f9fafb',
+        },
+      });
+
+      edges.push({
+        id: `edge-${node.id}-output`,
+        source: `agent-${node.id}`,
+        target: `output-${node.id}`,
+        label: 'output',
+        markerEnd: { type: MarkerType.ArrowClosed },
+        style: { stroke: '#9ca3af' },
+        labelStyle: { fontSize: 9, fill: '#6b7280' },
+      });
+
+      if (index < NODE_ORDER.length - 1) {
+        const nextNode = NODE_ORDER[index + 1];
+        edges.push({
+          id: `edge-${node.id}-${nextNode.id}`,
+          source: `output-${node.id}`,
+          target: `agent-${nextNode.id}`,
+          label: EDGE_LABELS[index],
+          markerEnd: { type: MarkerType.ArrowClosed },
+          style: { stroke: '#9ca3af' },
+          labelStyle: { fontSize: 9, fill: '#6b7280' },
+        });
+      }
+    });
+
+    return { nodes, edges };
+  }, [activeRunId, agentEvents, selectedAgentEvent, selectedAgentSelection]);
 
   useEffect(() => {
     if (localCodeEditRef.current) {
@@ -273,61 +446,23 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       </div>
 
       {activeTab === 'flow' ? (
-        <div className="h-[178px] overflow-x-auto px-3 py-3">
-          <div className="flex min-w-max items-center">
-            {NODE_ORDER.map((node, index) => {
-              const state = nodeState(agentEvents, node.id);
-              const isComplete = Boolean(state.completed);
-              const Icon = state.failed ? AlertTriangleIcon : state.running ? Loader2Icon : isComplete ? CheckCircle2Icon : CircleIcon;
-              return (
-                <div key={node.id} className="flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedAgentEvent(state.completed || state.latest || null)}
-                    className={`h-[118px] w-[150px] rounded-md border bg-white px-3 py-2 text-left shadow-sm transition ${
-                      state.running ? 'border-blue-300' : state.failed ? 'border-red-300' : isComplete ? 'border-emerald-200' : 'border-gray-200'
-                    } ${selectedAgentEvent?.node_id === node.id ? 'ring-2 ring-gray-900' : ''}`}
-                  >
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Icon className={`h-4 w-4 flex-none ${
-                          state.running ? 'animate-spin text-blue-600' : state.failed ? 'text-red-600' : isComplete ? 'text-emerald-600' : 'text-gray-300'
-                        }`} />
-                        <span className="text-xs font-semibold text-gray-900">{node.label}</span>
-                      </div>
-                      <span className="text-[10px] text-gray-500">{state.latest?.status || (isComplete ? 'done' : 'wait')}</span>
-                    </div>
-                    <div className="line-clamp-3 text-[10px] leading-4 text-gray-500">
-                      {state.summary || 'Waiting for input'}
-                    </div>
-                    {node.id === 'visual' && visualPalette(state.completed || state.latest).length > 0 && (
-                      <div className="mt-2 flex gap-1">
-                        {visualPalette(state.completed || state.latest).map((color) => (
-                          <span
-                            key={color}
-                            className="h-3 w-3 rounded-sm border border-gray-200"
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                      </div>
-                    )}
-                    {state.completed?.timestamp && (
-                      <div className="mt-2 truncate text-[9px] text-gray-400">{new Date(state.completed.timestamp).toLocaleTimeString()}</div>
-                    )}
-                  </button>
-                  {index < NODE_ORDER.length - 1 && (
-                    <div className="relative flex w-12 items-center">
-                      <div className="h-px flex-1 bg-gray-300" />
-                      <div className="h-2 w-2 rotate-45 border-r border-t border-gray-300" />
-                      <span className="absolute left-1/2 top-1/2 -translate-x-1/2 translate-y-2 rounded bg-white px-1 text-[9px] text-gray-400">
-                        {EDGE_LABELS[index]}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+        <div className="h-[178px] overflow-hidden">
+          <ReactFlow
+            nodes={flowGraph.nodes}
+            edges={flowGraph.edges}
+            onNodeClick={(_, node) => selectFlowNodeById(node.id)}
+            fitView
+            fitViewOptions={{ padding: 0.12, minZoom: 0.68, maxZoom: 1.2 }}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable
+            panOnDrag
+            zoomOnScroll
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background gap={18} size={0.8} color="#e5e7eb" />
+            <Controls showInteractive={false} position="bottom-right" />
+          </ReactFlow>
         </div>
       ) : (
         <div className="grid h-[178px] grid-cols-[52px_1fr] overflow-hidden bg-gray-950 font-mono text-[10px] leading-4">

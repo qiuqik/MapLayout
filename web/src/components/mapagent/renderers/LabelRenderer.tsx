@@ -13,9 +13,11 @@ interface LabelRendererProps {
   globalProps: any;
   labelScale?: number;
   hideDetailLabels?: boolean;
+  selectable?: boolean;
+  onFeatureSelect?: (feature: any, kind: 'label') => void;
 }
 
-const LabelRenderer: React.FC<LabelRendererProps> = ({ points, labelStyles, labelScale = 1, hideDetailLabels = false }) => {
+const LabelRenderer: React.FC<LabelRendererProps> = ({ points, labelStyles, labelScale = 1, hideDetailLabels = false, selectable = false, onFeatureSelect }) => {
   return (
     <>
       {points.map((feature: any) => {
@@ -35,9 +37,21 @@ const LabelRenderer: React.FC<LabelRendererProps> = ({ points, labelStyles, labe
             anchor="bottom"
           >
             <div
+              className="map-feature-click-target"
+              data-map-feature-kind="label"
+              onClick={(event) => {
+                if (!selectable) return;
+                event.stopPropagation();
+                onFeatureSelect?.(feature, 'label');
+              }}
+              onMouseDown={(event) => {
+                if (!selectable) return;
+                event.stopPropagation();
+              }}
               style={{
                 '--map-label-scale': labelScale,
-                pointerEvents: 'none',
+                pointerEvents: selectable ? 'auto' : 'none',
+                cursor: selectable ? 'pointer' : 'default',
               } as any}
               dangerouslySetInnerHTML={{ __html: htmlStr }}
             />

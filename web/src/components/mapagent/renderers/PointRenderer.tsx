@@ -7,6 +7,8 @@ interface PointRendererProps {
   points: any[];
   pointStyles: any[];
   globalProps?: any;
+  selectable?: boolean;
+  onFeatureSelect?: (feature: any, kind: 'point') => void;
 }
 
 const resolvePointSize = (pointStyle: any): { width: number; height: number } => {
@@ -24,7 +26,7 @@ const resolvePointSize = (pointStyle: any): { width: number; height: number } =>
   return { width: safeSize, height: safeSize };
 };
 
-const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles }) => {
+const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, selectable = false, onFeatureSelect }) => {
   const renderPointIcon = (pointStyle: any, feature: any) => {
     const rawIconSrc = pointStyle.url;
     const iconSrc = rawIconSrc
@@ -87,10 +89,22 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles }) =>
             anchor={pointStyle.anchor || 'bottom'}
           >
             <div
+              className="map-feature-click-target"
+              data-map-feature-kind="point"
+              onClick={(event) => {
+                if (!selectable) return;
+                event.stopPropagation();
+                onFeatureSelect?.(feature, 'point');
+              }}
+              onMouseDown={(event) => {
+                if (!selectable) return;
+                event.stopPropagation();
+              }}
               style={{
                 width,
                 height,
-                pointerEvents: 'none',
+                pointerEvents: selectable ? 'auto' : 'none',
+                cursor: selectable ? 'pointer' : 'default',
               }}
             >
               {renderPointIcon(pointStyle, feature)}

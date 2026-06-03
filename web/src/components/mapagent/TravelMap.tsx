@@ -1,7 +1,7 @@
 'use client';
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import MapGL, { MapRef } from 'react-map-gl/mapbox';
-import { HandIcon, MousePointer2Icon, SearchIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
+import { DownloadIcon, HandIcon, MousePointer2Icon, SearchIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
 // @ts-ignore
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
@@ -26,6 +26,7 @@ import { runSimulatedAnnealingLayout, DEFAULT_SIM_ANNEALING } from '@/app/agent/
 import { runVoronoiForceLayout, DEFAULT_VORONOI, DEFAULT_VORONOI_FORCE } from '@/app/agent/weightedVoronoi/weightedVoronoiLayout';
 import DebugOverlay from './DebugOverlay';
 import type { ForceParamsOverride, FieldParamsOverride } from './ForceParamsPanel';
+import { useAgentMap } from '@/lib/agentMapContext';
 
 type MapSearchResult = {
   id: string;
@@ -159,6 +160,35 @@ const MAPBOX_LAYER_TARGETS: Record<string, string[]> = {
   label: ['poi-label', 'transit-label', 'airport-label', 'road-label', 'road-label-simple', 'settlement-major-label', 'settlement-minor-label', 'state-label', 'country-label'],
 };
 
+const normalizeLayerToken = (value: string) => value.toLowerCase().replace(/[_\s]+/g, '-');
+
+function resolveTargetLayerIds(map: any, target: string) {
+  const styleLayers = map.getStyle?.().layers || [];
+  const styleLayerIds = new Set(styleLayers.map((layer: any) => layer.id));
+  const mappedLayerIds = MAPBOX_LAYER_TARGETS[target] || [];
+  const exact = [
+    target,
+    ...mappedLayerIds,
+  ].filter((layerId, index, all) => all.indexOf(layerId) === index && styleLayerIds.has(layerId));
+  if (exact.length > 0) return exact;
+
+  const normalizedTarget = normalizeLayerToken(target);
+  if (normalizedTarget === 'background') {
+    return styleLayers.filter((layer: any) => layer.type === 'background').map((layer: any) => layer.id);
+  }
+
+  const semanticTokens = [normalizedTarget, ...mappedLayerIds.map(normalizeLayerToken)]
+    .flatMap((item) => [item, item.replace(/-/g, '')])
+    .filter((item, index, all) => item.length > 2 && all.indexOf(item) === index);
+  return styleLayers
+    .filter((layer: any) => {
+      const id = normalizeLayerToken(layer.id);
+      const compactId = id.replace(/-/g, '');
+      return semanticTokens.some((token) => id.includes(token) || compactId.includes(token));
+    })
+    .map((layer: any) => layer.id);
+}
+
 function getVisualStylesheet(visualStructure: any) {
   return visualStructure?.Stylesheet || visualStructure?.stylesheet || null;
 }
@@ -176,17 +206,14 @@ function resolveMapStyle(visualStructure: any, showHeatmap: boolean) {
 function applyMapboxStylesheet(map: any, visualStructure: any) {
   const stylesheet = getVisualStylesheet(visualStructure);
   if (!map || !stylesheet?.layers?.length) return;
-  const styleLayerIds = new Set((map.getStyle?.().layers || []).map((layer: any) => layer.id));
 
   stylesheet.layers.forEach((entry: any) => {
     if (!entry?.target || !entry.paint || typeof entry.paint !== 'object') return;
-    const mappedLayerIds = MAPBOX_LAYER_TARGETS[entry.target] || [];
-    const layerIds = [
-      entry.target,
-      ...mappedLayerIds,
-    ].filter((layerId, index, all) => all.indexOf(layerId) === index && styleLayerIds.has(layerId));
+    const layerIds = resolveTargetLayerIds(map, entry.target);
     if (layerIds.length === 0) {
-      console.warn(`[Stylesheet] No Mapbox layer matched target "${entry.target}"`);
+      if (!MAPBOX_LAYER_TARGETS[entry.target] && entry.target !== 'background') {
+        console.warn(`[Stylesheet] No Mapbox layer matched target "${entry.target}"`);
+      }
       return;
     }
     layerIds.forEach((layerId) => {
@@ -233,6 +260,7 @@ interface TravelMapProps {
 }
 
 export default function TravelMap({ geojson, styleCode, visualStructure, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, onRouteSelect, selectedRouteId, rerunLayoutTrigger = 0, layoutAlgorithm = 'force', layoutSeed = 1 }: TravelMapProps) {
+  const { setSelectedAgentSelection } = useAgentMap();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapRef>(null);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
@@ -243,6 +271,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const [mapLabelMatches, setMapLabelMatches] = useState<MapSearchResult[]>([]);
   const [placeMatches, setPlaceMatches] = useState<MapSearchResult[]>([]);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const [isExportingPng, setIsExportingPng] = useState(false);
   // Bounding rects of global items in map-container px space (set via onMeasured callback).
   const globalRectsRef = useRef<Rect[]>([]);
   // Always points to the latest recomputeLayout closure so handleGlobalMeasured can call it.
@@ -930,8 +959,77 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     const feature = event.features?.find((item: any) => item.geometry?.type === 'LineString');
     if (feature?.properties?.visual_id) {
       onRouteSelect?.(feature.properties.visual_id);
+      const routeStyle = routeStyles.find((route: any) => route.visual_id === feature.properties.visual_id);
+      setSelectedAgentSelection({
+        kind: 'map_feature',
+        node_id: 'map_line',
+        label: feature.properties?.name || feature.properties?.visual_id || 'Route',
+        payload: {
+          feature: {
+            type: 'Feature',
+            geometry: feature.geometry,
+            properties: feature.properties,
+          },
+          routeStyle,
+          geometryType: 'LineString',
+        },
+      });
     }
-  }, [mapTool, onRouteSelect]);
+  }, [mapTool, onRouteSelect, routeStyles, setSelectedAgentSelection]);
+
+  const selectMapFeature = useCallback((feature: any, kind: 'point' | 'label' | 'layout_label') => {
+    const props = feature?.properties || {};
+    const pointStyle = pointStyles.find((style: any) => style.visual_id === props.visual_id);
+    const labelStyle = selectLabelStyleForFeature(feature, labelStyles);
+    setSelectedAgentSelection({
+      kind: 'map_feature',
+      node_id: `map_${kind}`,
+      label: props.name || props.label_title || props.visual_id || kind,
+      payload: {
+        feature,
+        pointStyle,
+        labelStyle,
+        geometryType: feature?.geometry?.type,
+      },
+    });
+  }, [labelStyles, pointStyles, setSelectedAgentSelection]);
+
+  const selectLayoutOutput = useCallback((output: LayoutItemOutput) => {
+    const feature = transformedData.points.find((item: any) => {
+      const labelStyle = selectLabelStyleForFeature(item, labelStyles);
+      return getFeatureLabelId(item, labelStyle) === output.id;
+    });
+    if (feature) {
+      selectMapFeature(feature, 'layout_label');
+    }
+  }, [labelStyles, selectMapFeature, transformedData.points]);
+
+  const exportViewportPng = useCallback(async () => {
+    const root = rootRef.current;
+    if (!root || isExportingPng) return;
+    setIsExportingPng(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(root, {
+        backgroundColor: null,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        ignoreElements: (element) => element.getAttribute('data-export-ignore') === 'true',
+      });
+      const url = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `mapbox_view_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export map PNG failed:', error);
+      alert('Export PNG failed. Please try again after the map finishes rendering.');
+    } finally {
+      setIsExportingPng(false);
+    }
+  }, [isExportingPng]);
 
   const flyToSearchResult = useCallback((item: MapSearchResult) => {
     const raw = mapRef.current as any;
@@ -1003,9 +1101,16 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
         dragRotate={effectiveMapDrag}
         keyboard={effectiveMapDrag}
         doubleClickZoom={effectiveMapDrag}
+        preserveDrawingBuffer
       >
         <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} selectedRouteId={selectedRouteId} />
-        <PointRenderer points={transformedData.points} pointStyles={pointStyles} globalProps={transformedData.globalProps} />
+        <PointRenderer
+          points={transformedData.points}
+          pointStyles={pointStyles}
+          globalProps={transformedData.globalProps}
+          selectable={mapTool === 'select'}
+          onFeatureSelect={selectMapFeature}
+        />
         {!hideOverlays && layoutState.outputs.length === 0 && (
           <LabelRenderer
             points={transformedData.points}
@@ -1013,11 +1118,13 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
             globalProps={transformedData.globalProps}
             labelScale={fallbackLabelScale}
             hideDetailLabels={hideDetailLabels}
+            selectable={mapTool === 'select'}
+            onFeatureSelect={selectMapFeature}
           />
         )}
       </MapGL>
 
-      <div className="absolute right-3 top-3 z-20 flex w-[260px] flex-col gap-2">
+      <div data-export-ignore="true" className="absolute right-3 top-3 z-20 flex w-[260px] flex-col gap-2">
         <div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white/95 p-1 shadow-sm backdrop-blur">
           <button
             type="button"
@@ -1059,6 +1166,16 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
             className="grid h-8 w-8 place-items-center rounded text-gray-700 hover:bg-gray-100"
           >
             <ZoomOutIcon className="h-4 w-4" />
+          </button>
+          <div className="mx-1 h-5 w-px bg-gray-200" />
+          <button
+            type="button"
+            title="Export current map view as PNG"
+            onClick={exportViewportPng}
+            disabled={isExportingPng}
+            className="grid h-8 w-8 place-items-center rounded text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+          >
+            <DownloadIcon className={`h-4 w-4 ${isExportingPng ? 'animate-pulse' : ''}`} />
           </button>
         </div>
 
@@ -1143,6 +1260,8 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
                   onGroundtruthChange?.({ [id]: { lng, lat } });
                 }}
                 overridePosition={groundtruthPx}
+                selectable={mapTool === 'select'}
+                onSelect={selectLayoutOutput}
               />
             );
           })}
