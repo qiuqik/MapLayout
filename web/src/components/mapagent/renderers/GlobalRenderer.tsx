@@ -5,6 +5,7 @@ import { CSSProperties, useEffect, useRef } from 'react';
 interface GlobalRendererProps {
   globalElements: any[];
   globalProps: any;
+  viewportSize?: { width: number; height: number } | null;
   onMeasured?: (rects: Array<{ x: number; y: number; width: number; height: number }>) => void;
 }
 
@@ -36,18 +37,32 @@ const globalContent = (globalProps: any, index: number) => {
   return globalProps || {};
 };
 
-const placementStyle = (element: any, index: number): CSSProperties => {
-  const placement = element?.placement || {};
-  const slot = element?.slot;
-  const isTop = index === 0;
+const placementStyle = (element: any, index: number, viewportSize?: { width: number; height: number } | null): CSSProperties => {
+  const isWide = !viewportSize || viewportSize.width >= viewportSize.height;
+  const gap = 16;
+  const isFirst = index === 0;
+  const defaultPosition: CSSProperties = isWide
+    ? {
+        top: isFirst ? gap : undefined,
+        bottom: isFirst ? undefined : gap,
+        left: isFirst ? gap : undefined,
+        right: isFirst ? undefined : gap,
+        width: 'min(42%, 460px)',
+        justifyContent: isFirst ? 'flex-start' : 'flex-end',
+      }
+    : {
+        top: isFirst ? gap : undefined,
+        bottom: isFirst ? undefined : gap,
+        left: gap,
+        right: gap,
+        width: `calc(100% - ${gap * 2}px)`,
+        justifyContent: 'center',
+      };
+
   return {
     position: 'absolute',
-    top: placement.top ?? (slot === 'top_15' || isTop ? '15%' : undefined),
-    bottom: placement.bottom ?? (slot === 'bottom_10' || !isTop ? '10%' : undefined),
-    left: placement.left ?? 0,
-    width: placement.width ?? '100%',
+    ...defaultPosition,
     display: 'flex',
-    justifyContent: 'center',
     pointerEvents: 'none',
     zIndex: 6,
   };
@@ -68,18 +83,19 @@ const contentTypeFromContent = (content: any, fallback: string) => {
   return fallback;
 };
 
-const panelStyle = (element: any, index: number): CSSProperties => {
+const panelStyle = (element: any, index: number, viewportSize?: { width: number; height: number } | null): CSSProperties => {
   const style = element?.style && typeof element.style === 'object' ? element.style : {};
   const containerStyle = style.container && typeof style.container === 'object' ? style.container : style;
+  const isWide = !viewportSize || viewportSize.width >= viewportSize.height;
   return {
-    maxWidth: index === 0 ? 'min(86%, 760px)' : 'min(82%, 620px)',
-    textAlign: 'center',
+    maxWidth: '100%',
     pointerEvents: 'none',
     ...containerStyle,
+    textAlign: isWide ? (index === 0 ? 'left' : 'right') : 'center',
   };
 };
 
-const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalProps, onMeasured }) => {
+const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalProps, viewportSize, onMeasured }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,7 +112,7 @@ const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalP
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [globalElements, globalProps, onMeasured]);
+  }, [globalElements, globalProps, viewportSize, onMeasured]);
 
   return (
     <div ref={containerRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 6 }}>
@@ -111,8 +127,12 @@ const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalP
         const scriptStyle = styleSection(style, 'script');
         const extraStyle = styleSection(style, 'extra_info');
         return (
-          <div key={element.visual_id || `global-${index}`} style={placementStyle(element, index)}>
-            <div style={panelStyle(element, index)}>
+          <div
+            key={element.visual_id || `global-${index}`}
+            data-agent-global-panel={index}
+            style={placementStyle(element, index, viewportSize)}
+          >
+            <div style={panelStyle(element, index, viewportSize)}>
               {content.title && (
                 <div style={{ fontSize: index === 0 ? 28 : 16, fontWeight: index === 0 ? 800 : 700, lineHeight: 1.15, ...titleStyle }}>
                   {content.title}

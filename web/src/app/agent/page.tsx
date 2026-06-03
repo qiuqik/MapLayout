@@ -353,7 +353,7 @@ function AgentPageContent() {
   return (
     <div className="flex flex-1 overflow-hidden bg-gray-50">
       {/* 左侧控制栏 */}
-      <div className="flex flex-col flex-shrink-0 w-[21%] min-w-[300px] h-full bg-white shadow-lg z-10 border-r">
+      <div className="flex h-full w-[280px] flex-shrink-0 flex-col bg-white shadow-lg z-10 border-r">
         {/* 固定头部 */}
         <div className="agent-left-header sticky top-0 z-10 shadow-sm pl-3 py-1.5">
           <h1 className="text-base font-semibold text-white">AgentMap Layout</h1>

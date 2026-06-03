@@ -269,6 +269,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapTool, setMapTool] = useState<'select' | 'pan'>('select');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [mapFrameSize, setMapFrameSize] = useState<{ width: number; height: number }>({ width: 1100, height: 720 });
   const [searchQuery, setSearchQuery] = useState('');
   const [mapLabelMatches, setMapLabelMatches] = useState<MapSearchResult[]>([]);
   const [placeMatches, setPlaceMatches] = useState<MapSearchResult[]>([]);
@@ -341,59 +342,74 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     return calculateMapViewState(dataForCalc);
   }, [transformedData, displayLines]);
 
+  const fitMapToContent = useCallback((duration = 700) => {
+    const raw = mapRef.current as any;
+    const map = raw?.getMap ? raw.getMap() : raw;
+    if (!map || transformedData.points.length === 0) return;
+
+    const coords = transformedData.points
+      .map((feature: any) => feature.geometry?.coordinates)
+      .filter((coord: any): coord is [number, number] => (
+        Array.isArray(coord) &&
+        typeof coord[0] === 'number' &&
+        typeof coord[1] === 'number'
+      ));
+    if (coords.length === 0) return;
+
+    const lons = coords.map((c) => c[0]);
+    const lats = coords.map((c) => c[1]);
+    const bounds: [[number, number], [number, number]] = [
+      [Math.min(...lons), Math.min(...lats)],
+      [Math.max(...lons), Math.max(...lats)],
+    ];
+
+    const { width, height } = map.getContainer().getBoundingClientRect();
+    if (!width || !height) return;
+
+    const basePad = Math.round(Math.min(width, height) * 0.12);
+    const padding = {
+      top: basePad,
+      bottom: basePad,
+      left: basePad,
+      right: basePad,
+    };
+
+    globalRectsRef.current.forEach((rect) => {
+      const leftOverlap = Math.max(0, Math.min(rect.x + rect.width, width) - Math.max(rect.x, 0));
+      const topOverlap = Math.max(0, Math.min(rect.y + rect.height, height) - Math.max(rect.y, 0));
+      if (leftOverlap === 0 || topOverlap === 0) return;
+
+      const centerX = rect.x + rect.width / 2;
+      const centerY = rect.y + rect.height / 2;
+      const extraX = Math.ceil(rect.width + 28);
+      const extraY = Math.ceil(rect.height + 28);
+
+      if (centerX < width / 2) padding.left = Math.max(padding.left, extraX);
+      else padding.right = Math.max(padding.right, extraX);
+
+      if (centerY < height / 2) padding.top = Math.max(padding.top, extraY);
+      else padding.bottom = Math.max(padding.bottom, extraY);
+    });
+
+    map.fitBounds(bounds, {
+      padding: {
+        top: Math.min(Math.round(height * 0.42), padding.top),
+        bottom: Math.min(Math.round(height * 0.42), padding.bottom),
+        left: Math.min(Math.round(width * 0.42), padding.left),
+        right: Math.min(Math.round(width * 0.42), padding.right),
+      },
+      duration,
+    });
+  }, [transformedData.points]);
+
   useEffect(() => {
     if (!isSearchOpen) return;
     searchInputRef.current?.focus();
   }, [isSearchOpen]);
 
   useEffect(() => {
-    // Fit map view to data
-    if (mapRef.current && (transformedData.points.length > 0 || displayLines.length > 0)) {
-      const coords: number[][] = [];
-      
-      transformedData.points.forEach((feature: any) => {
-        coords.push(feature.geometry.coordinates);
-      });
-      
-      displayLines.forEach((feature: any) => {
-        feature.geometry.coordinates.forEach((coord: number[]) => {
-          coords.push(coord);
-        });
-      });
-      
-      if (coords.length > 0) {
-        const lons = coords.map((c) => c[0]);
-        const lats = coords.map((c) => c[1]);
-        const bounds: [[number, number], [number, number]] = [
-          [Math.min(...lons), Math.min(...lats)],
-          [Math.max(...lons), Math.max(...lats)],
-        ];
-
-        // Target: route occupies ~60% of the canvas on both axes.
-        // → 20% padding on each side horizontally, 20% on each side vertically.
-        // Global components (title panel and summary label) typically sit at the top,
-        // so shift the vertical center downward by adding extra top padding and
-        // subtracting the same amount from the bottom, keeping total vPad constant.
-        const raw = mapRef.current as any;
-        const mapInstance = raw?.getMap ? raw.getMap() : raw;
-        const { width, height } = mapInstance.getContainer().getBoundingClientRect();
-
-        const hPad = Math.round(width * 0.20);          // 20% each side → 60% horizontal
-        const vPadBase = Math.round(height * 0.20);     // 20% each side → 60% vertical
-        const globalOffset = Math.round(height * 0.08); // extra top bias for global components
-
-        mapRef.current.fitBounds(bounds, {
-          padding: {
-            top:    vPadBase + globalOffset,
-            bottom: Math.max(20, vPadBase - globalOffset),
-            left:   hPad,
-            right:  hPad,
-          },
-          duration: 1500,
-        });
-      }
-    }
-  }, [transformedData, displayLines]);
+    fitMapToContent(900);
+  }, [fitMapToContent, mapFrameSize]);
 
   useEffect(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -586,10 +602,11 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
         }))
         .filter((r) => r.width > 0 && r.height > 0 && !(r.width > maxW && r.height > maxH));
       globalRectsRef.current = converted;
+      fitMapToContent(500);
       // Recompute layout with updated obstacles (via ref, always latest closure)
       recomputeLayoutRef.current();
     },
-    []
+    [fitMapToContent]
   );
 
   useEffect(() => {
@@ -915,8 +932,9 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
       });
     }
     applyMapboxStylesheet(map, visualStructure);
+    fitMapToContent(900);
     recomputeLayout();
-  }, [recomputeLayout, onMapInfoChange, visualStructure]);
+  }, [fitMapToContent, recomputeLayout, onMapInfoChange, visualStructure]);
 
   const onStyleData = useCallback(() => {
     const raw = mapRef.current as any;
@@ -1106,49 +1124,91 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const fallbackLabelScale = getResponsiveOverlayScale('secondary', viewportSize, fallbackOverlayCount);
   const hideDetailLabels = shouldHideOverlay('detail', viewportSize, fallbackOverlayCount);
   const mapOverlayReady = mapLoaded && Boolean((mapRef.current as any)?.getMap ? (mapRef.current as any).getMap() : mapRef.current);
+  const updateMapFrameSize = useCallback((updates: Partial<{ width: number; height: number }>) => {
+    setMapFrameSize((prev) => ({
+      width: Math.max(360, Math.min(2400, Math.round(updates.width ?? prev.width))),
+      height: Math.max(280, Math.min(1800, Math.round(updates.height ?? prev.height))),
+    }));
+  }, []);
 
   return (
-    <div ref={rootRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
-      <MapGL
-        ref={mapRef}
-        initialViewState={getMapViewState}
-        mapStyle={mapStyle}
-        mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
-        style={{ width: '100%', height: '100%', zIndex: 1 }}
-        onLoad={onMapLoad}
-        onStyleData={onStyleData}
-        onClick={onMapClick}
-        onMoveEnd={onMoveEnd}
-        interactiveLayerIds={routeLayerIds}
-        scrollZoom={effectiveMapDrag}
-        dragPan={effectiveMapDrag}
-        dragRotate={effectiveMapDrag}
-        keyboard={effectiveMapDrag}
-        doubleClickZoom={effectiveMapDrag}
-        preserveDrawingBuffer
+    <div className="relative h-full w-full overflow-auto bg-gray-100">
+      <div className="absolute left-3 top-3 z-30 flex items-center gap-2 rounded-md border border-gray-200 bg-white/95 p-2 text-[11px] shadow-sm backdrop-blur" data-export-ignore="true">
+        <label className="flex items-center gap-1 text-gray-600">
+          W
+          <input
+            type="number"
+            min={360}
+            max={2400}
+            step={20}
+            value={mapFrameSize.width}
+            onChange={(event) => updateMapFrameSize({ width: Number(event.target.value) })}
+            className="h-7 w-16 rounded border border-gray-200 px-1.5 text-gray-800 outline-none"
+          />
+        </label>
+        <label className="flex items-center gap-1 text-gray-600">
+          H
+          <input
+            type="number"
+            min={280}
+            max={1800}
+            step={20}
+            value={mapFrameSize.height}
+            onChange={(event) => updateMapFrameSize({ height: Number(event.target.value) })}
+            className="h-7 w-16 rounded border border-gray-200 px-1.5 text-gray-800 outline-none"
+          />
+        </label>
+        <button type="button" className="rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => updateMapFrameSize({ width: 1100, height: 720 })}>16:10</button>
+        <button type="button" className="rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => updateMapFrameSize({ width: 900, height: 900 })}>1:1</button>
+        <button type="button" className="rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => updateMapFrameSize({ width: 720, height: 1100 })}>9:14</button>
+      </div>
+
+      <div
+        ref={rootRef}
+        data-agent-map-frame="true"
+        className="relative mx-auto my-12 overflow-hidden bg-white shadow-sm"
+        style={{ width: mapFrameSize.width, height: mapFrameSize.height }}
       >
-        <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} selectedRouteId={selectedRouteId} />
-        {mapOverlayReady && (
-          <PointRenderer
-            points={transformedData.points}
-            pointStyles={pointStyles}
-            globalProps={transformedData.globalProps}
-            selectable={mapTool === 'select'}
-            onFeatureSelect={selectMapFeature}
-          />
-        )}
-        {mapOverlayReady && !hideOverlays && layoutState.outputs.length === 0 && (
-          <LabelRenderer
-            points={transformedData.points}
-            labelStyles={labelStyles}
-            globalProps={transformedData.globalProps}
-            labelScale={fallbackLabelScale}
-            hideDetailLabels={hideDetailLabels}
-            selectable={mapTool === 'select'}
-            onFeatureSelect={selectMapFeature}
-          />
-        )}
-      </MapGL>
+        <MapGL
+          ref={mapRef}
+          initialViewState={getMapViewState}
+          mapStyle={mapStyle}
+          mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+          style={{ width: '100%', height: '100%', zIndex: 1 }}
+          onLoad={onMapLoad}
+          onStyleData={onStyleData}
+          onClick={onMapClick}
+          onMoveEnd={onMoveEnd}
+          interactiveLayerIds={routeLayerIds}
+          scrollZoom={effectiveMapDrag}
+          dragPan={effectiveMapDrag}
+          dragRotate={effectiveMapDrag}
+          keyboard={effectiveMapDrag}
+          doubleClickZoom={effectiveMapDrag}
+          preserveDrawingBuffer
+        >
+          <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} selectedRouteId={selectedRouteId} />
+          {mapOverlayReady && (
+            <PointRenderer
+              points={transformedData.points}
+              pointStyles={pointStyles}
+              globalProps={transformedData.globalProps}
+              selectable={mapTool === 'select'}
+              onFeatureSelect={selectMapFeature}
+            />
+          )}
+          {mapOverlayReady && !hideOverlays && layoutState.outputs.length === 0 && (
+            <LabelRenderer
+              points={transformedData.points}
+              labelStyles={labelStyles}
+              globalProps={transformedData.globalProps}
+              labelScale={fallbackLabelScale}
+              hideDetailLabels={hideDetailLabels}
+              selectable={mapTool === 'select'}
+              onFeatureSelect={selectMapFeature}
+            />
+          )}
+        </MapGL>
 
       <div data-export-ignore="true" className="absolute right-3 top-3 z-20 flex w-[260px] flex-col gap-2">
         <div className="agent-theme-map-toolbar flex items-center gap-1 rounded-md border p-1 shadow-sm backdrop-blur">
@@ -1380,9 +1440,11 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
         <GlobalRenderer
           globalElements={globalElements}
           globalProps={transformedData.globalProps}
+          viewportSize={viewportSize}
           onMeasured={handleGlobalMeasured}
         />
       )}
+    </div>
     </div>
   );
 }
