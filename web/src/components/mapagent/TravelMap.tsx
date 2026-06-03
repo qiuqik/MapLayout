@@ -27,6 +27,14 @@ import { runVoronoiForceLayout, DEFAULT_VORONOI, DEFAULT_VORONOI_FORCE } from '@
 import DebugOverlay from './DebugOverlay';
 import type { ForceParamsOverride, FieldParamsOverride } from './ForceParamsPanel';
 
+type MapSearchResult = {
+  id: string;
+  source: 'trip' | 'map' | 'place';
+  name: string;
+  description?: string;
+  coordinates: [number, number];
+};
+
 const DEFAULT_FORCE: LayoutParams = {
   seed: 1,
   linkStrength: 0.16,
@@ -232,6 +240,9 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapTool, setMapTool] = useState<'select' | 'pan'>('select');
   const [searchQuery, setSearchQuery] = useState('');
+  const [mapLabelMatches, setMapLabelMatches] = useState<MapSearchResult[]>([]);
+  const [placeMatches, setPlaceMatches] = useState<MapSearchResult[]>([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   // Bounding rects of global items in map-container px space (set via onMeasured callback).
   const globalRectsRef = useRef<Rect[]>([]);
   // Always points to the latest recomputeLayout closure so handleGlobalMeasured can call it.
@@ -258,26 +269,38 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const displayLines = transformedData.lines;
   const effectiveMapDrag = draggable || mapTool === 'pan';
 
-  const searchablePois = useMemo(() => (
+  const searchablePois = useMemo<MapSearchResult[]>(() => (
     transformedData.points.map((feature: any) => {
       const props = feature.properties || {};
       return {
-        id: props.feature_id || props.name || props.label_title,
+        id: String(props.feature_id || props.name || props.label_title),
+        source: 'trip' as const,
         name: props.name || props.label_title || '',
         day: props.day || '',
         description: props.label_script || props.description || props.label_extra_info || '',
-        coordinates: feature.geometry?.coordinates,
+        coordinates: feature.geometry?.coordinates as [number, number],
       };
     }).filter((item: any) => item.name && Array.isArray(item.coordinates))
   ), [transformedData.points]);
 
-  const searchMatches = useMemo(() => {
+  const tripSearchMatches = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return [];
     return searchablePois.filter((item: any) => (
-      `${item.name} ${item.day} ${item.description}`.toLowerCase().includes(query)
+      `${item.name} ${item.description}`.toLowerCase().includes(query)
     )).slice(0, 6);
   }, [searchQuery, searchablePois]);
+
+  const searchMatches = useMemo(() => {
+    const merged = [...tripSearchMatches, ...mapLabelMatches, ...placeMatches];
+    const seen = new Set<string>();
+    return merged.filter((item) => {
+      const key = `${item.source}:${item.name}:${item.coordinates.join(',')}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).slice(0, 10);
+  }, [tripSearchMatches, mapLabelMatches, placeMatches]);
 
   const getMapViewState = useMemo(() => {
     const dataForCalc: TransformedMapData = {
@@ -335,6 +358,99 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
       }
     }
   }, [transformedData, displayLines]);
+
+  useEffect(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!mapLoaded || query.length < 2) {
+      setMapLabelMatches([]);
+      return;
+    }
+    const raw = mapRef.current as any;
+    const map = raw?.getMap ? raw.getMap() : raw;
+    if (!map?.queryRenderedFeatures) return;
+    try {
+      const features = map.queryRenderedFeatures();
+      const next: MapSearchResult[] = [];
+      const seen = new Set<string>();
+      features.forEach((feature: any) => {
+        if (next.length >= 5) return;
+        const props = feature.properties || {};
+        const name = props.name_zh || props.name_en || props.name || props.name_script || '';
+        if (!name || !String(name).toLowerCase().includes(query)) return;
+        const coordinates = feature.geometry?.coordinates;
+        if (!Array.isArray(coordinates) || typeof coordinates[0] !== 'number' || typeof coordinates[1] !== 'number') return;
+        const key = `${name}:${coordinates[0].toFixed(5)},${coordinates[1].toFixed(5)}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        next.push({
+          id: key,
+          source: 'map',
+          name: String(name),
+          description: [props.class, props.type].filter(Boolean).join(' · '),
+          coordinates: [coordinates[0], coordinates[1]],
+        });
+      });
+      setMapLabelMatches(next);
+    } catch {
+      setMapLabelMatches([]);
+    }
+  }, [mapLoaded, searchQuery]);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    if (!token || query.length < 2) {
+      setPlaceMatches([]);
+      setIsSearchingPlaces(false);
+      return;
+    }
+
+    const abortController = new AbortController();
+    const timer = window.setTimeout(async () => {
+      setIsSearchingPlaces(true);
+      try {
+        const raw = mapRef.current as any;
+        const map = raw?.getMap ? raw.getMap() : raw;
+        const center = map?.getCenter?.();
+        const params = new URLSearchParams({
+          q: query,
+          access_token: token,
+          limit: '5',
+          language: 'zh,en',
+        });
+        if (center) params.set('proximity', `${center.lng},${center.lat}`);
+        const response = await fetch(`https://api.mapbox.com/search/geocode/v6/forward?${params.toString()}`, {
+          signal: abortController.signal,
+        });
+        if (!response.ok) throw new Error('geocoding failed');
+        const data = await response.json();
+        const next = (Array.isArray(data.features) ? data.features : [])
+          .map((feature: any, index: number): MapSearchResult | null => {
+            const coords = feature.geometry?.coordinates;
+            if (!Array.isArray(coords) || typeof coords[0] !== 'number' || typeof coords[1] !== 'number') return null;
+            const props = feature.properties || {};
+            return {
+              id: props.mapbox_id || feature.id || `place-${index}`,
+              source: 'place',
+              name: props.name || feature.text || feature.properties?.full_address || query,
+              description: props.full_address || props.place_formatted || feature.place_name,
+              coordinates: [coords[0], coords[1]],
+            };
+          })
+          .filter(Boolean) as MapSearchResult[];
+        setPlaceMatches(next);
+      } catch (error: any) {
+        if (error?.name !== 'AbortError') setPlaceMatches([]);
+      } finally {
+        setIsSearchingPlaces(false);
+      }
+    }, 320);
+
+    return () => {
+      window.clearTimeout(timer);
+      abortController.abort();
+    };
+  }, [searchQuery]);
 
   const transformedLayers = {
     type: 'FeatureCollection',
@@ -817,7 +933,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     }
   }, [mapTool, onRouteSelect]);
 
-  const flyToSearchResult = useCallback((item: any) => {
+  const flyToSearchResult = useCallback((item: MapSearchResult) => {
     const raw = mapRef.current as any;
     const map = raw?.getMap ? raw.getMap() : raw;
     if (!map || !Array.isArray(item.coordinates)) return;
@@ -952,23 +1068,29 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
             <input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search trip POI"
+              placeholder="Search map or trip"
               className="min-w-0 flex-1 bg-transparent text-xs outline-none"
             />
           </div>
-          {searchMatches.length > 0 && (
+          {(searchMatches.length > 0 || isSearchingPlaces) && (
             <div className="max-h-44 overflow-y-auto border-t border-gray-100 py-1">
-              {searchMatches.map((item: any) => (
+              {searchMatches.map((item: MapSearchResult) => (
                 <button
-                  key={`${item.id}-${item.day}`}
+                  key={`${item.source}-${item.id}`}
                   type="button"
                   onClick={() => flyToSearchResult(item)}
                   className="block w-full px-2 py-1.5 text-left hover:bg-gray-50"
                 >
-                  <div className="truncate text-xs font-semibold text-gray-800">{item.name}</div>
-                  <div className="truncate text-[10px] text-gray-500">{[item.day, item.description].filter(Boolean).join(' · ')}</div>
+                  <div className="flex items-center gap-1">
+                    <span className="rounded bg-gray-100 px-1 py-0.5 text-[9px] uppercase text-gray-500">{item.source}</span>
+                    <span className="min-w-0 flex-1 truncate text-xs font-semibold text-gray-800">{item.name}</span>
+                  </div>
+                  <div className="truncate text-[10px] text-gray-500">{item.description || 'Map location'}</div>
                 </button>
               ))}
+              {isSearchingPlaces && (
+                <div className="px-2 py-1 text-[10px] text-gray-500">Searching map...</div>
+              )}
             </div>
           )}
         </div>

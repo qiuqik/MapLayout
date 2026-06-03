@@ -14,6 +14,8 @@ const NODE_ORDER = [
   { id: 'icon_generation', label: 'Icons' },
 ];
 
+const EDGE_LABELS = ['intent', 'visual', 'geojson', 'qa', 'style'];
+
 const compactText = (value: unknown, max = 86) => {
   const text = typeof value === 'string' ? value : JSON.stringify(value ?? '');
   return text.length > max ? `${text.slice(0, max)}...` : text;
@@ -61,6 +63,13 @@ const nodeState = (events: AgentRunEvent[], nodeId: string) => {
     running: running && !completed,
     summary: summarizeEvent(completed || latest),
   };
+};
+
+const visualPalette = (event?: AgentRunEvent) => {
+  const visual = event?.payload?.visual_structure || event?.payload || {};
+  const palette = visual.Color?.palette;
+  if (Array.isArray(palette)) return palette.map((item: any) => item?.hex).filter(Boolean).slice(0, 5);
+  return [visual.Color?.background, visual.Color?.water, visual.Color?.road].filter(Boolean).slice(0, 5);
 };
 
 const eventPayload = (event: AgentRunEvent | null) => {
@@ -291,14 +300,28 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
                     <div className="line-clamp-3 text-[10px] leading-4 text-gray-500">
                       {state.summary || 'Waiting for input'}
                     </div>
+                    {node.id === 'visual' && visualPalette(state.completed || state.latest).length > 0 && (
+                      <div className="mt-2 flex gap-1">
+                        {visualPalette(state.completed || state.latest).map((color) => (
+                          <span
+                            key={color}
+                            className="h-3 w-3 rounded-sm border border-gray-200"
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                    )}
                     {state.completed?.timestamp && (
                       <div className="mt-2 truncate text-[9px] text-gray-400">{new Date(state.completed.timestamp).toLocaleTimeString()}</div>
                     )}
                   </button>
                   {index < NODE_ORDER.length - 1 && (
-                    <div className="flex w-12 items-center">
+                    <div className="relative flex w-12 items-center">
                       <div className="h-px flex-1 bg-gray-300" />
                       <div className="h-2 w-2 rotate-45 border-r border-t border-gray-300" />
+                      <span className="absolute left-1/2 top-1/2 -translate-x-1/2 translate-y-2 rounded bg-white px-1 text-[9px] text-gray-400">
+                        {EDGE_LABELS[index]}
+                      </span>
                     </div>
                   )}
                 </div>

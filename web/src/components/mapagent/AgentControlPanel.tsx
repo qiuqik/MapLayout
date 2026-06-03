@@ -271,6 +271,57 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     </label>
   );
 
+  const renderNodeInfo = () => {
+    if (!selectedAgentEvent) return null;
+    return (
+      <div className="mb-3 space-y-1 rounded border border-gray-200 bg-gray-50 p-2 text-[10px] text-gray-600">
+        <div className="text-[11px] font-semibold text-gray-700">Node Info</div>
+        <div className="grid grid-cols-[52px_1fr] gap-1">
+          <span>ID</span>
+          <span className="truncate font-mono">{selectedAgentEvent.node_id || selectedAgentEvent.type}</span>
+          <span>Name</span>
+          <span className="truncate">{selectedAgentEvent.label || getNodeTitle(selectedAgentEvent)}</span>
+          <span>Status</span>
+          <span className="truncate">{selectedAgentEvent.status || selectedAgentEvent.type}</span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderIntentProperties = () => {
+    if (selectedNodeId !== 'intent' || !parsedEditor) return null;
+    return (
+      <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
+        <div className="text-[11px] font-semibold text-gray-700">Intent</div>
+        {renderField('Global title', parsedEditor.global_title, (value) => updateEditorJson((draft) => { draft.global_title = value; }))}
+        {renderField('Global description', parsedEditor.global_description, (value) => updateEditorJson((draft) => { draft.global_description = value; }), { multiline: true })}
+        {renderField('Intent', parsedEditor.intent_enriched || parsedEditor.intent || parsedEditor.user_text, (value) => updateEditorJson((draft) => { draft.intent_enriched = value; }), { multiline: true })}
+      </div>
+    );
+  };
+
+  const renderValidationProperties = () => {
+    if (selectedNodeId !== 'validation' || !parsedEditor) return null;
+    return (
+      <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
+        <div className="text-[11px] font-semibold text-gray-700">QA</div>
+        <label className="block space-y-1 text-[10px] text-gray-600">
+          <span className="font-medium text-gray-700">Valid</span>
+          <select
+            value={String(Boolean(parsedEditor.is_valid))}
+            onChange={(event) => updateEditorJson((draft) => { draft.is_valid = event.target.value === 'true'; })}
+            className="h-7 w-full rounded border border-gray-200 px-2 text-[11px]"
+          >
+            <option value="true">true</option>
+            <option value="false">false</option>
+          </select>
+        </label>
+        {renderField('Failed node', parsedEditor.failed_node, (value) => updateEditorJson((draft) => { draft.failed_node = value; }))}
+        {renderField('Feedback', parsedEditor.validation_feedback, (value) => updateEditorJson((draft) => { draft.validation_feedback = value; }), { multiline: true })}
+      </div>
+    );
+  };
+
   const renderVisualProperties = () => {
     if (selectedNodeId !== 'visual' || !parsedEditor) return null;
     const palette = asArray(parsedEditor.Color?.palette);
@@ -575,6 +626,9 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
               {selectedAgentEvent?.label || getNodeTitle(selectedAgentEvent)}
             </div>
           </div>
+          {renderNodeInfo()}
+          {renderIntentProperties()}
+          {renderValidationProperties()}
           {renderVisualProperties()}
           {renderGeojsonProperties()}
           {renderStyleProperties()}
