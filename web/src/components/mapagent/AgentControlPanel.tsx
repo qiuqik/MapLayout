@@ -180,6 +180,53 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     });
   };
 
+  const updateSelectedManifestStyle = (path: (string | number)[], value: any) => {
+    const section = selectedAgentSelection?.payload?.styleSection as 'Label' | 'Global' | undefined;
+    const index = Number(selectedAgentSelection?.payload?.styleIndex);
+    if (!section || !Number.isInteger(index) || index < 0) return;
+    const nextManifest = clone(manifest || {});
+    if (!Array.isArray(nextManifest[section])) nextManifest[section] = [];
+    if (!nextManifest[section][index]) nextManifest[section][index] = {};
+    setNestedValue(nextManifest[section][index], path, value);
+    setManifest(nextManifest);
+
+    if (selectedAgentSelection) {
+      const styleKey = section === 'Global' ? 'globalStyle' : 'labelStyle';
+      const nextPayload = {
+        ...selectedAgentSelection.payload,
+        [styleKey]: nextManifest[section][index],
+      };
+      setSelectedAgentSelection({
+        ...selectedAgentSelection,
+        payload: nextPayload,
+      });
+      setEditorText(JSON.stringify(nextPayload, null, 2));
+    }
+  };
+
+  const updateSelectedGlobalContent = (path: (string | number)[], value: any) => {
+    const index = Number(selectedAgentSelection?.payload?.styleIndex);
+    if (!Number.isInteger(index) || index < 0) return;
+    const nextGeojson = clone(geojson || {});
+    if (!Array.isArray(nextGeojson.global_properties)) nextGeojson.global_properties = [];
+    if (!nextGeojson.global_properties[index]) nextGeojson.global_properties[index] = {};
+    setNestedValue(nextGeojson.global_properties[index], path, value);
+    setGeojson(nextGeojson);
+
+    if (selectedAgentSelection) {
+      const nextPayload = {
+        ...selectedAgentSelection.payload,
+        globalContent: nextGeojson.global_properties[index],
+      };
+      setSelectedAgentSelection({
+        ...selectedAgentSelection,
+        label: nextGeojson.global_properties[index]?.title || selectedAgentSelection.label,
+        payload: nextPayload,
+      });
+      setEditorText(JSON.stringify(nextPayload, null, 2));
+    }
+  };
+
   const updateVisualPath = (path: (string | number)[], value: any) => {
     updateEditorJson((draft) => setNestedValue(draft, path, value), true);
   };
@@ -333,7 +380,9 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
 
   const renderMapFeatureProperties = () => {
     if (selectedAgentSelection?.kind !== 'map_feature' || !parsedEditor) return null;
+    if (selectedAgentSelection.payload?.styleSection === 'Global') return null;
     const feature = parsedEditor.feature || parsedEditor;
+    if (!feature?.geometry) return null;
     const props = feature.properties || {};
     const geometryType = feature.geometry?.type || selectedAgentSelection.payload?.geometryType;
     return (
@@ -385,6 +434,58 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
             <option value="detail">detail</option>
           </select>
         </label>
+      </div>
+    );
+  };
+
+  const renderMapSelectionStyleProperties = () => {
+    if (selectedAgentSelection?.kind !== 'map_feature') return null;
+    const section = selectedAgentSelection.payload?.styleSection as 'Label' | 'Global' | undefined;
+    const index = Number(selectedAgentSelection.payload?.styleIndex);
+    if (!section || !['Label', 'Global'].includes(section) || !Number.isInteger(index) || index < 0) return null;
+
+    const item = section === 'Global'
+      ? manifest?.Global?.[index] || selectedAgentSelection.payload?.globalStyle || {}
+      : manifest?.Label?.[index] || selectedAgentSelection.payload?.labelStyle || {};
+    const content = selectedAgentSelection.payload?.globalContent || {};
+
+    if (section === 'Global') {
+      const container = item.style?.container || {};
+      return (
+        <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] font-semibold text-gray-700">Global Style</div>
+            <div className="text-[10px] text-gray-500">#{index + 1}</div>
+          </div>
+          {renderField('Title', content.title, (value) => updateSelectedGlobalContent(['title'], value))}
+          {renderField('Script', content.script, (value) => updateSelectedGlobalContent(['script'], value), { multiline: true })}
+          {renderField('Extra', content.extra_info, (value) => updateSelectedGlobalContent(['extra_info'], value), { multiline: true })}
+          <div className="grid grid-cols-2 gap-2">
+            {renderField('Width', container.width, (value) => updateSelectedManifestStyle(['style', 'container', 'width'], numberValue(value, container.width)))}
+            {renderField('Height', container.height, (value) => updateSelectedManifestStyle(['style', 'container', 'height'], numberValue(value, container.height)))}
+          </div>
+          {renderColorField('Panel', container.backgroundColor || container.background, (value) => updateSelectedManifestStyle(['style', 'container', 'backgroundColor'], value))}
+          {renderColorField('Title', item.style?.title?.color || container.color, (value) => updateSelectedManifestStyle(['style', 'title', 'color'], value))}
+          {renderColorField('Script', item.style?.script?.color, (value) => updateSelectedManifestStyle(['style', 'script', 'color'], value))}
+          {renderColorField('Extra', item.style?.extra_info?.color, (value) => updateSelectedManifestStyle(['style', 'extra_info', 'color'], value))}
+        </div>
+      );
+    }
+
+    return (
+      <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] font-semibold text-gray-700">Label Style</div>
+          <div className="max-w-[120px] truncate text-[10px] text-gray-500">{item.visual_id || item.hierarchy || `#${index + 1}`}</div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {renderField('Width', item.width, (value) => updateSelectedManifestStyle(['width'], numberValue(value, item.width)))}
+          {renderField('Height', item.height, (value) => updateSelectedManifestStyle(['height'], numberValue(value, item.height)))}
+        </div>
+        {renderColorField('Panel', item.style?.container?.backgroundColor || item.style?.container?.background || item.style?.backgroundColor || item.style?.background, (value) => updateSelectedManifestStyle(['style', 'container', 'backgroundColor'], value))}
+        {renderColorField('Title', item.style?.title?.color, (value) => updateSelectedManifestStyle(['style', 'title', 'color'], value))}
+        {renderColorField('Script', item.style?.script?.color, (value) => updateSelectedManifestStyle(['style', 'script', 'color'], value))}
+        {renderColorField('Extra', item.style?.extra_info?.color, (value) => updateSelectedManifestStyle(['style', 'extra_info', 'color'], value))}
       </div>
     );
   };
@@ -824,6 +925,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
           {renderNodeInfo()}
           {renderInputProperties()}
           {renderMapFeatureProperties()}
+          {renderMapSelectionStyleProperties()}
           {renderIntentProperties()}
           {renderValidationProperties()}
           {renderVisualProperties()}

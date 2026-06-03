@@ -38,6 +38,9 @@ type MapSearchResult = {
 
 type FrameResizeEdge = 'left' | 'right' | 'top' | 'bottom';
 
+const MIN_FRAME_WIDTH = 360;
+const MIN_FRAME_HEIGHT = 280;
+
 const DEFAULT_FORCE: LayoutParams = {
   seed: 1,
   linkStrength: 0.16,
@@ -61,8 +64,8 @@ const DEFAULT_FIELD: FieldParamsOverride = {
 function initialMapFrameSize() {
   if (typeof window === 'undefined') return { width: 900, height: 640 };
   return {
-    width: Math.max(360, Math.min(1100, window.innerWidth - 600)),
-    height: Math.max(280, Math.min(720, window.innerHeight - 120)),
+    width: Math.max(MIN_FRAME_WIDTH, window.innerWidth),
+    height: Math.max(MIN_FRAME_HEIGHT, window.innerHeight),
   };
 }
 
@@ -281,6 +284,10 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     startWidth: number;
     startHeight: number;
   } | null>(null);
+  const resizeFrameRef = useRef<number | null>(null);
+  const resizeMapFrameRef = useRef<number | null>(null);
+  const resizeDraftRef = useRef<{ width: number; height: number } | null>(null);
+  const hasCustomFrameSizeRef = useRef(false);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
   const [viewportSize, setViewportSize] = useState<{ width: number; height: number } | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -297,6 +304,16 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const globalRectsRef = useRef<Rect[]>([]);
   // Always points to the latest recomputeLayout closure so handleGlobalMeasured can call it.
   const recomputeLayoutRef = useRef<() => void>(() => {});
+  const scheduleMapResize = useCallback(() => {
+    if (resizeMapFrameRef.current !== null) return;
+    resizeMapFrameRef.current = window.requestAnimationFrame(() => {
+      resizeMapFrameRef.current = null;
+      const raw = mapRef.current as any;
+      const map = raw?.getMap ? raw.getMap() : raw;
+      map?.resize?.();
+      recomputeLayoutRef.current();
+    });
+  }, []);
   const [layoutState, setLayoutState] = useState<{
     inputs: LayoutItemInput[];
     outputs: LayoutItemOutput[];
@@ -857,10 +874,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
         return { width: rect.width, height: rect.height };
       });
 
-      const raw = mapRef.current as any;
-      const map = raw?.getMap ? raw.getMap() : raw;
-      map?.resize?.();
-      recomputeLayoutRef.current();
+      scheduleMapResize();
     };
 
     updateSize();
@@ -870,6 +884,13 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     return () => {
       observer.disconnect();
       window.removeEventListener('resize', updateSize);
+    };
+  }, [scheduleMapResize]);
+
+  useEffect(() => {
+    return () => {
+      if (resizeFrameRef.current !== null) window.cancelAnimationFrame(resizeFrameRef.current);
+      if (resizeMapFrameRef.current !== null) window.cancelAnimationFrame(resizeMapFrameRef.current);
     };
   }, []);
 
@@ -1022,8 +1043,10 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
 
   const selectMapFeature = useCallback((feature: any, kind: 'point' | 'label' | 'layout_label') => {
     const props = feature?.properties || {};
-    const pointStyle = pointStyles.find((style: any) => style.visual_id === props.visual_id);
+    const pointStyleIndex = pointStyles.findIndex((style: any) => style.visual_id === props.visual_id);
+    const pointStyle = pointStyleIndex >= 0 ? pointStyles[pointStyleIndex] : undefined;
     const labelStyle = selectLabelStyleForFeature(feature, labelStyles);
+    const labelStyleIndex = labelStyle ? labelStyles.indexOf(labelStyle) : -1;
     setSelectedAgentSelection({
       kind: 'map_feature',
       node_id: `map_${kind}`,
@@ -1031,11 +1054,33 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
       payload: {
         feature,
         pointStyle,
+        pointStyleIndex,
         labelStyle,
+        labelStyleIndex,
+        styleSection: kind === 'point' ? 'Point' : 'Label',
+        styleIndex: kind === 'point' ? pointStyleIndex : labelStyleIndex,
         geometryType: feature?.geometry?.type,
       },
     });
   }, [labelStyles, pointStyles, setSelectedAgentSelection]);
+
+  const selectGlobalElement = useCallback((element: any, index: number) => {
+    const content = Array.isArray(transformedData.globalProps)
+      ? transformedData.globalProps[index] || {}
+      : transformedData.globalProps || {};
+    setSelectedAgentSelection({
+      kind: 'map_feature',
+      node_id: 'map_global',
+      label: content.title || element?.content?.title || element?.visual_id || `Global ${index + 1}`,
+      payload: {
+        globalStyle: element,
+        globalContent: content,
+        styleSection: 'Global',
+        styleIndex: index,
+        geometryType: 'Global',
+      },
+    });
+  }, [setSelectedAgentSelection, transformedData.globalProps]);
 
   const selectLayoutOutput = useCallback((output: LayoutItemOutput) => {
     const feature = transformedData.points.find((item: any) => {
@@ -1145,20 +1190,21 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const frameBounds = useCallback(() => {
     const parent = rootRef.current?.parentElement?.getBoundingClientRect();
     return {
-      maxWidth: Math.max(360, Math.floor((parent?.width || window.innerWidth) - 48)),
-      maxHeight: Math.max(280, Math.floor((parent?.height || window.innerHeight) - 48)),
+      maxWidth: Math.max(MIN_FRAME_WIDTH, Math.floor(parent?.width || window.innerWidth)),
+      maxHeight: Math.max(MIN_FRAME_HEIGHT, Math.floor(parent?.height || window.innerHeight)),
     };
   }, []);
 
   const updateMapFrameSize = useCallback((updates: Partial<{ width: number; height: number }>) => {
     const { maxWidth, maxHeight } = frameBounds();
     setMapFrameSize((prev) => ({
-      width: Math.max(360, Math.min(maxWidth, Math.round(updates.width ?? prev.width))),
-      height: Math.max(280, Math.min(maxHeight, Math.round(updates.height ?? prev.height))),
+      width: Math.max(MIN_FRAME_WIDTH, Math.min(maxWidth, Math.round(updates.width ?? prev.width))),
+      height: Math.max(MIN_FRAME_HEIGHT, Math.min(maxHeight, Math.round(updates.height ?? prev.height))),
     }));
   }, [frameBounds]);
 
   const setMapFrameRatio = useCallback((widthRatio: number, heightRatio: number) => {
+    hasCustomFrameSizeRef.current = true;
     const { maxWidth, maxHeight } = frameBounds();
     const scale = Math.min(maxWidth / widthRatio, maxHeight / heightRatio);
     updateMapFrameSize({
@@ -1168,11 +1214,28 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   }, [frameBounds, updateMapFrameSize]);
 
   useEffect(() => {
-    updateMapFrameSize({});
-  }, [updateMapFrameSize]);
+    const parent = rootRef.current?.parentElement;
+    if (!parent) return;
+
+    const fillAvailableSpace = () => {
+      if (hasCustomFrameSizeRef.current) return;
+      const { maxWidth, maxHeight } = frameBounds();
+      updateMapFrameSize({ width: maxWidth, height: maxHeight });
+    };
+
+    fillAvailableSpace();
+    const observer = new ResizeObserver(fillAvailableSpace);
+    observer.observe(parent);
+    window.addEventListener('resize', fillAvailableSpace);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', fillAvailableSpace);
+    };
+  }, [frameBounds, updateMapFrameSize]);
 
   const startFrameResize = useCallback((edge: FrameResizeEdge, event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
+    hasCustomFrameSizeRef.current = true;
     resizeDragRef.current = {
       edge,
       startX: event.clientX,
@@ -1180,6 +1243,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
       startWidth: mapFrameSize.width,
       startHeight: mapFrameSize.height,
     };
+    resizeDraftRef.current = mapFrameSize;
     try {
       event.currentTarget.setPointerCapture?.(event.pointerId);
     } catch {
@@ -1194,15 +1258,35 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     const deltaY = event.clientY - drag.startY;
     if (drag.edge === 'left' || drag.edge === 'right') {
       const direction = drag.edge === 'right' ? 1 : -1;
-      updateMapFrameSize({ width: drag.startWidth + deltaX * direction * 2 });
+      resizeDraftRef.current = { width: drag.startWidth + deltaX * direction * 2, height: drag.startHeight };
     } else {
       const direction = drag.edge === 'bottom' ? 1 : -1;
-      updateMapFrameSize({ height: drag.startHeight + deltaY * direction * 2 });
+      resizeDraftRef.current = { width: drag.startWidth, height: drag.startHeight + deltaY * direction * 2 };
     }
-  }, [updateMapFrameSize]);
+    if (resizeFrameRef.current !== null) return;
+    resizeFrameRef.current = window.requestAnimationFrame(() => {
+      resizeFrameRef.current = null;
+      const draft = resizeDraftRef.current;
+      const frame = rootRef.current;
+      if (!draft || !frame) return;
+      const { maxWidth, maxHeight } = frameBounds();
+      const width = Math.max(MIN_FRAME_WIDTH, Math.min(maxWidth, Math.round(draft.width)));
+      const height = Math.max(MIN_FRAME_HEIGHT, Math.min(maxHeight, Math.round(draft.height)));
+      resizeDraftRef.current = { width, height };
+      frame.style.width = `${width}px`;
+      frame.style.height = `${height}px`;
+      scheduleMapResize();
+    });
+  }, [frameBounds, scheduleMapResize]);
 
   const stopFrameResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const draft = resizeDraftRef.current;
     resizeDragRef.current = null;
+    resizeDraftRef.current = null;
+    if (draft) {
+      updateMapFrameSize(draft);
+      scheduleMapResize();
+    }
     try {
       if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
         event.currentTarget.releasePointerCapture?.(event.pointerId);
@@ -1210,13 +1294,13 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     } catch {
       // Keep resize cleanup best-effort for synthetic pointer events.
     }
-  }, []);
+  }, [scheduleMapResize, updateMapFrameSize]);
 
   const resizeHandleClass = "absolute z-30 bg-transparent transition-colors hover:bg-black/10";
 
   return (
     <div className="relative h-full w-full overflow-auto bg-gray-100">
-      <div className="flex h-full min-h-full w-full items-center justify-center p-6">
+      <div className="flex h-full min-h-full w-full items-center justify-center">
       <div
         ref={rootRef}
         data-agent-map-frame="true"
@@ -1380,7 +1464,10 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
                   max={2400}
                   step={20}
                   value={mapFrameSize.width}
-                  onChange={(event) => updateMapFrameSize({ width: Number(event.target.value) })}
+                  onChange={(event) => {
+                    hasCustomFrameSizeRef.current = true;
+                    updateMapFrameSize({ width: Number(event.target.value) });
+                  }}
                   className="h-7 w-16 rounded border border-gray-200 px-1.5 text-gray-800 outline-none"
                 />
               </label>
@@ -1392,7 +1479,10 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
                   max={1800}
                   step={20}
                   value={mapFrameSize.height}
-                  onChange={(event) => updateMapFrameSize({ height: Number(event.target.value) })}
+                  onChange={(event) => {
+                    hasCustomFrameSizeRef.current = true;
+                    updateMapFrameSize({ height: Number(event.target.value) });
+                  }}
                   className="h-7 w-16 rounded border border-gray-200 px-1.5 text-gray-800 outline-none"
                 />
               </label>
@@ -1573,6 +1663,8 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
           globalProps={transformedData.globalProps}
           viewportSize={viewportSize}
           onMeasured={handleGlobalMeasured}
+          selectable={mapTool === 'select'}
+          onGlobalSelect={selectGlobalElement}
         />
       )}
       </div>

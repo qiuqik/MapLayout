@@ -7,6 +7,8 @@ interface GlobalRendererProps {
   globalProps: any;
   viewportSize?: { width: number; height: number } | null;
   onMeasured?: (rects: Array<{ x: number; y: number; width: number; height: number }>) => void;
+  selectable?: boolean;
+  onGlobalSelect?: (element: any, index: number) => void;
 }
 
 function getVisualBoundingRect(
@@ -95,7 +97,7 @@ const panelStyle = (element: any, index: number, viewportSize?: { width: number;
   };
 };
 
-const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalProps, viewportSize, onMeasured }) => {
+const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalProps, viewportSize, onMeasured, selectable = false, onGlobalSelect }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -132,7 +134,22 @@ const GlobalRenderer: React.FC<GlobalRendererProps> = ({ globalElements, globalP
             data-agent-global-panel={index}
             style={placementStyle(element, index, viewportSize)}
           >
-            <div style={panelStyle(element, index, viewportSize)}>
+            <div
+              style={{
+                ...panelStyle(element, index, viewportSize),
+                pointerEvents: selectable ? 'auto' : 'none',
+                cursor: selectable ? 'pointer' : 'default',
+              }}
+              onClick={(event) => {
+                if (!selectable) return;
+                event.stopPropagation();
+                onGlobalSelect?.(element, index);
+              }}
+              onMouseDown={(event) => {
+                if (!selectable) return;
+                event.stopPropagation();
+              }}
+            >
               {content.title && (
                 <div style={{ fontSize: index === 0 ? 28 : 16, fontWeight: index === 0 ? 800 : 700, lineHeight: 1.15, ...titleStyle }}>
                   {content.title}
