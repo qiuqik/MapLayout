@@ -16,8 +16,8 @@ import { useAgentMap, type AgentRunEvent } from '@/lib/agentMapContext';
 import { API_BASE_URL } from '@/lib/api';
 
 const NODE_ORDER = [
-  { id: 'intent', label: 'Intent' },
-  { id: 'visual', label: 'Visual' },
+  { id: 'intent', label: 'intent' },
+  { id: 'visual', label: 'visual' },
   { id: 'geojson', label: 'GeoJSON' },
   { id: 'validation', label: 'QA' },
   { id: 'style', label: 'Style' },
@@ -25,7 +25,6 @@ const NODE_ORDER = [
 ];
 
 const NODE_WIDTH = 116;
-const OUTPUT_WIDTH = 112;
 
 const FLOW_POSITIONS: Record<string, { x: number; y: number }> = {
   input: { x: 0, y: 74 },
@@ -35,11 +34,6 @@ const FLOW_POSITIONS: Record<string, { x: number; y: number }> = {
   validation: { x: 656, y: 67 },
   style: { x: 884, y: 67 },
   icon_generation: { x: 1112, y: 67 },
-};
-
-const outputPositionFor = (nodeId: string) => {
-  const base = FLOW_POSITIONS[nodeId];
-  return { x: base.x + NODE_WIDTH + 26, y: base.y + 5 };
 };
 
 const compactText = (value: unknown, max = 86) => {
@@ -89,23 +83,6 @@ const nodeState = (events: AgentRunEvent[], nodeId: string) => {
     running,
     summary: summarizeEvent(completed || latest),
   };
-};
-
-const visualPalette = (event?: AgentRunEvent) => {
-  const visual = event?.payload?.visual_structure || event?.payload || {};
-  const palette = visual.Color?.palette;
-  if (Array.isArray(palette)) return palette.map((item: any) => item?.hex).filter(Boolean).slice(0, 5);
-  return [visual.Color?.background, visual.Color?.water, visual.Color?.road].filter(Boolean).slice(0, 5);
-};
-
-const outputKeyForNode = (nodeId: string) => {
-  if (nodeId === 'intent') return 'intent_enriched';
-  if (nodeId === 'visual') return 'visual_structure';
-  if (nodeId === 'geojson') return 'geojson';
-  if (nodeId === 'validation') return 'validation_feedback';
-  if (nodeId === 'style') return 'style_code';
-  if (nodeId === 'icon_generation') return 'style_code';
-  return 'payload';
 };
 
 const eventPayload = (event: AgentRunEvent | null) => {
@@ -182,25 +159,13 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       setSelectedAgentSelection(null);
       return;
     }
-    const [kind, ...rest] = flowNodeId.split('-');
-    const nodeId = rest.join('-');
+    const nodeId = flowNodeId.startsWith('agent-') ? flowNodeId.slice('agent-'.length) : flowNodeId;
     const meta = NODE_ORDER.find((item) => item.id === nodeId);
     if (!meta) return;
     const state = nodeState(agentEvents, nodeId);
     const event = state.completed || state.latest || placeholderEvent(nodeId, meta.label, activeRunId);
     setSelectedAgentEvent(event);
-    if (kind === 'output') {
-      setSelectedAgentSelection({
-        kind: 'agent_output',
-        event,
-        node_id: nodeId,
-        outputKey: outputKeyForNode(nodeId),
-        label: `${meta.label} Output`,
-        payload: event.payload,
-      });
-    } else {
-      setSelectedAgentSelection(null);
-    }
+    setSelectedAgentSelection(null);
   };
 
   const flowGraph = useMemo(() => {
@@ -267,13 +232,12 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       });
     };
 
-    NODE_ORDER.forEach((node, index) => {
+    NODE_ORDER.forEach((node) => {
       const state = statesByNode.get(node.id) || nodeState(agentEvents, node.id);
       const event = state.completed || state.latest || placeholderEvent(node.id, node.label, activeRunId);
       const isComplete = Boolean(state.completed);
-      const isSelectedAgent = selectedAgentSelection?.kind !== 'agent_output' && selectedAgentEvent?.node_id === node.id;
+      const isSelectedAgent = selectedAgentSelection?.kind !== 'map_feature' && selectedAgentEvent?.node_id === node.id;
       const position = FLOW_POSITIONS[node.id];
-      const outputPosition = outputPositionFor(node.id);
       const statusClass = state.failed
         ? 'border-red-300 bg-red-50'
         : state.running
@@ -283,7 +247,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
             : 'border-gray-200 bg-white';
 
       nodes.push({
-        id: `agent-${node.id}`,
+        id: node.id,
         type: 'default',
         position,
         sourcePosition: Position.Right,
@@ -292,10 +256,10 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
           label: (
             <button
               type="button"
-              data-flow-node-id={`agent-${node.id}`}
+              data-flow-node-id={node.id}
               onClick={(event) => {
                 event.stopPropagation();
-                selectFlowNodeById(`agent-${node.id}`);
+                selectFlowNodeById(node.id);
               }}
               className="w-[96px] text-left"
             >
@@ -316,92 +280,44 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
         },
         className: statusClass,
       });
-
-      nodes.push({
-        id: `output-${node.id}`,
-        type: 'default',
-        position: outputPosition,
-        sourcePosition: Position.Right,
-        targetPosition: Position.Left,
-        data: {
-          label: (
-            <button
-              type="button"
-              data-flow-node-id={`output-${node.id}`}
-              onClick={(event) => {
-                event.stopPropagation();
-                selectFlowNodeById(`output-${node.id}`);
-              }}
-              className="w-[108px] text-left"
-            >
-              <div className="truncate text-[10px] font-semibold text-gray-800">{outputKeyForNode(node.id)}</div>
-              <div className="mt-1 line-clamp-2 text-[9px] leading-3 text-gray-500">{summarizeEvent(event) || 'No output yet'}</div>
-              {node.id === 'visual' && visualPalette(event).length > 0 && (
-                <div className="mt-1 flex gap-1">
-                  {visualPalette(event).map((color) => (
-                    <span key={color} className="h-3 w-3 rounded-sm border border-gray-200" style={{ backgroundColor: color }} />
-                  ))}
-                </div>
-              )}
-            </button>
-          ),
-        },
-        style: {
-          width: OUTPUT_WIDTH,
-          minHeight: 52,
-          borderRadius: 8,
-          borderWidth: selectedAgentSelection?.kind === 'agent_output' && selectedAgentSelection.node_id === node.id ? 2 : 1,
-          borderColor: selectedAgentSelection?.kind === 'agent_output' && selectedAgentSelection.node_id === node.id ? '#111827' : undefined,
-          background: '#f9fafb',
-        },
-      });
     });
 
-    NODE_ORDER.forEach((node) => {
-      const state = statesByNode.get(node.id);
-      addFlowEdge(`edge-${node.id}-output`, `agent-${node.id}`, `output-${node.id}`, {
-        label: 'output',
-        active: isAgentRunning && runningNodeId === node.id,
-        complete: completedNodeIds.has(node.id),
-      });
-    });
-
-    addFlowEdge('edge-input-intent', 'input', 'agent-intent', {
+    addFlowEdge('edge-input-intent', 'input', 'intent', {
       active: isAgentRunning && runningNodeId === 'intent',
       complete: completedNodeIds.has('intent'),
       dashed: true,
     });
-    addFlowEdge('edge-input-visual', 'input', 'agent-visual', {
+    addFlowEdge('edge-input-visual', 'input', 'visual', {
       active: isAgentRunning && runningNodeId === 'visual',
       complete: completedNodeIds.has('visual'),
       dashed: true,
     });
-    addFlowEdge('edge-intent-geojson', 'output-intent', 'agent-geojson', {
+    addFlowEdge('edge-intent-geojson', 'intent', 'geojson', {
       active: isAgentRunning && runningNodeId === 'geojson' && completedNodeIds.has('intent'),
       complete: completedNodeIds.has('intent') && completedNodeIds.has('geojson'),
       dashed: true,
     });
-    addFlowEdge('edge-visual-geojson', 'output-visual', 'agent-geojson', {
+    addFlowEdge('edge-visual-geojson', 'visual', 'geojson', {
       active: isAgentRunning && runningNodeId === 'geojson' && completedNodeIds.has('visual'),
       complete: completedNodeIds.has('visual') && completedNodeIds.has('geojson'),
       dashed: true,
     });
-    addFlowEdge('edge-geojson-validation', 'output-geojson', 'agent-validation', {
+    addFlowEdge('edge-geojson-validation', 'geojson', 'validation', {
       active: isAgentRunning && runningNodeId === 'validation' && completedNodeIds.has('geojson'),
       complete: completedNodeIds.has('geojson') && completedNodeIds.has('validation'),
       dashed: true,
     });
-    addFlowEdge('edge-validation-style', 'output-validation', 'agent-style', {
+    addFlowEdge('edge-validation-style', 'validation', 'style', {
       active: isAgentRunning && runningNodeId === 'style' && completedNodeIds.has('validation'),
       complete: completedNodeIds.has('validation') && completedNodeIds.has('style'),
       dashed: true,
     });
-    addFlowEdge('edge-style-icons', 'output-style', 'agent-icon_generation', {
+    addFlowEdge('edge-style-icons', 'style', 'icon_generation', {
       active: isAgentRunning && runningNodeId === 'icon_generation' && completedNodeIds.has('style'),
       complete: completedNodeIds.has('style') && completedNodeIds.has('icon_generation'),
       dashed: true,
     });
-    addFlowEdge('edge-validation-retry-geojson', 'output-validation', 'agent-geojson', {
+    addFlowEdge('edge-validation-retry-geojson', 'validation', 'geojson', {
       label: 'retry',
       active: isAgentRunning && runningNodeId === 'geojson' && Boolean(statesByNode.get('validation')?.failed),
       complete: false,
