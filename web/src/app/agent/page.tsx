@@ -45,8 +45,25 @@ const countPointIcons = (styleCode: any) => {
 const buildSessionAgentEvents = (data: any): AgentRunEvent[] => {
   const sessionId = data?.session_id || 'history';
   const runId = data?.session_manifest?.session_id || sessionId;
-  const timestamp = data?.session_manifest?.finished_at || new Date().toISOString();
+  const startedAt = data?.session_manifest?.started_at || new Date().toISOString();
+  const timestamp = data?.session_manifest?.finished_at || startedAt;
   const events: AgentRunEvent[] = [];
+  if (data?.session_manifest?.input || data?.session_manifest) {
+    events.push({
+      type: 'workflow_started',
+      run_id: runId,
+      session_id: sessionId,
+      node_id: 'input',
+      label: 'Input',
+      status: 'completed',
+      payload: {
+        input: data?.session_manifest?.input || {},
+        model_config: data?.session_manifest?.model_config || {},
+        prompt_versions: data?.session_manifest?.prompt_versions || {},
+      },
+      timestamp: startedAt,
+    });
+  }
   const pushCompleted = (nodeId: string, label: string, payload: Record<string, any>) => {
     events.push({
       type: 'node_completed',

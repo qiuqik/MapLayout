@@ -20,7 +20,7 @@ interface LabelRendererProps {
 const LabelRenderer: React.FC<LabelRendererProps> = ({ points, labelStyles, labelScale = 1, hideDetailLabels = false, selectable = false, onFeatureSelect }) => {
   return (
     <>
-      {points.map((feature: any) => {
+      {points.map((feature: any, index: number) => {
         const labelStyle = selectLabelStyleForFeature(feature, labelStyles);
         if (!labelStyle) return null;
         const hierarchy = normalizeLabelHierarchy(feature.properties?.label_level ?? labelStyle.hierarchy);
@@ -31,7 +31,13 @@ const LabelRenderer: React.FC<LabelRendererProps> = ({ points, labelStyles, labe
         const htmlStr = buildLabelHtml(feature, labelStyle);
         return (
           <Marker
-            key={`label-${feature.properties?.feature_id || feature.properties?.name}`}
+            key={[
+              'label',
+              feature.properties?.feature_id,
+              feature.properties?.visual_id,
+              feature.properties?.name,
+              index,
+            ].filter(Boolean).join('-')}
             longitude={lng}
             latitude={lat}
             anchor="bottom"

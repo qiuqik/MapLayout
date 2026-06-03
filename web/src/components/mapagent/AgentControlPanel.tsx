@@ -435,41 +435,82 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
 
   const renderVisualProperties = () => {
     if (selectedNodeId !== 'visual' || !parsedEditor) return null;
+    const themeKey = parsedEditor['Theme&Design'] ? 'Theme&Design' : 'ThemeDesign';
+    const themeDesign = parsedEditor[themeKey] || {};
+    const colorSpec = parsedEditor.Color || {};
     const palette = asArray(parsedEditor.Color?.palette);
     const stylesheetLayers = asArray(parsedEditor.Stylesheet?.layers);
     return (
       <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
         <div className="text-[11px] font-semibold text-gray-700">Visual</div>
-        {renderField('Theme', parsedEditor['Theme&Design']?.theme || parsedEditor.ThemeDesign?.theme, (value) => {
-          if (parsedEditor['Theme&Design']) updateVisualPath(['Theme&Design', 'theme'], value);
-          else updateVisualPath(['ThemeDesign', 'theme'], value);
-        })}
-        <div className="space-y-2">
-          {['background', 'water', 'road'].map((key) => (
-            <div key={key}>
-              {renderColorField(key, parsedEditor.Color?.[key], (value) => updateVisualPath(['Color', key], value))}
-            </div>
-          ))}
-        </div>
-        {palette.length > 0 && (
-          <div className="space-y-1">
-            <div className="text-[10px] font-semibold text-gray-500">Palette</div>
-            {palette.slice(0, 10).map((item: any, index: number) => (
-              <label key={`${item.name || 'color'}-${index}`} className="grid grid-cols-[1fr_34px] items-center gap-2 text-[10px] text-gray-600">
-                <input
-                  value={textValue(item.name || `color ${index + 1}`)}
-                  onChange={(event) => updateVisualPath(['Color', 'palette', index, 'name'], event.target.value)}
-                  className="h-7 min-w-0 rounded border border-gray-200 px-2 text-[10px]"
-                />
-                <input
-                  type="color"
-                  value={isHex(item.hex) ? item.hex : '#000000'}
-                  onChange={(event) => updateVisualPath(['Color', 'palette', index, 'hex'], event.target.value)}
-                  className="h-7 w-8 rounded border"
-                />
-              </label>
+        <details open className="rounded border border-gray-200 bg-white p-2">
+          <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Theme&Design</summary>
+          <div className="mt-2 space-y-2">
+            {renderField('Global', themeDesign.global, (value) => updateVisualPath([themeKey, 'global'], value))}
+            {renderField('Theme', themeDesign.theme, (value) => updateVisualPath([themeKey, 'theme'], value))}
+            {renderField('Keywords', asArray(themeDesign.design_keywords).join(', '), (value) => updateVisualPath([themeKey, 'design_keywords'], value.split(',').map((item) => item.trim()).filter(Boolean)))}
+            {renderField('Visual language', themeDesign.visual_language, (value) => updateVisualPath([themeKey, 'visual_language'], value), { multiline: true })}
+            {renderField('Label design', themeDesign.label_design, (value) => updateVisualPath([themeKey, 'label_design'], value), { multiline: true })}
+            {renderField('Route design', themeDesign.route_design, (value) => updateVisualPath([themeKey, 'route_design'], value), { multiline: true })}
+            {renderField('Icon design', themeDesign.icon_design, (value) => updateVisualPath([themeKey, 'icon_design'], value), { multiline: true })}
+          </div>
+        </details>
+        <details open className="rounded border border-gray-200 bg-white p-2">
+          <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Color</summary>
+          <div className="mt-2 space-y-2">
+            {['background', 'water', 'road'].map((key) => (
+              <div key={key}>
+                {renderColorField(key, colorSpec?.[key], (value) => updateVisualPath(['Color', key], value))}
+              </div>
+            ))}
+            {['primary', 'secondary', 'inverse'].map((key) => (
+              <div key={`text-${key}`}>
+                {renderColorField(`text.${key}`, colorSpec?.text?.[key], (value) => updateVisualPath(['Color', 'text', key], value))}
+              </div>
+            ))}
+            {['primary', 'secondary'].map((key) => (
+              <div key={`accent-${key}`}>
+                {renderColorField(`accent.${key}`, colorSpec?.accent?.[key], (value) => updateVisualPath(['Color', 'accent', key], value))}
+              </div>
             ))}
           </div>
+        </details>
+        {palette.length > 0 && (
+          <details className="rounded border border-gray-200 bg-white p-2">
+            <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Palette</summary>
+            <div className="mt-2 space-y-2">
+            {palette.slice(0, 10).map((item: any, index: number) => (
+              <div key={`${item.name || 'color'}-${index}`} className="space-y-2 rounded border border-gray-100 bg-gray-50 p-2">
+                <label className="grid grid-cols-[1fr_34px] items-center gap-2 text-[10px] text-gray-600">
+                  <input
+                    value={textValue(item.name || `color ${index + 1}`)}
+                    onChange={(event) => updateVisualPath(['Color', 'palette', index, 'name'], event.target.value)}
+                    className="h-7 min-w-0 rounded border border-gray-200 px-2 text-[10px]"
+                  />
+                  <input
+                    type="color"
+                    value={isHex(item.hex) ? item.hex : '#000000'}
+                    onChange={(event) => updateVisualPath(['Color', 'palette', index, 'hex'], event.target.value)}
+                    className="h-7 w-8 rounded border"
+                  />
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {renderField('Usage', item.usage, (value) => updateVisualPath(['Color', 'palette', index, 'usage'], value))}
+                  {renderField('Weight', item.weight, (value) => updateVisualPath(['Color', 'palette', index, 'weight'], numberValue(value, item.weight)))}
+                </div>
+              </div>
+            ))}
+            </div>
+          </details>
+        )}
+        {parsedEditor.Stylesheet && (
+          <details open className="rounded border border-gray-200 bg-white p-2">
+            <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Stylesheet</summary>
+            <div className="mt-2 space-y-2">
+              {renderField('Global', parsedEditor.Stylesheet.global, (value) => updateVisualPath(['Stylesheet', 'global'], value))}
+              {renderField('Mapbox style', parsedEditor.Stylesheet.mapboxStyle, (value) => updateVisualPath(['Stylesheet', 'mapboxStyle'], value))}
+            </div>
+          </details>
         )}
         {stylesheetLayers.length > 0 && (
           <details open className="rounded border border-gray-200 bg-white p-2">

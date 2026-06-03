@@ -72,7 +72,7 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, sele
 
   return (
     <>
-      {points.map((feature: any) => {
+      {points.map((feature: any, index: number) => {
         const pointStyle = pointStyles.find(
           (p: any) => p.visual_id === feature.properties?.visual_id
         );
@@ -83,7 +83,12 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, sele
         
         return (
           <Marker
-            key={feature.properties?.name || feature.properties?.visual_id}
+            key={[
+              feature.properties?.feature_id,
+              feature.properties?.visual_id,
+              feature.properties?.name,
+              index,
+            ].filter(Boolean).join('-')}
             longitude={lng}
             latitude={lat}
             anchor={pointStyle.anchor || 'bottom'}

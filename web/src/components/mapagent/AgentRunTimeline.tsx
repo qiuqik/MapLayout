@@ -86,7 +86,7 @@ const nodeState = (events: AgentRunEvent[], nodeId: string) => {
     latest,
     completed,
     failed,
-    running: running && !completed,
+    running,
     summary: summarizeEvent(completed || latest),
   };
 };
