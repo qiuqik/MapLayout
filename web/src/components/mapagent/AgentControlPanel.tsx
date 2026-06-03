@@ -14,7 +14,6 @@ interface AgentControlPanelProps {
 
 const editablePayload = (event: AgentRunEvent | null, selection?: AgentSelection | null) => {
   if (selection?.kind === 'map_feature') return selection.payload || {};
-  if (selection?.kind === 'agent_output') return eventPayloadFromEvent(selection.event || event);
   return eventPayloadFromEvent(event);
 };
 
@@ -122,13 +121,6 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
         payload: payloadForNode(selectedAgentEvent, next),
       };
       setSelectedAgentEvent(nextEvent);
-      if (selectedAgentSelection?.kind === 'agent_output') {
-        setSelectedAgentSelection({
-          ...selectedAgentSelection,
-          event: nextEvent,
-          payload: nextEvent.payload,
-        });
-      }
     }
     if (applyVisual && selectedAgentEvent?.node_id === 'visual') {
       setVisualStructure(next.visual_structure || next);

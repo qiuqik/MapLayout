@@ -159,7 +159,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       setSelectedAgentSelection(null);
       return;
     }
-    const nodeId = flowNodeId.startsWith('agent-') ? flowNodeId.slice('agent-'.length) : flowNodeId;
+    const nodeId = flowNodeId;
     const meta = NODE_ORDER.find((item) => item.id === nodeId);
     if (!meta) return;
     const state = nodeState(agentEvents, nodeId);

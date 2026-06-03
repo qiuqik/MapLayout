@@ -20,10 +20,9 @@ export interface AgentRunEvent {
 }
 
 export interface AgentSelection {
-  kind: 'agent_event' | 'agent_output' | 'map_feature';
+  kind: 'agent_event' | 'map_feature';
   event?: AgentRunEvent;
   node_id?: string | null;
-  outputKey?: string;
   label?: string | null;
   payload?: Record<string, any>;
 }
