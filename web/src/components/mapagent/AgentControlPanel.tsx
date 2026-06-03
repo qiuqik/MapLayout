@@ -105,6 +105,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
 
   const selectedNodeId = selectedAgentSelection?.node_id || selectedAgentEvent?.node_id || selectedAgentEvent?.type || null;
   const isMapFeatureSelected = selectedAgentSelection?.kind === 'map_feature';
+  const isInputNodeSelected = selectedAgentSelection?.kind !== 'map_feature' && selectedAgentEvent?.node_id === 'input';
   const canRerun = Boolean(
     selectedAgentEvent &&
     ['intent', 'visual', 'geojson', 'style', 'icon_generation', 'workflow_completed'].includes(
@@ -299,7 +300,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   };
 
   const renderInputProperties = () => {
-    if (selectedNodeId !== 'input' && selectedAgentEvent?.type !== 'workflow_started') return null;
+    if (!isInputNodeSelected) return null;
     const input = inputPayloadFromEvent(selectedAgentEvent);
     return (
       <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">

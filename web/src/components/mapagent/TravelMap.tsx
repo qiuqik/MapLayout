@@ -1,7 +1,7 @@
 'use client';
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import MapGL, { MapRef } from 'react-map-gl/mapbox';
-import { DownloadIcon, HandIcon, MousePointer2Icon, SearchIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
+import { DownloadIcon, HandIcon, Maximize2Icon, MousePointer2Icon, SearchIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
 // @ts-ignore
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
@@ -36,6 +36,8 @@ type MapSearchResult = {
   coordinates: [number, number];
 };
 
+type FrameResizeEdge = 'left' | 'right' | 'top' | 'bottom';
+
 const DEFAULT_FORCE: LayoutParams = {
   seed: 1,
   linkStrength: 0.16,
@@ -55,6 +57,14 @@ const DEFAULT_FIELD: FieldParamsOverride = {
   obstaclePadding: 6,
   cellSize: 24,
 };
+
+function initialMapFrameSize() {
+  if (typeof window === 'undefined') return { width: 900, height: 640 };
+  return {
+    width: Math.max(360, Math.min(1100, window.innerWidth - 600)),
+    height: Math.max(280, Math.min(720, window.innerHeight - 120)),
+  };
+}
 
 const hierarchyAliases: Record<string, LayoutItemHierarchy> = {
   core: 'core',
@@ -264,12 +274,20 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapRef>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const resizeDragRef = useRef<{
+    edge: FrameResizeEdge;
+    startX: number;
+    startY: number;
+    startWidth: number;
+    startHeight: number;
+  } | null>(null);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
   const [viewportSize, setViewportSize] = useState<{ width: number; height: number } | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapTool, setMapTool] = useState<'select' | 'pan'>('select');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [mapFrameSize, setMapFrameSize] = useState<{ width: number; height: number }>({ width: 1100, height: 720 });
+  const [isSizePanelOpen, setIsSizePanelOpen] = useState(false);
+  const [mapFrameSize, setMapFrameSize] = useState<{ width: number; height: number }>(initialMapFrameSize);
   const [searchQuery, setSearchQuery] = useState('');
   const [mapLabelMatches, setMapLabelMatches] = useState<MapSearchResult[]>([]);
   const [placeMatches, setPlaceMatches] = useState<MapSearchResult[]>([]);
@@ -1124,51 +1142,119 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const fallbackLabelScale = getResponsiveOverlayScale('secondary', viewportSize, fallbackOverlayCount);
   const hideDetailLabels = shouldHideOverlay('detail', viewportSize, fallbackOverlayCount);
   const mapOverlayReady = mapLoaded && Boolean((mapRef.current as any)?.getMap ? (mapRef.current as any).getMap() : mapRef.current);
-  const updateMapFrameSize = useCallback((updates: Partial<{ width: number; height: number }>) => {
-    setMapFrameSize((prev) => ({
-      width: Math.max(360, Math.min(2400, Math.round(updates.width ?? prev.width))),
-      height: Math.max(280, Math.min(1800, Math.round(updates.height ?? prev.height))),
-    }));
+  const frameBounds = useCallback(() => {
+    const parent = rootRef.current?.parentElement?.getBoundingClientRect();
+    return {
+      maxWidth: Math.max(360, Math.floor((parent?.width || window.innerWidth) - 48)),
+      maxHeight: Math.max(280, Math.floor((parent?.height || window.innerHeight) - 48)),
+    };
   }, []);
+
+  const updateMapFrameSize = useCallback((updates: Partial<{ width: number; height: number }>) => {
+    const { maxWidth, maxHeight } = frameBounds();
+    setMapFrameSize((prev) => ({
+      width: Math.max(360, Math.min(maxWidth, Math.round(updates.width ?? prev.width))),
+      height: Math.max(280, Math.min(maxHeight, Math.round(updates.height ?? prev.height))),
+    }));
+  }, [frameBounds]);
+
+  const setMapFrameRatio = useCallback((widthRatio: number, heightRatio: number) => {
+    const { maxWidth, maxHeight } = frameBounds();
+    const scale = Math.min(maxWidth / widthRatio, maxHeight / heightRatio);
+    updateMapFrameSize({
+      width: widthRatio * scale,
+      height: heightRatio * scale,
+    });
+  }, [frameBounds, updateMapFrameSize]);
+
+  useEffect(() => {
+    updateMapFrameSize({});
+  }, [updateMapFrameSize]);
+
+  const startFrameResize = useCallback((edge: FrameResizeEdge, event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    resizeDragRef.current = {
+      edge,
+      startX: event.clientX,
+      startY: event.clientY,
+      startWidth: mapFrameSize.width,
+      startHeight: mapFrameSize.height,
+    };
+    try {
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Synthetic pointer events in tests may not have an active pointer.
+    }
+  }, [mapFrameSize]);
+
+  const updateFrameResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = resizeDragRef.current;
+    if (!drag) return;
+    const deltaX = event.clientX - drag.startX;
+    const deltaY = event.clientY - drag.startY;
+    if (drag.edge === 'left' || drag.edge === 'right') {
+      const direction = drag.edge === 'right' ? 1 : -1;
+      updateMapFrameSize({ width: drag.startWidth + deltaX * direction * 2 });
+    } else {
+      const direction = drag.edge === 'bottom' ? 1 : -1;
+      updateMapFrameSize({ height: drag.startHeight + deltaY * direction * 2 });
+    }
+  }, [updateMapFrameSize]);
+
+  const stopFrameResize = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    resizeDragRef.current = null;
+    try {
+      if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+        event.currentTarget.releasePointerCapture?.(event.pointerId);
+      }
+    } catch {
+      // Keep resize cleanup best-effort for synthetic pointer events.
+    }
+  }, []);
+
+  const resizeHandleClass = "absolute z-30 bg-transparent transition-colors hover:bg-black/10";
 
   return (
     <div className="relative h-full w-full overflow-auto bg-gray-100">
-      <div className="absolute left-3 top-3 z-30 flex items-center gap-2 rounded-md border border-gray-200 bg-white/95 p-2 text-[11px] shadow-sm backdrop-blur" data-export-ignore="true">
-        <label className="flex items-center gap-1 text-gray-600">
-          W
-          <input
-            type="number"
-            min={360}
-            max={2400}
-            step={20}
-            value={mapFrameSize.width}
-            onChange={(event) => updateMapFrameSize({ width: Number(event.target.value) })}
-            className="h-7 w-16 rounded border border-gray-200 px-1.5 text-gray-800 outline-none"
-          />
-        </label>
-        <label className="flex items-center gap-1 text-gray-600">
-          H
-          <input
-            type="number"
-            min={280}
-            max={1800}
-            step={20}
-            value={mapFrameSize.height}
-            onChange={(event) => updateMapFrameSize({ height: Number(event.target.value) })}
-            className="h-7 w-16 rounded border border-gray-200 px-1.5 text-gray-800 outline-none"
-          />
-        </label>
-        <button type="button" className="rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => updateMapFrameSize({ width: 1100, height: 720 })}>16:10</button>
-        <button type="button" className="rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => updateMapFrameSize({ width: 900, height: 900 })}>1:1</button>
-        <button type="button" className="rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => updateMapFrameSize({ width: 720, height: 1100 })}>9:14</button>
-      </div>
-
+      <div className="flex h-full min-h-full w-full items-center justify-center p-6">
       <div
         ref={rootRef}
         data-agent-map-frame="true"
-        className="relative mx-auto my-12 overflow-hidden bg-white shadow-sm"
+        className="relative overflow-hidden bg-white shadow-sm"
         style={{ width: mapFrameSize.width, height: mapFrameSize.height }}
       >
+        <div
+          data-agent-resize-edge="left"
+          className={`${resizeHandleClass} left-0 top-0 h-full w-2 cursor-ew-resize`}
+          onPointerDown={(event) => startFrameResize('left', event)}
+          onPointerMove={updateFrameResize}
+          onPointerUp={stopFrameResize}
+          onPointerCancel={stopFrameResize}
+        />
+        <div
+          data-agent-resize-edge="right"
+          className={`${resizeHandleClass} right-0 top-0 h-full w-2 cursor-ew-resize`}
+          onPointerDown={(event) => startFrameResize('right', event)}
+          onPointerMove={updateFrameResize}
+          onPointerUp={stopFrameResize}
+          onPointerCancel={stopFrameResize}
+        />
+        <div
+          data-agent-resize-edge="top"
+          className={`${resizeHandleClass} left-0 top-0 h-2 w-full cursor-ns-resize`}
+          onPointerDown={(event) => startFrameResize('top', event)}
+          onPointerMove={updateFrameResize}
+          onPointerUp={stopFrameResize}
+          onPointerCancel={stopFrameResize}
+        />
+        <div
+          data-agent-resize-edge="bottom"
+          className={`${resizeHandleClass} bottom-0 left-0 h-2 w-full cursor-ns-resize`}
+          onPointerDown={(event) => startFrameResize('bottom', event)}
+          onPointerMove={updateFrameResize}
+          onPointerUp={stopFrameResize}
+          onPointerCancel={stopFrameResize}
+        />
         <MapGL
           ref={mapRef}
           initialViewState={getMapViewState}
@@ -1266,6 +1352,15 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
           <div className="mx-1 h-5 w-px bg-gray-200" />
           <button
             type="button"
+            title="Resize map frame"
+            onClick={() => setIsSizePanelOpen((open) => !open)}
+            className={`grid h-8 w-8 place-items-center rounded ${isSizePanelOpen ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
+          >
+            <Maximize2Icon className="h-4 w-4" />
+          </button>
+          <div className="mx-1 h-5 w-px bg-gray-200" />
+          <button
+            type="button"
             title="Search map or trip"
             onClick={() => setIsSearchOpen((open) => !open)}
             className={`grid h-8 w-8 place-items-center rounded ${isSearchOpen ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
@@ -1273,6 +1368,42 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
             <SearchIcon className="h-4 w-4" />
           </button>
         </div>
+
+        {isSizePanelOpen && (
+          <div className="agent-theme-map-toolbar rounded-md border p-2 text-[11px] shadow-sm backdrop-blur">
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1 text-gray-600">
+                W
+                <input
+                  type="number"
+                  min={360}
+                  max={2400}
+                  step={20}
+                  value={mapFrameSize.width}
+                  onChange={(event) => updateMapFrameSize({ width: Number(event.target.value) })}
+                  className="h-7 w-16 rounded border border-gray-200 px-1.5 text-gray-800 outline-none"
+                />
+              </label>
+              <label className="flex items-center gap-1 text-gray-600">
+                H
+                <input
+                  type="number"
+                  min={280}
+                  max={1800}
+                  step={20}
+                  value={mapFrameSize.height}
+                  onChange={(event) => updateMapFrameSize({ height: Number(event.target.value) })}
+                  className="h-7 w-16 rounded border border-gray-200 px-1.5 text-gray-800 outline-none"
+                />
+              </label>
+            </div>
+            <div className="mt-2 flex gap-1">
+              <button type="button" className="flex-1 rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => setMapFrameRatio(16, 10)}>16:10</button>
+              <button type="button" className="flex-1 rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => setMapFrameRatio(1, 1)}>1:1</button>
+              <button type="button" className="flex-1 rounded border border-gray-200 px-2 py-1 text-gray-700 hover:bg-gray-50" onClick={() => setMapFrameRatio(9, 14)}>9:14</button>
+            </div>
+          </div>
+        )}
 
         {isSearchOpen && (
           <div className="agent-theme-map-toolbar rounded-md border shadow-sm backdrop-blur">
@@ -1444,6 +1575,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
           onMeasured={handleGlobalMeasured}
         />
       )}
+      </div>
     </div>
     </div>
   );
