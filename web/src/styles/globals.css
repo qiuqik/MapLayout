@@ -2,6 +2,170 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Agent map UI theme tokens. Adjust these values to retheme the panel controls quickly. */
+:root {
+  --agent-ui-title-bg: #131722;
+  --agent-ui-accent-bg: #131722;
+  --agent-ui-muted-bg: #f2f2f2;
+  --agent-ui-border: #e5e7eb;
+  --agent-ui-text-primary: #131722;
+  --agent-ui-text-secondary: #4b5563;
+  --agent-ui-action-hover-bg: #000000;
+  --agent-ui-overlay-bg: rgba(255, 255, 255, 0.95);
+
+  --agent-left-header-bg: #111827;
+  --agent-left-session-active-bg: #eff6ff;
+  --agent-left-session-active-text: #000000;
+  --agent-left-idle-bg: #f9fafb;
+  --agent-left-idle-hover-bg: #f3f4f6;
+  --agent-left-idle-text: #4b5563;
+  --agent-left-heatmap-border: #f59e0b;
+  --agent-left-heatmap-bg: #fffbeb;
+  --agent-left-heatmap-text: #b45309;
+  --agent-left-debug-border: #3b82f6;
+  --agent-left-debug-bg: #eff6ff;
+  --agent-left-debug-text: #1d4ed8;
+  --agent-left-drag-border: #22c55e;
+  --agent-left-drag-bg: #f0fdf4;
+  --agent-left-drag-text: #15803d;
+  --agent-left-dataset-border: #93c5fd;
+  --agent-left-dataset-bg: #eff6ff;
+  --agent-left-dataset-text: #1d4ed8;
+  --agent-left-algorithm-border: #d8b4fe;
+  --agent-left-algorithm-bg: #faf5ff;
+  --agent-left-algorithm-text: #7e22ce;
+  --agent-left-output-border: #fde68a;
+  --agent-left-output-bg: #fffbeb;
+  --agent-left-output-text: #d97706;
+}
+
+@layer components {
+  .agent-theme-title {
+    background-color: var(--agent-ui-title-bg);
+    color: white;
+  }
+
+  .agent-theme-accent-button {
+    border-color: var(--agent-ui-accent-bg);
+    background-color: var(--agent-ui-accent-bg);
+    color: white;
+  }
+
+  .agent-theme-muted-button {
+    border-color: var(--agent-ui-border);
+    background-color: var(--agent-ui-muted-bg);
+    color: var(--agent-ui-text-secondary);
+  }
+
+  .agent-theme-muted-button:hover {
+    background-color: white;
+  }
+
+  .agent-theme-muted-surface {
+    border-color: var(--agent-ui-border);
+    background-color: var(--agent-ui-muted-bg);
+    color: var(--agent-ui-text-secondary);
+  }
+
+  .agent-theme-control-header {
+    border-color: var(--agent-ui-border);
+    background-color: white;
+    color: var(--agent-ui-text-primary);
+  }
+
+  .agent-theme-primary-action {
+    border-color: var(--agent-ui-title-bg);
+    background-color: var(--agent-ui-title-bg);
+    color: white;
+  }
+
+  .agent-theme-primary-action:hover {
+    background-color: var(--agent-ui-action-hover-bg);
+  }
+
+  .agent-theme-map-toolbar {
+    border-color: var(--agent-ui-border);
+    background-color: var(--agent-ui-overlay-bg);
+  }
+
+  .agent-theme-map-tool-active {
+    background-color: var(--agent-ui-title-bg);
+    color: white;
+  }
+
+  .agent-theme-map-tool-idle {
+    color: var(--agent-ui-text-secondary);
+  }
+
+  .agent-theme-map-tool-idle:hover {
+    background-color: #f3f4f6;
+  }
+
+  .agent-left-header {
+    background-color: var(--agent-left-header-bg);
+    color: white;
+  }
+
+  .agent-left-session-active {
+    background-color: var(--agent-left-session-active-bg);
+    color: var(--agent-left-session-active-text);
+  }
+
+  .agent-left-session-idle {
+    color: var(--agent-left-idle-text);
+  }
+
+  .agent-left-session-idle:hover {
+    background-color: var(--agent-left-idle-hover-bg);
+  }
+
+  .agent-left-idle-button {
+    border-color: var(--agent-ui-border);
+    background-color: var(--agent-left-idle-bg);
+    color: var(--agent-left-idle-text);
+  }
+
+  .agent-left-idle-button:hover {
+    background-color: var(--agent-left-idle-hover-bg);
+  }
+
+  .agent-left-heatmap-active {
+    border-color: var(--agent-left-heatmap-border);
+    background-color: var(--agent-left-heatmap-bg);
+    color: var(--agent-left-heatmap-text);
+  }
+
+  .agent-left-debug-active {
+    border-color: var(--agent-left-debug-border);
+    background-color: var(--agent-left-debug-bg);
+    color: var(--agent-left-debug-text);
+  }
+
+  .agent-left-drag-active {
+    border-color: var(--agent-left-drag-border);
+    background-color: var(--agent-left-drag-bg);
+    color: var(--agent-left-drag-text);
+  }
+
+  .agent-left-dataset-active {
+    border-color: var(--agent-left-dataset-border);
+    background-color: var(--agent-left-dataset-bg);
+    color: var(--agent-left-dataset-text);
+  }
+
+  .agent-left-algorithm-active {
+    border-color: var(--agent-left-algorithm-border);
+    background-color: var(--agent-left-algorithm-bg);
+    color: var(--agent-left-algorithm-text);
+  }
+
+  .agent-left-output-surface {
+    border-color: var(--agent-left-output-border);
+    background-color: var(--agent-left-output-bg);
+    color: var(--agent-left-output-text);
+  }
+}
+
 @layer utilities {
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;

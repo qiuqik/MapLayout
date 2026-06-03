@@ -798,13 +798,13 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
 
   return (
     <aside className="flex h-full w-[280px] flex-shrink-0 flex-col border-l bg-white">
-      <div className="flex items-center justify-between border-b border-gray-200 bg-white px-3 py-2">
-        <div className="text-sm font-semibold text-[#131722]">Controls</div>
+      <div className="agent-theme-control-header flex items-center justify-between border-b px-3 py-2">
+        <div className="text-sm font-semibold">Controls</div>
         <button
           type="button"
           onClick={handleRerun}
           disabled={!sessionId || !canRerun || busy}
-          className="flex h-7 items-center gap-1 rounded border border-[#131722] bg-[#131722] px-2 text-[11px] font-medium text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
+          className="agent-theme-primary-action flex h-7 items-center gap-1 rounded border px-2 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
           title="Rerun downstream"
         >
           <RefreshCwIcon className={`h-3.5 w-3.5 ${busy ? 'animate-spin' : ''}`} />

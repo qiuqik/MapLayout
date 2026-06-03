@@ -1151,12 +1151,12 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
       </MapGL>
 
       <div data-export-ignore="true" className="absolute right-3 top-3 z-20 flex w-[260px] flex-col gap-2">
-        <div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white/95 p-1 shadow-sm backdrop-blur">
+        <div className="agent-theme-map-toolbar flex items-center gap-1 rounded-md border p-1 shadow-sm backdrop-blur">
           <button
             type="button"
             title="Select map elements"
             onClick={() => setMapTool('select')}
-            className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'select' ? 'bg-[#131722] text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+            className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'select' ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
           >
             <MousePointer2Icon className="h-4 w-4" />
           </button>
@@ -1164,7 +1164,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
             type="button"
             title="Pan map"
             onClick={() => setMapTool('pan')}
-            className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'pan' ? 'bg-[#131722] text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+            className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'pan' ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
           >
             <HandIcon className="h-4 w-4" />
           </button>
@@ -1177,7 +1177,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
               const map = raw?.getMap ? raw.getMap() : raw;
               map?.zoomIn?.({ duration: 250 });
             }}
-            className="grid h-8 w-8 place-items-center rounded text-gray-700 hover:bg-gray-100"
+            className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded"
           >
             <ZoomInIcon className="h-4 w-4" />
           </button>
@@ -1189,7 +1189,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
               const map = raw?.getMap ? raw.getMap() : raw;
               map?.zoomOut?.({ duration: 250 });
             }}
-            className="grid h-8 w-8 place-items-center rounded text-gray-700 hover:bg-gray-100"
+            className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded"
           >
             <ZoomOutIcon className="h-4 w-4" />
           </button>
@@ -1199,7 +1199,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
             title="Export current map view as PNG"
             onClick={exportViewportPng}
             disabled={isExportingPng}
-            className="grid h-8 w-8 place-items-center rounded text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+            className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded disabled:opacity-50"
           >
             <DownloadIcon className={`h-4 w-4 ${isExportingPng ? 'animate-pulse' : ''}`} />
           </button>
@@ -1208,14 +1208,14 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
             type="button"
             title="Search map or trip"
             onClick={() => setIsSearchOpen((open) => !open)}
-            className={`grid h-8 w-8 place-items-center rounded ${isSearchOpen ? 'bg-[#131722] text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+            className={`grid h-8 w-8 place-items-center rounded ${isSearchOpen ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
           >
             <SearchIcon className="h-4 w-4" />
           </button>
         </div>
 
         {isSearchOpen && (
-          <div className="rounded-md border border-gray-200 bg-white/95 shadow-sm backdrop-blur">
+          <div className="agent-theme-map-toolbar rounded-md border shadow-sm backdrop-blur">
             <div className="flex items-center gap-2 px-2 py-1.5">
               <SearchIcon className="h-4 w-4 flex-none text-gray-500" />
               <input

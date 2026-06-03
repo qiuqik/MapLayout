@@ -355,7 +355,7 @@ function AgentPageContent() {
       {/* 左侧控制栏 */}
       <div className="flex flex-col flex-shrink-0 w-[21%] min-w-[300px] h-full bg-white shadow-lg z-10 border-r">
         {/* 固定头部 */}
-        <div className="sticky top-0 z-10 bg-[#131722] shadow-sm pl-3 py-1.5">
+        <div className="agent-left-header sticky top-0 z-10 shadow-sm pl-3 py-1.5">
           <h1 className="text-base font-semibold text-white">AgentMap Layout</h1>
         </div>
 
@@ -377,8 +377,8 @@ function AgentPageContent() {
                     <button
                       className={`w-full text-[12px] text-left px-1 rounded-md transition-colors truncate ${
                         currentSession?.session_id === s.session_id
-                          ? 'bg-[#394150] text-white font-medium'
-                          : 'text-gray-600 hover:bg-[#F2F2F2]'
+                          ? 'agent-left-session-active font-medium'
+                          : 'agent-left-session-idle'
                       }`}
                       onClick={() => loadSession(s.session_id)}
                     >
@@ -399,8 +399,8 @@ function AgentPageContent() {
               onClick={() => setShowHeatmap(v => !v)}
               className={`flex-1 px-2 py-1.5 rounded-md border-[1.5px] text-[11px] font-semibold transition-all ${
                 showHeatmap
-                  ? 'border-[#394150] bg-[#394150] text-white'
-                  : 'border-gray-200 bg-[#F2F2F2] text-gray-600 hover:bg-white'
+                  ? 'agent-left-heatmap-active'
+                  : 'agent-left-idle-button'
               }`}
             >
               {showHeatmap ? 'Heatmap ON' : 'Heatmap'}
@@ -409,8 +409,8 @@ function AgentPageContent() {
               onClick={() => setShowDebugPanel(v => !v)}
               className={`flex-1 px-2 py-1.5 rounded-md border-[1.5px] text-[11px] font-semibold transition-all ${
                 showDebugPanel
-                  ? 'border-[#394150] bg-[#394150] text-white'
-                  : 'border-gray-200 bg-[#F2F2F2] text-gray-600 hover:bg-white'
+                  ? 'agent-left-debug-active'
+                  : 'agent-left-idle-button'
               }`}
             >
               {showDebugPanel ? 'Debug ON' : 'Debug'}
@@ -419,8 +419,8 @@ function AgentPageContent() {
               onClick={() => setMapDraggable(v => !v)}
               className={`flex-1 px-2 py-1.5 rounded-md border-[1.5px] text-[11px] font-semibold transition-all ${
                 mapDraggable
-                  ? 'border-[#394150] bg-[#394150] text-white'
-                  : 'border-gray-200 bg-[#F2F2F2] text-gray-600 hover:bg-white'
+                  ? 'agent-left-drag-active'
+                  : 'agent-left-idle-button'
               }`}
             >
               {mapDraggable ? 'Anchored' : 'Draggable'}
