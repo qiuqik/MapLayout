@@ -90,20 +90,12 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     }
   }, [editorText]);
 
-  const routes = manifest?.Route || [];
   const selectedNodeId = selectedAgentSelection?.node_id || selectedAgentEvent?.node_id || selectedAgentEvent?.type || null;
-  const isRouteFeatureSelected = selectedAgentSelection?.kind === 'map_feature' &&
-    (selectedAgentSelection.node_id === 'map_line' || selectedAgentSelection.payload?.geometryType === 'LineString');
-  const showRouteControls = routes.length > 0 && (isRouteFeatureSelected || ['style', 'icon_generation'].includes(selectedNodeId || ''));
   const canRerun = Boolean(
     selectedAgentEvent &&
     ['intent', 'visual', 'geojson', 'style', 'icon_generation', 'workflow_completed'].includes(
       selectedAgentEvent.node_id || selectedAgentEvent.type,
     )
-  );
-  const activeRoute = useMemo(
-    () => routes.find((route: any) => route.visual_id === selectedRouteId) || routes[0],
-    [routes, selectedRouteId],
   );
 
   const updateEditorJson = (updater: (draft: any) => void, applyVisual = false) => {
@@ -224,55 +216,45 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     }
   };
 
-  const updateRoute = (patch: Record<string, any>) => {
-    if (!manifest) return;
-    const routeId = activeRoute?.visual_id;
-    const nextRoutes = routes.map((route: any) => (
-      route.visual_id === routeId ? { ...route, ...patch } : route
-    ));
-    setManifest({ ...manifest, Route: nextRoutes });
-    if (routeId) onRouteSelect?.(routeId);
-  };
-
   const renderField = (
     label: string,
     value: any,
     onChange: (value: string) => void,
     options?: { multiline?: boolean; placeholder?: string },
   ) => (
-    <label className="block space-y-1 text-[10px] text-gray-600">
-      <span className="font-medium text-gray-700">{label}</span>
+    <label className="block min-w-0 space-y-1 text-[10px] text-gray-600">
+      <span className="block truncate font-medium text-gray-700">{label}</span>
       {options?.multiline ? (
         <textarea
           value={textValue(value)}
           placeholder={options.placeholder}
           onChange={(event) => onChange(event.target.value)}
-          className="min-h-[52px] w-full resize-y rounded border border-gray-200 px-2 py-1 text-[11px] leading-4"
+          className="min-h-[52px] w-full min-w-0 resize-y rounded border border-gray-200 px-2 py-1 text-[11px] leading-4"
         />
       ) : (
         <input
           value={textValue(value)}
           placeholder={options?.placeholder}
           onChange={(event) => onChange(event.target.value)}
-          className="h-7 w-full rounded border border-gray-200 px-2 text-[11px]"
+          className="h-7 w-full min-w-0 rounded border border-gray-200 px-2 text-[11px]"
         />
       )}
     </label>
   );
 
   const renderColorField = (label: string, value: any, onChange: (value: string) => void) => (
-    <label className="grid grid-cols-[76px_1fr_34px] items-center gap-2 text-[10px] text-gray-600">
-      <span className="font-medium text-gray-700">{label}</span>
+    <label className="grid w-full min-w-0 grid-cols-[minmax(0,64px)_minmax(0,1fr)_28px] items-center gap-1.5 text-[10px] text-gray-600">
+      <span className="min-w-0 truncate font-medium text-gray-700" title={label}>{label}</span>
       <input
         value={textValue(value)}
         onChange={(event) => onChange(event.target.value)}
-        className="h-7 rounded border border-gray-200 px-2 font-mono text-[10px]"
+        className="h-7 min-w-0 rounded border border-gray-200 px-1.5 font-mono text-[10px]"
       />
       <input
         type="color"
         value={isHex(value) ? value : '#000000'}
         onChange={(event) => onChange(event.target.value)}
-        className="h-7 w-8 rounded border"
+        className="h-7 w-7 shrink-0 rounded border p-0"
       />
     </label>
   );
@@ -433,8 +415,8 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Palette</summary>
             <div className="mt-2 space-y-2">
             {palette.slice(0, 10).map((item: any, index: number) => (
-              <div key={`${item.name || 'color'}-${index}`} className="space-y-2 rounded border border-gray-100 bg-gray-50 p-2">
-                <label className="grid grid-cols-[1fr_34px] items-center gap-2 text-[10px] text-gray-600">
+              <div key={`${item.name || 'color'}-${index}`} className="min-w-0 space-y-2 overflow-hidden rounded border border-gray-100 bg-gray-50 p-2">
+                <label className="grid min-w-0 grid-cols-[minmax(0,1fr)_28px] items-center gap-1.5 text-[10px] text-gray-600">
                   <input
                     value={textValue(item.name || `color ${index + 1}`)}
                     onChange={(event) => updateVisualPath(['Color', 'palette', index, 'name'], event.target.value)}
@@ -444,10 +426,10 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
                     type="color"
                     value={isHex(item.hex) ? item.hex : '#000000'}
                     onChange={(event) => updateVisualPath(['Color', 'palette', index, 'hex'], event.target.value)}
-                    className="h-7 w-8 rounded border"
+                    className="h-7 w-7 shrink-0 rounded border p-0"
                   />
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid min-w-0 grid-cols-2 gap-2">
                   {renderField('Usage', item.usage, (value) => updateVisualPath(['Color', 'palette', index, 'usage'], value))}
                   {renderField('Weight', item.weight, (value) => updateVisualPath(['Color', 'palette', index, 'weight'], numberValue(value, item.weight)))}
                 </div>
@@ -472,7 +454,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
               {stylesheetLayers.map((layer: any, index: number) => {
                 const paintEntries = Object.entries(layer?.paint || {});
                 return (
-                  <div key={`${layer?.target || 'layer'}-${index}`} className="space-y-2 rounded border border-gray-100 bg-gray-50 p-2">
+                  <div key={`${layer?.target || 'layer'}-${index}`} className="min-w-0 space-y-2 overflow-hidden rounded border border-gray-100 bg-gray-50 p-2">
                     {renderField('Target', layer?.target, (value) => updateVisualPath(['Stylesheet', 'layers', index, 'target'], value))}
                     {paintEntries.length === 0 ? (
                       <div className="text-[10px] text-gray-400">No paint values</div>
@@ -664,12 +646,22 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
           </details>
         )}
         {routesForStyle.length > 0 && (
-          <details className="rounded border border-gray-200 bg-white p-2">
+          <details open className="rounded border border-gray-200 bg-white p-2">
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Route</summary>
             <div className="mt-2 space-y-3">
               {routesForStyle.map((item: any, index: number) => (
                 <div key={`route-${item.visual_id || 'item'}-${index}`} className="space-y-2 border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
-                  <div className="truncate text-[10px] font-semibold text-gray-500">{item.visual_id || `route ${index + 1}`}</div>
+                  <button
+                    type="button"
+                    onClick={() => item.visual_id && onRouteSelect?.(item.visual_id)}
+                    className={`w-full truncate rounded border px-2 py-1 text-left text-[10px] font-semibold ${
+                      selectedRouteId === item.visual_id
+                        ? 'border-gray-900 bg-gray-900 text-white'
+                        : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-200'
+                    }`}
+                  >
+                    {item.visual_id || `route ${index + 1}`}
+                  </button>
                   {renderColorField('Color', item.Color || item.color, (value) => {
                     updateEditorJson((draft) => {
                       if (!Array.isArray(draft.Route)) draft.Route = [];
@@ -678,7 +670,62 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
                       draft.Route[index].color = value;
                     });
                   })}
-                  {renderField('Width', item.width, (value) => updateStyleSection('Route', index, ['width'], numberValue(value, 4)))}
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-medium text-gray-700">Curve</div>
+                    <div className="grid grid-cols-3 gap-1">
+                      {(['straight', 'bezier', 'navigation'] as const).map((style) => (
+                        <button
+                          key={style}
+                          type="button"
+                          onClick={() => updateStyleSection('Route', index, ['style'], style)}
+                          className={`min-w-0 truncate rounded border px-1.5 py-1 text-[10px] ${
+                            (item.style || 'bezier') === style
+                              ? 'border-gray-900 bg-gray-900 text-white'
+                              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          {style}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {(['solid', 'dashed'] as const).map((linePattern) => (
+                      <button
+                        key={linePattern}
+                        type="button"
+                        onClick={() => updateStyleSection('Route', index, ['linePattern'], linePattern)}
+                        className={`min-w-0 truncate rounded border px-1.5 py-1 text-[10px] ${
+                          (item.linePattern || (item.dashArray ? 'dashed' : 'solid')) === linePattern
+                            ? 'border-gray-900 bg-gray-900 text-white'
+                            : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                        }`}
+                      >
+                        {linePattern}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="grid grid-cols-[44px_1fr_24px] items-center gap-2 text-[10px] text-gray-600">
+                    <span className="font-medium text-gray-700">Width</span>
+                    <input
+                      type="range"
+                      min={1}
+                      max={12}
+                      value={Number(item.width || 4)}
+                      onChange={(event) => updateStyleSection('Route', index, ['width'], Number(event.target.value))}
+                      className="min-w-0"
+                    />
+                    <span className="text-right text-gray-500">{Number(item.width || 4)}</span>
+                  </label>
+                  <label className="flex items-center justify-between rounded border border-gray-100 bg-gray-50 px-2 py-1.5 text-[10px] text-gray-700">
+                    <span className="font-medium">Arrow</span>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(item.arrow)}
+                      onChange={(event) => updateStyleSection('Route', index, ['arrow'], event.target.checked)}
+                      className="h-3.5 w-3.5"
+                    />
+                  </label>
                 </div>
               ))}
             </div>
@@ -702,63 +749,6 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
-        {showRouteControls && (
-          <section>
-            <div className="mb-2 text-xs font-semibold text-gray-700">Route</div>
-            <div className="space-y-2">
-              <select
-                value={activeRoute?.visual_id || ''}
-                onChange={(event) => onRouteSelect?.(event.target.value)}
-                className="w-full rounded border px-2 py-1 text-xs"
-              >
-                {routes.map((route: any) => (
-                  <option key={route.visual_id} value={route.visual_id}>{route.visual_id}</option>
-                ))}
-              </select>
-              <div className="grid grid-cols-3 gap-1">
-                {(['straight', 'bezier', 'navigation'] as const).map((style) => (
-                  <button
-                    key={style}
-                    type="button"
-                    onClick={() => updateRoute({ style })}
-                    className={`rounded border px-2 py-1 text-[11px] ${activeRoute?.style === style ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
-                  >
-                    {style}
-                  </button>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-1">
-                {(['solid', 'dashed'] as const).map((linePattern) => (
-                  <button
-                    key={linePattern}
-                    type="button"
-                    onClick={() => updateRoute({ linePattern })}
-                    className={`rounded border px-2 py-1 text-[11px] ${activeRoute?.linePattern === linePattern ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 bg-gray-50 text-gray-700'}`}
-                  >
-                    {linePattern}
-                  </button>
-                ))}
-              </div>
-              <div className="grid grid-cols-[1fr_auto] items-center gap-2">
-                <input
-                  type="range"
-                  min={1}
-                  max={12}
-                  value={Number(activeRoute?.width || 4)}
-                  onChange={(event) => updateRoute({ width: Number(event.target.value) })}
-                />
-                <span className="text-[11px] text-gray-500">{Number(activeRoute?.width || 4)}</span>
-              </div>
-              <input
-                type="color"
-                value={activeRoute?.Color || activeRoute?.color || '#E4572E'}
-                onChange={(event) => updateRoute({ color: event.target.value, Color: event.target.value })}
-                className="h-8 w-full rounded border"
-              />
-            </div>
-          </section>
-        )}
-
         <section>
           <div className="mb-2 flex items-center justify-between">
             <div className="text-xs font-semibold text-gray-700">Properties</div>
