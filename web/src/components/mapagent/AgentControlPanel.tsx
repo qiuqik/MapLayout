@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCwIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, buildFileUrl } from '@/lib/api';
 import { useAgentMap, type AgentRunEvent, type AgentSelection } from '@/lib/agentMapContext';
 
 interface AgentControlPanelProps {
@@ -62,6 +62,18 @@ const setNestedValue = (target: any, path: (string | number)[], value: any) => {
 
 const getNodeTitle = (event: AgentRunEvent | null) => event?.node_id || event?.type || 'none';
 
+const inputPayloadFromEvent = (event: AgentRunEvent | null) => {
+  const payload = event?.payload || {};
+  const input = payload.input || payload;
+  const prompt = input.user_text || input.message || payload.message || '';
+  const imageName = input.image_filename || input.imageFilename || payload.imageFilename || '';
+  return {
+    prompt,
+    imageName,
+    imageUrl: imageName ? buildFileUrl(String(imageName)) : '',
+  };
+};
+
 const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, selectedRouteId, onRouteSelect }) => {
   const {
     manifest,
@@ -77,6 +89,8 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   } = useAgentMap();
   const [editorText, setEditorText] = useState('');
   const [busy, setBusy] = useState(false);
+  const scrollRootRef = useRef<HTMLDivElement | null>(null);
+  const mapFeatureRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setEditorText(JSON.stringify(editablePayload(selectedAgentEvent, selectedAgentSelection), null, 2));
@@ -91,6 +105,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   }, [editorText]);
 
   const selectedNodeId = selectedAgentSelection?.node_id || selectedAgentEvent?.node_id || selectedAgentEvent?.type || null;
+  const isMapFeatureSelected = selectedAgentSelection?.kind === 'map_feature';
   const canRerun = Boolean(
     selectedAgentEvent &&
     ['intent', 'visual', 'geojson', 'style', 'icon_generation', 'workflow_completed'].includes(
@@ -168,6 +183,14 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   const updateVisualPath = (path: (string | number)[], value: any) => {
     updateEditorJson((draft) => setNestedValue(draft, path, value), true);
   };
+
+  useEffect(() => {
+    if (!isMapFeatureSelected) return;
+    const timer = window.setTimeout(() => {
+      mapFeatureRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [isMapFeatureSelected, selectedAgentSelection?.node_id, selectedAgentSelection?.label]);
 
   const handleRerun = async () => {
     if (!sessionId || !selectedAgentEvent) return;
@@ -276,13 +299,45 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     );
   };
 
+  const renderInputProperties = () => {
+    if (selectedNodeId !== 'input' && selectedAgentEvent?.type !== 'workflow_started') return null;
+    const input = inputPayloadFromEvent(selectedAgentEvent);
+    return (
+      <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
+        <div className="text-[11px] font-semibold text-gray-700">Input</div>
+        {input.imageUrl ? (
+          <div className="overflow-hidden rounded border border-gray-200 bg-white">
+            <img
+              src={input.imageUrl}
+              alt={input.imageName || 'Reference image'}
+              className="max-h-36 w-full object-contain"
+            />
+            <div className="truncate border-t border-gray-100 px-2 py-1 text-[10px] text-gray-500">
+              {input.imageName}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded border border-dashed border-gray-200 bg-white p-3 text-[10px] text-gray-400">
+            No reference image
+          </div>
+        )}
+        <details open className="rounded border border-gray-200 bg-white p-2">
+          <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Prompt</summary>
+          <div className="mt-2 whitespace-pre-wrap break-words rounded bg-gray-50 p-2 text-[11px] leading-4 text-gray-700">
+            {input.prompt || 'No prompt'}
+          </div>
+        </details>
+      </div>
+    );
+  };
+
   const renderMapFeatureProperties = () => {
     if (selectedAgentSelection?.kind !== 'map_feature' || !parsedEditor) return null;
     const feature = parsedEditor.feature || parsedEditor;
     const props = feature.properties || {};
     const geometryType = feature.geometry?.type || selectedAgentSelection.payload?.geometryType;
     return (
-      <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
+      <div ref={mapFeatureRef} className="mb-3 scroll-mt-3 space-y-3 rounded border border-gray-300 bg-gray-50 p-2 ring-1 ring-gray-200">
         <div className="flex items-center justify-between">
           <div className="text-[11px] font-semibold text-gray-700">Map Feature</div>
           <div className="text-[10px] text-gray-500">{geometryType || selectedAgentSelection.node_id}</div>
@@ -378,7 +433,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     return (
       <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
         <div className="text-[11px] font-semibold text-gray-700">Visual</div>
-        <details open className="rounded border border-gray-200 bg-white p-2">
+        <details className="rounded border border-gray-200 bg-white p-2">
           <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Theme&Design</summary>
           <div className="mt-2 space-y-2">
             {renderField('Global', themeDesign.global, (value) => updateVisualPath([themeKey, 'global'], value))}
@@ -390,7 +445,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
             {renderField('Icon design', themeDesign.icon_design, (value) => updateVisualPath([themeKey, 'icon_design'], value), { multiline: true })}
           </div>
         </details>
-        <details open className="rounded border border-gray-200 bg-white p-2">
+        <details className="rounded border border-gray-200 bg-white p-2">
           <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Color</summary>
           <div className="mt-2 space-y-2">
             {['background', 'water', 'road'].map((key) => (
@@ -439,7 +494,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
           </details>
         )}
         {parsedEditor.Stylesheet && (
-          <details open className="rounded border border-gray-200 bg-white p-2">
+          <details className="rounded border border-gray-200 bg-white p-2">
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Stylesheet</summary>
             <div className="mt-2 space-y-2">
               {renderField('Global', parsedEditor.Stylesheet.global, (value) => updateVisualPath(['Stylesheet', 'global'], value))}
@@ -448,7 +503,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
           </details>
         )}
         {stylesheetLayers.length > 0 && (
-          <details open className="rounded border border-gray-200 bg-white p-2">
+          <details className="rounded border border-gray-200 bg-white p-2">
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Stylesheet Layers</summary>
             <div className="mt-2 space-y-2">
               {stylesheetLayers.map((layer: any, index: number) => {
@@ -494,7 +549,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
           <div className="text-[10px] text-gray-500">{points.length} POI</div>
         </div>
         {globals.length > 0 && (
-          <details open className="rounded border border-gray-200 bg-white p-2">
+          <details className="rounded border border-gray-200 bg-white p-2">
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Global</summary>
             <div className="mt-2 space-y-2">
               {globals.slice(0, 2).map((item: any, index: number) => (
@@ -510,7 +565,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
         {orderedDayKeys.map((dayKey) => {
           const dayPoints = days.length ? points.filter(({ feature }) => feature.properties?.day === dayKey) : points;
           return (
-            <details key={String(dayKey)} open={orderedDayKeys.length <= 2} className="rounded border border-gray-200 bg-white p-2">
+            <details key={String(dayKey)} className="rounded border border-gray-200 bg-white p-2">
               <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">{String(dayKey)}</summary>
               <div className="mt-2 space-y-2">
                 {dayPoints.map(({ feature, index }) => {
@@ -573,7 +628,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
       <div className="mb-3 space-y-3 rounded border border-gray-200 bg-gray-50 p-2">
         <div className="text-[11px] font-semibold text-gray-700">{selectedNodeId === 'icon_generation' ? 'Icons' : 'Style'}</div>
         {globals.length > 0 && (
-          <details open className="rounded border border-gray-200 bg-white p-2">
+          <details className="rounded border border-gray-200 bg-white p-2">
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Global</summary>
             <div className="mt-2 space-y-3">
               {globals.map((item: any, index: number) => (
@@ -589,7 +644,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
           </details>
         )}
         {labels.length > 0 && (
-          <details open className="rounded border border-gray-200 bg-white p-2">
+          <details className="rounded border border-gray-200 bg-white p-2">
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Label</summary>
             <div className="mt-2 space-y-3">
               {labels.map((item: any, index: number) => (
@@ -620,7 +675,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
           </details>
         )}
         {points.length > 0 && (
-          <details open={selectedNodeId === 'icon_generation'} className="rounded border border-gray-200 bg-white p-2">
+          <details className="rounded border border-gray-200 bg-white p-2">
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Point</summary>
             <div className="mt-2 space-y-3">
               {points.map((item: any, index: number) => (
@@ -646,7 +701,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
           </details>
         )}
         {routesForStyle.length > 0 && (
-          <details open className="rounded border border-gray-200 bg-white p-2">
+          <details className="rounded border border-gray-200 bg-white p-2">
             <summary className="cursor-pointer text-[10px] font-semibold text-gray-700">Route</summary>
             <div className="mt-2 space-y-3">
               {routesForStyle.map((item: any, index: number) => (
@@ -748,7 +803,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
         <div className="text-sm font-semibold text-gray-800">Controls</div>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
+      <div ref={scrollRootRef} className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
         <section>
           <div className="mb-2 flex items-center justify-between">
             <div className="text-xs font-semibold text-gray-700">Properties</div>
@@ -757,6 +812,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
             </div>
           </div>
           {renderNodeInfo()}
+          {renderInputProperties()}
           {renderMapFeatureProperties()}
           {renderIntentProperties()}
           {renderValidationProperties()}
