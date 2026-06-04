@@ -82,11 +82,25 @@ const openAncestorDetails = (element: HTMLElement | null, boundary: HTMLElement 
 
 const getNodeTitle = (event: AgentRunEvent | null) => event?.node_id || event?.type || 'none';
 
+const basename = (value: unknown) => {
+  if (!value) return '';
+  const text = String(value);
+  return text.split(/[\\/]/).filter(Boolean).pop() || text;
+};
+
 const inputPayloadFromEvent = (event: AgentRunEvent | null) => {
   const payload = event?.payload || {};
   const input = payload.input || payload;
-  const prompt = input.user_text || input.message || payload.message || '';
-  const imageName = input.image_filename || input.imageFilename || payload.imageFilename || '';
+  const prompt = input.user_text || input.message || payload.user_text || payload.message || payload.intent_enriched || '';
+  const imageName = basename(
+    input.image_filename ||
+    input.imageFilename ||
+    input.image_path ||
+    payload.image_filename ||
+    payload.imageFilename ||
+    payload.image_path ||
+    '',
+  );
   return {
     prompt,
     imageName,

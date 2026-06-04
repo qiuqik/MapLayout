@@ -5,18 +5,32 @@ import os
 import requests
 from typing import Tuple, Optional
 from dotenv import load_dotenv
+from .utils.coord_transform import is_out_of_china
+
+CHINA_CITY_MARKERS = {
+    "中国", "北京", "上海", "天津", "重庆", "广州", "深圳", "杭州", "南京", "苏州", "成都", "西安",
+    "武汉", "长沙", "厦门", "青岛", "大连", "宁波", "无锡", "福州", "昆明", "桂林", "拉萨", "香港",
+    "澳门", "台北", "北京市", "上海市", "杭州市", "广州市", "深圳市",
+}
 
 class AMapService:
     def __init__(self):
+        load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
         load_dotenv(".env")
         self.api_key = os.getenv("AMAP_KEY")
         if not self.api_key:
             raise ValueError("⚠️ .env 文件中未配置 AMAP_KEY")
+        self.mapbox_token = (
+            os.getenv("MAPBOX_TOKEN")
+            or os.getenv("NEXT_PUBLIC_MAPBOX_TOKEN")
+            or os.getenv("MAPBOX_ACCESS_TOKEN")
+        )
         
         # 高德地图文本搜索 API URL
         self.base_url_place = "https://restapi.amap.com/v5/place/text"
         # 高德地图输入提示 API URL（用于二次检索）
         self.base_url_tips = "https://restapi.amap.com/v3/assistant/inputtips"
+        self.base_url_mapbox = "https://api.mapbox.com/geocoding/v5/mapbox.places"
         
     def search_poi(self, keyword: str, city: str = "", location: Optional[str] = None) -> Optional[Tuple[float, float]]:
         """
@@ -32,6 +46,17 @@ class AMapService:
         Returns:
             (longitude, latitude) 或 None
         """
+        if self._looks_foreign_context(keyword, city, location):
+            result = self._search_mapbox(keyword, city)
+            if result:
+                return result
+            original = self._parse_location(location)
+            if original and is_out_of_china(original[0], original[1]):
+                print(f"📍 国外 POI 未命中 Mapbox，保留模型坐标: {keyword}")
+                return original
+            print(f"⚠️ 国外 POI 未命中，跳过高德国内同名兜底: {keyword}")
+            return None
+
         # 第一次尝试：使用文本搜索 API
         result = self._search_poi_primary(keyword, city)
         if result:
@@ -64,6 +89,8 @@ class AMapService:
                 # 从前往后提取前三个结果，只要出现location则检索成功
                 pois_list = data.get("pois", [])
                 for poi in pois_list[:3]:  # 只检查前3个结果
+                    if not self._matches_city_scope(poi, city):
+                        continue
                     location = poi.get("location")
                     if location:
                         lon, lat = map(float, location.split(","))
@@ -97,6 +124,8 @@ class AMapService:
                 # 从前往后提取前三个结果，只要出现location则检索成功
                 tips_list = data.get("tips", [])
                 for tip in tips_list[:3]:  # 只检查前3个结果
+                    if not self._matches_city_scope(tip, city):
+                        continue
                     location_str = tip.get("location")
                     if location_str:
                         try:
@@ -108,3 +137,74 @@ class AMapService:
             print(f"二级检索异常 (v3/assistant/inputtips): {e}")
             
         return None
+
+    def _search_mapbox(self, keyword: str, city: str = "") -> Optional[Tuple[float, float]]:
+        """国外 POI 使用 Mapbox Geocoding，返回 WGS84 坐标。中国外坐标后续转换会保持原值。"""
+        if not self.mapbox_token:
+            return None
+        query = f"{keyword}, {city}" if city else keyword
+        try:
+            response = requests.get(
+                f"{self.base_url_mapbox}/{requests.utils.quote(query)}.json",
+                params={
+                    "access_token": self.mapbox_token,
+                    "limit": 1,
+                    "language": "zh,en",
+                },
+                timeout=10,
+            )
+            data = response.json()
+            features = data.get("features") or []
+            if features:
+                center = features[0].get("center") or []
+                if len(center) >= 2:
+                    lon, lat = float(center[0]), float(center[1])
+                    if is_out_of_china(lon, lat) or not city:
+                        return lon, lat
+        except Exception as e:
+            print(f"Mapbox 国外 POI 检索异常: {e}")
+        return None
+
+    def _parse_location(self, location: Optional[str]) -> Optional[Tuple[float, float]]:
+        if not location:
+            return None
+        try:
+            lon_text, lat_text = str(location).split(",", 1)
+            return float(lon_text), float(lat_text)
+        except (ValueError, AttributeError):
+            return None
+
+    def _looks_foreign_context(self, keyword: str, city: str = "", location: Optional[str] = None) -> bool:
+        original = self._parse_location(location)
+        if original and is_out_of_china(original[0], original[1]):
+            return True
+        city_text = str(city or "").strip()
+        if city_text and not self._is_china_scope(city_text):
+            return True
+        query_text = f"{keyword} {city_text}".strip()
+        has_cjk = any("\u4e00" <= char <= "\u9fff" for char in query_text)
+        has_latin = any(("a" <= char.lower() <= "z") for char in query_text)
+        return bool(city_text and has_latin and not has_cjk)
+
+    def _is_china_scope(self, text: str) -> bool:
+        compact = str(text or "").replace(" ", "")
+        if not compact:
+            return False
+        if any(marker in compact for marker in CHINA_CITY_MARKERS):
+            return True
+        has_cjk = any("\u4e00" <= char <= "\u9fff" for char in compact)
+        has_latin = any(("a" <= char.lower() <= "z") for char in compact)
+        return has_cjk and not has_latin
+
+    def _matches_city_scope(self, item: dict, city: str = "") -> bool:
+        city_text = str(city or "").strip()
+        if not city_text:
+            return True
+        if not self._is_china_scope(city_text):
+            return False
+        city_token = city_text.replace("市", "").replace("省", "").replace("特别行政区", "")
+        haystack = "".join(
+            str(item.get(key) or "")
+            for key in ["pname", "cityname", "adname", "district", "address", "name"]
+        )
+        return city_token in haystack or city_text in haystack

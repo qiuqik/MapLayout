@@ -379,9 +379,19 @@ async def create_multimodal_run(request: CreateRunRequest):
             "workflow_started",
             {
                 "session_id": run_id,
+                "node_id": "input",
+                "label": "Input",
                 "status": "running",
                 "payload": {
+                    "input": {
+                        "user_text": request.message,
+                        "message": request.message,
+                        "image_filename": request.imageFilename,
+                        "imageFilename": request.imageFilename,
+                    },
+                    "user_text": request.message,
                     "message": request.message,
+                    "image_filename": request.imageFilename,
                     "imageFilename": request.imageFilename,
                     "geojsonFilename": request.geojsonFilename,
                 },

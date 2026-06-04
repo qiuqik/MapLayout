@@ -158,7 +158,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
         payload: {},
         timestamp: new Date().toISOString(),
       };
-      setSelectedAgentEvent(event);
+      setSelectedAgentEvent({ ...event, node_id: 'input', label: event.label || 'Input' });
       setSelectedAgentSelection(null);
       return;
     }

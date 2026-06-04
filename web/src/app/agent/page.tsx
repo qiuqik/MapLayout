@@ -42,6 +42,9 @@ const buildSessionAgentEvents = (data: any): AgentRunEvent[] => {
   const timestamp = data?.session_manifest?.finished_at || startedAt;
   const events: AgentRunEvent[] = [];
   if (data?.session_manifest?.input || data?.session_manifest) {
+    const manifestInput = data?.session_manifest?.input || {};
+    const prompt = manifestInput.user_text || manifestInput.message || data?.intent?.intent_enriched || '';
+    const imageName = manifestInput.image_filename || manifestInput.imageFilename || '';
     events.push({
       type: 'workflow_started',
       run_id: runId,
@@ -50,7 +53,17 @@ const buildSessionAgentEvents = (data: any): AgentRunEvent[] => {
       label: 'Input',
       status: 'completed',
       payload: {
-        input: data?.session_manifest?.input || {},
+        input: {
+          ...manifestInput,
+          user_text: prompt,
+          message: manifestInput.message || prompt,
+          image_filename: imageName,
+          imageFilename: manifestInput.imageFilename || imageName,
+        },
+        user_text: prompt,
+        message: prompt,
+        image_filename: imageName,
+        imageFilename: imageName,
         model_config: data?.session_manifest?.model_config || {},
         prompt_versions: data?.session_manifest?.prompt_versions || {},
       },
