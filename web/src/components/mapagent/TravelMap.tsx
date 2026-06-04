@@ -593,7 +593,9 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
         const data = await response.json();
         if (!response.ok || !Array.isArray(data.coordinates)) throw new Error(data.error || 'Navigation route failed');
         if (cancelled) return;
-        setNavigationLineCache((cache) => cache[cacheKey] ? cache : { ...cache, [cacheKey]: data.coordinates });
+        if (data.source === 'mapbox') {
+          setNavigationLineCache((cache) => cache[cacheKey] ? cache : { ...cache, [cacheKey]: data.coordinates });
+        }
         setNavigationRouteStatus((status) => ({
           ...status,
           [cacheKey]: {
@@ -604,7 +606,6 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
         }));
       } catch (error) {
         console.warn('Navigation route fallback:', error);
-        if (!cancelled) setNavigationLineCache((cache) => cache[cacheKey] ? cache : { ...cache, [cacheKey]: coordinates });
         if (!cancelled) {
           setNavigationRouteStatus((status) => ({
             ...status,

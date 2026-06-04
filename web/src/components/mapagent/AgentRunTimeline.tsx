@@ -29,9 +29,9 @@ const FLOW_POSITIONS: Record<string, { x: number; y: number }> = {
   input: { x: 0, y: 74 },
   intent: { x: 180, y: 18 },
   visual: { x: 180, y: 116 },
-  geojson: { x: 430, y: 67 },
-  validation: { x: 660, y: 67 },
-  style: { x: 890, y: 67 },
+  geojson: { x: 500, y: 92 },
+  validation: { x: 590, y: 0 },
+  style: { x: 760, y: 92 },
 };
 
 const compactText = (value: unknown, max = 86) => {
@@ -310,19 +310,21 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       active: isAgentRunning && runningNodeId === 'validation' && completedNodeIds.has('geojson'),
       complete: completedNodeIds.has('geojson') && completedNodeIds.has('validation'),
       dashed: true,
+      type: 'smoothstep',
+      pathOptions: { offset: 42, borderRadius: 18 },
     });
-    addFlowEdge('edge-validation-style', 'validation', 'style', {
+    addFlowEdge('edge-geojson-style', 'geojson', 'style', {
       active: isAgentRunning && runningNodeId === 'style' && completedNodeIds.has('validation'),
-      complete: completedNodeIds.has('validation') && completedNodeIds.has('style'),
+      complete: completedNodeIds.has('geojson') && completedNodeIds.has('style'),
       dashed: true,
     });
     addFlowEdge('edge-validation-retry-geojson', 'validation', 'geojson', {
       label: 'retry',
       active: isAgentRunning && runningNodeId === 'geojson' && Boolean(statesByNode.get('validation')?.failed),
-      complete: false,
+      complete: completedNodeIds.has('validation') && !statesByNode.get('validation')?.failed,
       dashed: true,
       type: 'smoothstep',
-      pathOptions: { offset: 72, borderRadius: 18 },
+      pathOptions: { offset: 38, borderRadius: 18 },
     });
 
     return { nodes, edges };

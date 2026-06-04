@@ -26,7 +26,7 @@ class ValidationNode:
 
 【原始用户请求】：{user_query}
 
-【Node 3 GeoJSON 输出(坐标已为 QA 校验做过骨架精简，请忽略中间坐标的跳跃)】：
+【Node 3 本轮最新 GeoJSON 输出(只包含本轮生成结果；坐标已为 QA 校验做过骨架精简，请忽略中间坐标的跳跃)】：
 {geojson_data}
 
 请给出你的 QA 验证 JSON 结果：""")
@@ -41,8 +41,23 @@ class ValidationNode:
             
         # 使用深拷贝，绝不能污染原始的 state.geojson_data
         qa_data = copy.deepcopy(geojson_data)
+        for stale_key in [
+            "validation_feedback",
+            "validation_retry_count",
+            "_validation_feedback",
+            "_qa_feedback",
+            "_previous_result",
+            "_previous_geojson",
+        ]:
+            qa_data.pop(stale_key, None)
         
         for feat in qa_data.get("features", []):
+            if not isinstance(feat, dict):
+                continue
+            props = feat.get("properties")
+            if isinstance(props, dict):
+                for stale_key in ["validation_feedback", "_qa_feedback", "_previous_result"]:
+                    props.pop(stale_key, None)
             geom = feat.get("geometry") or {}
             geom_type = geom.get("type")
             coords = geom.get("coordinates")

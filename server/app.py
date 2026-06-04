@@ -17,6 +17,12 @@ from src.run_store import run_store
 from src.utils.coord_transform import gcj02_to_wgs84
 from src.utils.agent_utils import AgentState
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+except Exception:
+    pass
+
 app = FastAPI()
 
 origins = [
@@ -143,12 +149,21 @@ def _fetch_single_route(coordinates, token):
         return coordinates
 
 
+def _get_mapbox_token() -> str | None:
+    """Read Mapbox token from backend or shared frontend env names."""
+    return (
+        os.getenv("MAPBOX_TOKEN")
+        or os.getenv("NEXT_PUBLIC_MAPBOX_TOKEN")
+        or os.getenv("MAPBOX_ACCESS_TOKEN")
+    )
+
+
 def process_geojson_for_frontend(geojson_data, style_code=None):
     """处理 GeoJSON 数据：转换坐标并根据 style_code 判断是否获取步行路线"""
     if not geojson_data or 'features' not in geojson_data:
         return geojson_data
 
-    mapbox_token = os.getenv("MAPBOX_TOKEN")
+    mapbox_token = _get_mapbox_token()
     processed = json.loads(json.dumps(geojson_data))  # 深拷贝
 
     # 从 style_code 中提取 Route 配置，构建 visual_id -> style 映射
@@ -194,12 +209,12 @@ async def build_navigation_route(request: NavigationRouteRequest):
     if len(coordinates) < 2:
         return JSONResponse(status_code=400, content={"error": "coordinates must contain at least two positions"})
 
-    mapbox_token = os.getenv("MAPBOX_TOKEN")
+    mapbox_token = _get_mapbox_token()
     if not mapbox_token:
         return {
             "coordinates": coordinates,
             "source": "fallback",
-            "warning": "MAPBOX_TOKEN is not configured",
+            "warning": "Mapbox token is not configured; set MAPBOX_TOKEN or NEXT_PUBLIC_MAPBOX_TOKEN on the backend process",
         }
 
     route_coords = _fetch_walking_route(coordinates, mapbox_token)
@@ -836,6 +851,8 @@ async def rerun_multimodal_downstream(session_id: str, request: RerunDownstreamR
                 )
         def run_validation():
             nonlocal state
+            state.failed_node = "none"
+            state.validation_feedback = ""
             append_event("node_started", "validation", "Validation", "running")
             state = agent.validation_node.execute(state)
             append_event(

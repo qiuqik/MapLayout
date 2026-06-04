@@ -1115,7 +1115,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   };
 
   return (
-    <aside className="flex h-full w-[280px] flex-shrink-0 flex-col border-l bg-white">
+    <aside className="agent-control-panel flex h-full w-[280px] flex-shrink-0 flex-col border-l bg-white">
       <div className="agent-theme-control-header flex items-center justify-between border-b px-3 py-2">
         <div className="text-sm font-semibold">Controls</div>
         <button

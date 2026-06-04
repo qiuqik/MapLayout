@@ -252,7 +252,7 @@ class MultiModalMapAgent:
             return {"agent_state": state}
         
         def node_geojson(data: GraphState):
-            """execute Node 3"""
+            """execute Node 3 and its QA loop check."""
             state = data["agent_state"]
             self._emit_event(
                 "node_started",
@@ -289,11 +289,12 @@ class MultiModalMapAgent:
                 status="completed",
                 payload={"path": geojson_path, "subdir": "node3", "feature_count": feature_count},
             )
-            return {"agent_state": state}
-        
-        def node_validate(data: GraphState):
-            """execute Node 5 validate"""
-            state = data["agent_state"]
+
+            # QA is a loop check attached to the freshly generated GeoJSON.
+            # Clear stale QA state before invoking so the QA prompt only sees
+            # the latest GeoJSON payload, not prior feedback/status text.
+            state.failed_node = "none"
+            state.validation_feedback = ""
             self._emit_event(
                 "node_started",
                 session_id=state.session_id,
@@ -400,16 +401,14 @@ class MultiModalMapAgent:
         # 节点
         workflow.add_node("InitParallel", node_init_parallel)
         workflow.add_node("GeoJSON", node_geojson)
-        workflow.add_node("Validate", node_validate)
         workflow.add_node("Style", node_style)
 
         # 边
         workflow.add_edge("InitParallel", "GeoJSON")
-        workflow.add_edge("GeoJSON", "Validate")    # GeoJSON 生成完，必须去质检
 
         # 条件边 (动态分支路由)
         workflow.add_conditional_edges(
-            "Validate",
+            "GeoJSON",
             router,
             {
                 "to_style": "Style",

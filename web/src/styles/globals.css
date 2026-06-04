@@ -73,6 +73,12 @@
     color: var(--agent-ui-text-primary);
   }
 
+  .agent-control-panel input[type="checkbox"],
+  .agent-control-panel input[type="radio"],
+  .agent-control-panel input[type="range"] {
+    accent-color: var(--agent-ui-accent-bg);
+  }
+
   .agent-theme-primary-action {
     border-color: var(--agent-ui-title-bg);
     background-color: var(--agent-ui-title-bg);
