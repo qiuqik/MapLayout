@@ -17,7 +17,7 @@ class IconGenerationNode:
 
     def __init__(self):
         self.model = os.getenv("ICON_IMAGE_MODEL", "gpt-image-2")
-        self.size = os.getenv("ICON_IMAGE_SIZE", "128x128")
+        self.size = os.getenv("ICON_IMAGE_SIZE", "256x256")
         self.timeout = int(os.getenv("ICON_IMAGE_TIMEOUT", "40"))
 
     def _enabled(self) -> bool:

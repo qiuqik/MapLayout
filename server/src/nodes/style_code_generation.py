@@ -139,6 +139,17 @@ class StyleCodeGenerationNode:
             number = int(match.group(0)) if match else default
         return max(minimum, min(maximum, number))
 
+    def _normalize_point_size(self, item: dict) -> list[int]:
+        raw_size = item.get("size")
+        if raw_size is None and isinstance(item.get("style"), dict):
+            raw_size = item["style"].get("size")
+        if isinstance(raw_size, list):
+            width = self._number(raw_size[0] if raw_size else None, 22, 14, 30)
+            height = self._number(raw_size[1] if len(raw_size) > 1 else width, width, 14, 30)
+            return [width, height]
+        size = self._number(raw_size, 22, 14, 30)
+        return [size, size]
+
     def _normalize_point_styles(self, style_code: dict) -> list[dict]:
         points = []
         seen: set[str] = set()
@@ -164,9 +175,11 @@ class StyleCodeGenerationNode:
                     "visual_id": visual_id,
                     "category": category,
                     "icon描述": str(icon_description),
+                    "size": self._normalize_point_size(item),
                     "style": item.get("style") if isinstance(item.get("style"), dict) else {},
                 }
             )
+            normalized["style"].pop("size", None)
             for stale_key in ["iconSvg", "iconDataUrl", "iconUrl", "url"]:
                 normalized.pop(stale_key, None)
             points.append(normalized)
@@ -178,7 +191,8 @@ class StyleCodeGenerationNode:
                 "visual_id": "point_poi",
                 "category": "poi",
                 "icon描述": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
-                "style": {"color": "#E4572E", "size": 28},
+                "size": [22, 22],
+                "style": {"color": "#E4572E"},
             }
         ]
 
@@ -418,7 +432,8 @@ class StyleCodeGenerationNode:
                     "visual_id": "point_poi",
                     "category": "poi",
                     "icon描述": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
-                    "style": {"color": "#E4572E", "size": 28},
+                    "size": [22, 22],
+                    "style": {"color": "#E4572E"},
                 }
             ],
             "Route": [

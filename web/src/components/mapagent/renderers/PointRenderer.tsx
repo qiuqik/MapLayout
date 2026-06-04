@@ -12,18 +12,20 @@ interface PointRendererProps {
   onFeatureSelect?: (feature: any, kind: 'point') => void;
 }
 
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
 const resolvePointSize = (pointStyle: any): { width: number; height: number } => {
   const rawSize = pointStyle?.style?.size ?? pointStyle?.size;
   if (Array.isArray(rawSize)) {
     const width = Number(rawSize[0]);
     const height = Number(rawSize[1] ?? rawSize[0]);
     return {
-      width: Number.isFinite(width) && width > 0 ? width : 28,
-      height: Number.isFinite(height) && height > 0 ? height : 28,
+      width: Number.isFinite(width) && width > 0 ? clamp(width, 12, 30) : 22,
+      height: Number.isFinite(height) && height > 0 ? clamp(height, 12, 30) : 22,
     };
   }
   const size = Number(rawSize);
-  const safeSize = Number.isFinite(size) && size > 0 ? size : 28;
+  const safeSize = Number.isFinite(size) && size > 0 ? clamp(size, 12, 30) : 22;
   return { width: safeSize, height: safeSize };
 };
 
@@ -37,8 +39,8 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, visu
       : '';
     const visualStyle = pointStyle.style && typeof pointStyle.style === 'object' ? pointStyle.style : {};
     const rawSize = resolvePointSize(pointStyle);
-    const width = Math.max(10, Math.round(rawSize.width * visualScale));
-    const height = Math.max(10, Math.round(rawSize.height * visualScale));
+    const width = clamp(Math.round(rawSize.width * visualScale), 10, 34);
+    const height = clamp(Math.round(rawSize.height * visualScale), 10, 34);
     const fallback = pointStyle.fallback && typeof pointStyle.fallback === 'object' ? pointStyle.fallback : {};
     const fallbackColor = visualStyle.color || pointStyle.color || fallback.color || '#E4572E';
 
@@ -83,8 +85,8 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, visu
 
         const [lng, lat] = feature.geometry.coordinates;
         const rawSize = resolvePointSize(pointStyle);
-        const width = Math.max(10, Math.round(rawSize.width * visualScale));
-        const height = Math.max(10, Math.round(rawSize.height * visualScale));
+        const width = clamp(Math.round(rawSize.width * visualScale), 10, 34);
+        const height = clamp(Math.round(rawSize.height * visualScale), 10, 34);
         
         return (
           <Marker
