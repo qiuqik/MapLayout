@@ -20,6 +20,7 @@ AgentEventType = Literal[
 ]
 
 AgentNodeId = Literal[
+    "input",
     "intent",
     "visual",
     "geojson",
