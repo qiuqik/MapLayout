@@ -19,13 +19,21 @@ SINGAPORE_REQUESTED_POIS = [
     {"name": "福康宁公园", "aliases": ["福康宁公园", "Fort Canning"], "coordinates": [103.8465, 1.2950], "category": "nature", "day": 1},
     {"name": "鱼尾狮公园", "aliases": ["鱼尾狮公园", "鱼尾狮", "Merlion"], "coordinates": [103.8545, 1.2868], "category": "scenic", "day": 1},
     {"name": "克拉码头", "aliases": ["克拉码头", "Clarke Quay"], "coordinates": [103.8465, 1.2906], "category": "food", "day": 1},
-    {"name": "圣淘沙", "aliases": ["圣淘沙", "Sentosa"], "coordinates": [103.8303, 1.2494], "category": "scenic", "day": 2},
     {"name": "新加坡环球影城", "aliases": ["新加坡环球影城", "环球影城", "Universal Studios"], "coordinates": [103.8238, 1.2540], "category": "entertainment", "day": 2},
     {"name": "S.E.A.海洋馆", "aliases": ["S.E.A.海洋馆", "S.E.A. Aquarium", "SEA Aquarium"], "coordinates": [103.8203, 1.2588], "category": "entertainment", "day": 2},
     {"name": "西乐索海滩", "aliases": ["西乐索海滩", "Siloso Beach"], "coordinates": [103.8129, 1.2536], "category": "nature", "day": 2},
     {"name": "唐人街", "aliases": ["唐人街", "Chinatown"], "coordinates": [103.8439, 1.2836], "category": "culture", "day": 3},
     {"name": "小印度", "aliases": ["小印度", "Little India"], "coordinates": [103.8520, 1.3067], "category": "culture", "day": 3},
     {"name": "哈芝巷", "aliases": ["哈芝巷", "Haji Lane"], "coordinates": [103.8593, 1.3007], "category": "culture", "day": 3},
+]
+
+SINGAPORE_KNOWN_POIS = [
+    *SINGAPORE_REQUESTED_POIS,
+    {"name": "滨海湾金沙空中花园", "aliases": ["滨海湾金沙空中花园", "金沙空中花园", "Marina Bay Sands SkyPark", "SkyPark"], "coordinates": [103.8607, 1.2839], "category": "scenic", "day": 1},
+    {"name": "滨海湾花园", "aliases": ["滨海湾花园", "Gardens by the Bay"], "coordinates": [103.8649, 1.2816], "category": "nature", "day": 1},
+    {"name": "苏丹回教堂", "aliases": ["苏丹回教堂", "苏丹清真寺", "Sultan Mosque"], "coordinates": [103.8590, 1.3023], "category": "culture", "day": 3},
+    {"name": "新加坡国家博物馆", "aliases": ["新加坡国家博物馆", "National Museum of Singapore"], "coordinates": [103.8488, 1.2966], "category": "culture", "day": 3},
+    {"name": "西乐索炮台空中步道", "aliases": ["西乐索炮台空中步道", "Fort Siloso Skywalk"], "coordinates": [103.8108, 1.2574], "category": "scenic", "day": 2},
 ]
 
 class GeoJSONGenerationNode:
@@ -207,6 +215,7 @@ class GeoJSONGenerationNode:
         """核心逻辑：基于原始坐标映射，同步更新所有几何图形"""
         features = geojson_data.get("features", [])
         city = geojson_data.get("_city", "")
+        bounds = self._city_bounds(city)
         
         # 1. 建立全局坐标真值表
         # 格式: { (原始经度, 原始纬度): [修正后经度, 修正后纬度] }
@@ -222,7 +231,14 @@ class GeoJSONGenerationNode:
                 # 避免对同一原始坐标重复请求 API
                 if old_coords not in coord_map:
                     location_str = f"{old_coords[0]},{old_coords[1]}"
-                    new_coords = self.amap_service.search_poi(name, city=city, location=location_str)
+                    known_coords = self._lookup_known_destination_poi(name, city)
+                    if known_coords:
+                        new_coords = known_coords
+                    elif bounds and self._within_bounds(old_coords, bounds):
+                        new_coords = old_coords
+                        print(f"      ↪️ [{name}] 已在 {city} 范围内，保留模型/QA坐标，避免 geocoder 覆盖")
+                    else:
+                        new_coords = self.amap_service.search_poi(name, city=city, location=location_str)
                     
                     if new_coords:
                         coord_map[old_coords] = list(new_coords)
@@ -296,6 +312,69 @@ class GeoJSONGenerationNode:
             bool(self._normalize_poi_name(alias)) and self._normalize_poi_name(alias) in normalized_text
             for alias in aliases
         )
+
+    def _lookup_known_destination_poi(self, name: str, city: str):
+        city_text = str(city or "").lower()
+        if "新加坡" not in city_text and "singapore" not in city_text:
+            return None
+        for poi in SINGAPORE_KNOWN_POIS:
+            if self._alias_in_text(name, poi["aliases"]):
+                return tuple(poi["coordinates"])
+        return None
+
+    def _macro_area(self, name: str) -> str:
+        normalized = self._normalize_poi_name(name)
+        for area in ["滨海湾", "圣淘沙", "小印度", "唐人街", "克拉码头"]:
+            if self._normalize_poi_name(area) in normalized:
+                return area
+        return ""
+
+    def _remove_non_requested_area_duplicates(self, geojson_data: dict, user_text: str) -> dict:
+        features = geojson_data.get("features", [])
+        points = [feature for feature in features if feature.get("geometry", {}).get("type") == "Point"]
+        removed_ids = set()
+
+        def is_requested(feature: dict) -> bool:
+            name = (feature.get("properties") or {}).get("name", "")
+            return self._alias_in_text(user_text, [name])
+
+        for index, first in enumerate(points):
+            if id(first) in removed_ids:
+                continue
+            first_props = first.get("properties") or {}
+            first_area = self._macro_area(first_props.get("name", ""))
+            if not first_area:
+                continue
+            for second in points[index + 1:]:
+                if id(second) in removed_ids:
+                    continue
+                second_props = second.get("properties") or {}
+                if first_props.get("day") != second_props.get("day"):
+                    continue
+                if first_area != self._macro_area(second_props.get("name", "")):
+                    continue
+                dist = self._distance_meters(
+                    first.get("geometry", {}).get("coordinates"),
+                    second.get("geometry", {}).get("coordinates"),
+                )
+                if dist >= 750:
+                    continue
+                first_requested = is_requested(first)
+                second_requested = is_requested(second)
+                if first_requested and second_requested:
+                    continue
+                remove_feature = first if second_requested else second
+                removed_ids.add(id(remove_feature))
+                print(
+                    f"      ↪️ 移除同区域过密 POI: {(remove_feature.get('properties') or {}).get('name', '')}"
+                )
+
+        if removed_ids:
+            geojson_data["features"] = [
+                feature for feature in features
+                if feature.get("geometry", {}).get("type") != "Point" or id(feature) not in removed_ids
+            ]
+        return geojson_data
 
     def _ensure_requested_known_pois(self, geojson_data: dict, user_text: str) -> dict:
         city = str(geojson_data.get("_city") or "")
@@ -419,6 +498,8 @@ class GeoJSONGenerationNode:
         props = feature.get("properties") or {}
         name = str(props.get("name") or props.get("label_title") or "")
         if name.endswith(("片区", "商圈", "街道", "区域", "范围", "新区", "城区")):
+            return True
+        if self._normalize_poi_name(name) in {"圣淘沙", "sentosa"}:
             return True
         if len(name) <= 4 and name.endswith(("区", "市", "县")):
             return True
@@ -758,6 +839,7 @@ class GeoJSONGenerationNode:
                     ]
                 geojson_data = self._correct_and_sync_topology(geojson_data)
                 geojson_data = self._ensure_requested_known_pois(geojson_data, state.user_text)
+                geojson_data = self._remove_non_requested_area_duplicates(geojson_data, state.user_text)
                 geojson_data = self._normalize_travel_semantics(geojson_data, state.visual_structure)
                 geojson_data = self._enforce_city_bounds(geojson_data)
                 geojson_data = self._annotate_feature_metadata(geojson_data)

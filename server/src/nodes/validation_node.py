@@ -4,6 +4,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from ..utils.agent_utils import AgentState, _extract_first_json_object, _robust_json_loads
 from ..utils.prompt_loader import load_prompt
 import copy
+import math
+import re
 
 class ValidationNode:
     """Node 5: GeoJSON 质量验证节点 (Critic Node)
@@ -71,8 +73,110 @@ class ValidationNode:
                 
         return qa_data
 
+    def _normalize_name(self, value: str) -> str:
+        return re.sub(r"[\s·•\-_/()（）【】\[\]，,。.:：;；'\"“”]", "", str(value or "").lower())
+
+    def _distance_meters(self, coord_a, coord_b) -> float:
+        try:
+            lon1, lat1 = float(coord_a[0]), float(coord_a[1])
+            lon2, lat2 = float(coord_b[0]), float(coord_b[1])
+        except (TypeError, ValueError, IndexError):
+            return float("inf")
+        radius = 6371000
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        d_phi = math.radians(lat2 - lat1)
+        d_lambda = math.radians(lon2 - lon1)
+        a = math.sin(d_phi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(d_lambda / 2) ** 2
+        return 2 * radius * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    def _mentioned_by_user(self, name: str, user_text: str) -> bool:
+        normalized_name = self._normalize_name(name)
+        normalized_user = self._normalize_name(user_text)
+        return bool(normalized_name and normalized_name in normalized_user)
+
+    def _macro_area(self, name: str) -> str:
+        normalized = self._normalize_name(name)
+        for area in ["滨海湾", "圣淘沙", "小印度", "唐人街", "克拉码头"]:
+            if self._normalize_name(area) in normalized:
+                return area
+        return ""
+
+    def _deterministic_geojson_issues(self, state: AgentState) -> list[str]:
+        data = state.geojson_data if isinstance(state.geojson_data, dict) else {}
+        user_text = state.user_text or ""
+        city = str(data.get("_city") or "")
+        issues = []
+        points = [
+            feature for feature in data.get("features", [])
+            if feature.get("geometry", {}).get("type") == "Point"
+        ]
+
+        if "新加坡" in city or "singapore" in city.lower():
+            for feature in points:
+                name = (feature.get("properties") or {}).get("name", "")
+                coords = feature.get("geometry", {}).get("coordinates")
+                try:
+                    lon, lat = float(coords[0]), float(coords[1])
+                except (TypeError, ValueError, IndexError):
+                    continue
+                if not (103.55 <= lon <= 104.15 and 1.15 <= lat <= 1.50):
+                    issues.append(f"{name} 坐标 {coords} 超出新加坡范围。")
+
+        for feature in points:
+            name = (feature.get("properties") or {}).get("name", "")
+            normalized = self._normalize_name(name)
+            if normalized in {"圣淘沙", "sentosa"}:
+                same_day_names = [
+                    (item.get("properties") or {}).get("name", "")
+                    for item in points
+                    if (item.get("properties") or {}).get("day") == (feature.get("properties") or {}).get("day")
+                ]
+                if any(
+                    self._normalize_name(candidate) in {"新加坡环球影城", "环球影城", "sea海洋馆", "sea水族馆", "西乐索海滩"}
+                    for candidate in same_day_names
+                ):
+                    issues.append("圣淘沙是区域/岛屿，不应在已有环球影城、S.E.A.海洋馆、西乐索海滩等具体 POI 时作为单独 Point。")
+
+        for index, first in enumerate(points):
+            first_props = first.get("properties") or {}
+            first_name = first_props.get("name", "")
+            first_day = first_props.get("day")
+            first_area = self._macro_area(first_name)
+            for second in points[index + 1:]:
+                second_props = second.get("properties") or {}
+                second_name = second_props.get("name", "")
+                if first_day != second_props.get("day"):
+                    continue
+                dist = self._distance_meters(
+                    first.get("geometry", {}).get("coordinates"),
+                    second.get("geometry", {}).get("coordinates"),
+                )
+                second_area = self._macro_area(second_name)
+                same_area = first_area and first_area == second_area
+                contains = (
+                    self._normalize_name(first_name) in self._normalize_name(second_name)
+                    or self._normalize_name(second_name) in self._normalize_name(first_name)
+                )
+                both_requested = self._mentioned_by_user(first_name, user_text) and self._mentioned_by_user(second_name, user_text)
+                if not both_requested and dist < 750 and (same_area or contains):
+                    issues.append(
+                        f"同一天存在疑似重复/过密 POI：{first_name} 与 {second_name} 相距约 {int(dist)} 米且同属{first_area or '相同'}区域；请保留更符合用户输入的一个。"
+                    )
+
+        return issues
+
     def execute(self, state: AgentState, max_global_retries: int = 3) -> AgentState:
         print("🕵️ [Node 5] GeoJSON 质量验证: 正在审查 Node 3 的输出...")
+
+        deterministic_issues = self._deterministic_geojson_issues(state)
+        if deterministic_issues and state.validation_retry_count < max_global_retries:
+            state.is_valid = False
+            state.failed_node = "node3"
+            state.validation_feedback = " ".join(deterministic_issues)
+            state.validation_retry_count += 1
+            print(f"   ⚠️ [Node 5] 程序化验证未通过，打回给 [node3]（第 {state.validation_retry_count} 次）。")
+            print(f"   📝 QA 建议: {state.validation_feedback}")
+            return state
 
         # 防止无限死循环
         if state.validation_retry_count >= max_global_retries:
