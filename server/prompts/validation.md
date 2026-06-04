@@ -18,6 +18,7 @@
    - 每天必须有一条 LineString。
    - LineString 的 `coordinates` 必须按当天 Point 的 `order` 排列。
    - Route `properties` 必须包含 `visual_id`、`name`、`day`、`point_names`。
+   - Route 坐标数量、坐标顺序、`point_names` 与 Point order 是否一致，以“程序化结构校验结果”为准；如果程序化校验已通过，不要再报告 LineString 遗漏某个 Point、坐标数量不一致或 point_names/order 不一致。
 
 4. **Global 结构**
    - `global_properties` 最多两项。
@@ -36,6 +37,7 @@
 ### 豁免审查清单
 1. 忽略标签锚点偏移；当前契约中标签由 Point properties 驱动，前端会进行布局。
 2. 忽略 LineString 中间路径细节；只检查其点序与当天 POI 顺序是否一致。
+3. 如果程序化结构校验已确认 Route 对齐，请不要人工复算数组长度或输出 Route 机械一致性错误；你的重点应放在 POI 是否真实、是否符合用户输入、是否重复/过密、是否与目的地一致。
 
 ### 输出格式
 你必须严格输出如下格式的 JSON，不要输出其他内容：

@@ -28,6 +28,9 @@ class ValidationNode:
 
 【原始用户请求】：{user_query}
 
+【程序化结构校验结果】：
+{deterministic_report}
+
 【Node 3 本轮最新 GeoJSON 输出(只包含本轮生成结果；坐标已为 QA 校验做过骨架精简，请忽略中间坐标的跳跃)】：
 {geojson_data}
 
@@ -101,7 +104,61 @@ class ValidationNode:
                 return area
         return ""
 
-    def _deterministic_geojson_issues(self, state: AgentState) -> list[str]:
+    def _coords_equal(self, first, second, tolerance: float = 1e-6) -> bool:
+        try:
+            return abs(float(first[0]) - float(second[0])) <= tolerance and abs(float(first[1]) - float(second[1])) <= tolerance
+        except (TypeError, ValueError, IndexError):
+            return False
+
+    def _route_consistency_issues(self, data: dict) -> list[str]:
+        issues = []
+        points_by_day: dict[str, list[dict]] = {}
+        routes_by_day: dict[str, list[dict]] = {}
+        for feature in data.get("features", []):
+            props = feature.get("properties") or {}
+            day = str(props.get("day") or "")
+            geom_type = (feature.get("geometry") or {}).get("type")
+            if not day:
+                continue
+            if geom_type == "Point":
+                points_by_day.setdefault(day, []).append(feature)
+            elif geom_type == "LineString":
+                routes_by_day.setdefault(day, []).append(feature)
+
+        for day, points in sorted(points_by_day.items()):
+            ordered_points = sorted(
+                points,
+                key=lambda feature: int((feature.get("properties") or {}).get("order") or 999),
+            )
+            if len(ordered_points) < 2:
+                continue
+            routes = routes_by_day.get(day) or []
+            if len(routes) != 1:
+                issues.append(f"{day} 应有且仅有一条 LineString，当前为 {len(routes)} 条。")
+                continue
+            route = routes[0]
+            route_props = route.get("properties") or {}
+            route_coords = (route.get("geometry") or {}).get("coordinates") or []
+            point_coords = [(point.get("geometry") or {}).get("coordinates") for point in ordered_points]
+            point_names = [(point.get("properties") or {}).get("name", "") for point in ordered_points]
+            route_names = route_props.get("point_names") or []
+            if len(route_coords) != len(point_coords):
+                issues.append(f"{day} route 坐标数量为 {len(route_coords)}，但当天 Point 数量为 {len(point_coords)}。")
+                continue
+            mismatch_index = next(
+                (
+                    index for index, (route_coord, point_coord) in enumerate(zip(route_coords, point_coords), start=1)
+                    if not self._coords_equal(route_coord, point_coord)
+                ),
+                None,
+            )
+            if mismatch_index is not None:
+                issues.append(f"{day} route 第 {mismatch_index} 个坐标未按当天 Point order 对齐。")
+            if list(route_names) != point_names:
+                issues.append(f"{day} route.point_names 与当天 Point order 不一致，应为 {point_names}。")
+        return issues
+
+    def _semantic_geojson_issues(self, state: AgentState) -> list[str]:
         data = state.geojson_data if isinstance(state.geojson_data, dict) else {}
         user_text = state.user_text or ""
         city = str(data.get("_city") or "")
@@ -174,6 +231,27 @@ class ValidationNode:
 
         return issues
 
+    def _deterministic_geojson_issues(self, state: AgentState) -> list[str]:
+        data = state.geojson_data if isinstance(state.geojson_data, dict) else {}
+        return self._semantic_geojson_issues(state) + self._route_consistency_issues(data)
+
+    def _deterministic_report(self, state: AgentState) -> str:
+        data = state.geojson_data if isinstance(state.geojson_data, dict) else {}
+        route_issues = self._route_consistency_issues(data)
+        if route_issues:
+            route_text = "Route 程序化校验失败：" + " ".join(route_issues)
+        else:
+            route_text = "Route 程序化校验已通过：每天 LineString 的坐标数量、坐标顺序和 point_names 已与当天 Point order 对齐；不要再报告 route 坐标数量、遗漏某个 Point、point_names/order 不一致等机械问题。"
+        return route_text
+
+    def _is_route_only_false_positive(self, feedback: str, state: AgentState) -> bool:
+        if self._route_consistency_issues(state.geojson_data if isinstance(state.geojson_data, dict) else {}):
+            return False
+        text = str(feedback or "")
+        route_markers = ["LineString", "route", "Route", "路线", "coordinates", "point_names", "order", "坐标数量", "遗漏"]
+        non_route_markers = ["重复", "过密", "超出", "区域/岛屿", "具体 POI", "global_properties", "global", "坐标错误", "不在", "目的地"]
+        return any(marker in text for marker in route_markers) and not any(marker in text for marker in non_route_markers)
+
     def execute(self, state: AgentState, max_global_retries: int = 3) -> AgentState:
         print("🕵️ [Node 5] GeoJSON 质量验证: 正在审查 Node 3 的输出...")
 
@@ -199,6 +277,7 @@ class ValidationNode:
             geojson_str = json.dumps(compressed_geojson, ensure_ascii=False)
             response = self.chain.invoke({
                 "user_query": state.user_text,
+                "deterministic_report": self._deterministic_report(state),
                 "geojson_data": geojson_str
             })
 
@@ -208,6 +287,12 @@ class ValidationNode:
             state.is_valid = result.get("is_valid", False)
             state.failed_node = result.get("failed_node", "none")
             state.validation_feedback = result.get("feedback", "")
+
+            if not state.is_valid and self._is_route_only_false_positive(state.validation_feedback, state):
+                print("   ↪️ [Node 5] LLM QA route 机械校验误判，程序化 route 校验已通过，本轮放行。")
+                state.is_valid = True
+                state.failed_node = "none"
+                state.validation_feedback = ""
 
             if state.is_valid:
                 print("   ✅ [Node 5] 验证通过！数据质量合格。")
