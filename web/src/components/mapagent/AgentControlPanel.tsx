@@ -47,6 +47,14 @@ const numberValue = (value: any, fallback = 0) => {
   return Number.isFinite(numeric) ? numeric : fallback;
 };
 
+const numericListValue = (value: string, fallback: number[] = []) => {
+  const next = value
+    .split(/[,\s]+/)
+    .map((item) => Number(item.trim()))
+    .filter((item) => Number.isFinite(item) && item > 0);
+  return next.length ? next : fallback;
+};
+
 const setNestedValue = (target: any, path: (string | number)[], value: any) => {
   let cursor = target;
   path.forEach((key, index) => {
@@ -121,7 +129,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   const isInputNodeSelected = selectedAgentSelection?.kind !== 'map_feature' && selectedAgentEvent?.node_id === 'input';
   const canRerun = Boolean(
     selectedAgentEvent &&
-    ['intent', 'visual', 'geojson', 'style', 'icon_generation', 'workflow_completed'].includes(
+    ['intent', 'visual', 'geojson', 'style', 'workflow_completed'].includes(
       selectedAgentEvent.node_id || selectedAgentEvent.type,
     )
   );
@@ -426,6 +434,54 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     </label>
   );
 
+  const renderLeaderLineControls = (
+    item: any,
+    onUpdate: (path: (string | number)[], value: any) => void,
+  ) => {
+    const leader = item?.leaderLine && typeof item.leaderLine === 'object' ? item.leaderLine : {};
+    const linePattern = leader.linePattern || (leader.dashArray || leader.dasharray ? 'dashed' : 'solid');
+    const updateColor = (value: string) => {
+      onUpdate(['leaderLine', 'Color'], value);
+      onUpdate(['leaderLine', 'color'], value);
+    };
+    return (
+      <div className="space-y-2 rounded border border-gray-100 bg-gray-50 p-2">
+        <div className="text-[10px] font-semibold text-gray-700">Leader Line</div>
+        {renderColorField('Color', leader.Color || leader.color, updateColor)}
+        <div className="grid grid-cols-2 gap-2">
+          {renderField('Width', leader.width ?? 1, (value) => onUpdate(['leaderLine', 'width'], numberValue(value, leader.width ?? 1)))}
+          {renderField('Opacity', leader.opacity ?? 0.55, (value) => onUpdate(['leaderLine', 'opacity'], Math.max(0, Math.min(1, numberValue(value, leader.opacity ?? 0.55)))))}
+        </div>
+        <div className="grid grid-cols-2 gap-1">
+          {(['solid', 'dashed'] as const).map((pattern) => (
+            <button
+              key={pattern}
+              type="button"
+              onClick={() => onUpdate(['leaderLine', 'linePattern'], pattern)}
+              className={`min-w-0 truncate rounded border px-1.5 py-1 text-[10px] ${
+                linePattern === pattern
+                  ? 'border-gray-900 bg-gray-900 text-white'
+                  : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {pattern}
+            </button>
+          ))}
+        </div>
+        {renderField('Dash', asArray(leader.dashArray || leader.dasharray).join(', '), (value) => onUpdate(['leaderLine', 'dashArray'], numericListValue(value, [3, 3])))}
+        <label className="flex items-center justify-between rounded border border-gray-100 bg-white px-2 py-1.5 text-[10px] text-gray-700">
+          <span className="font-medium">Arrow</span>
+          <input
+            type="checkbox"
+            checked={Boolean(leader.arrow)}
+            onChange={(event) => onUpdate(['leaderLine', 'arrow'], event.target.checked)}
+            className="h-3.5 w-3.5"
+          />
+        </label>
+      </div>
+    );
+  };
+
   const renderNodeInfo = () => {
     if (!selectedAgentEvent && !selectedAgentSelection) return null;
     return (
@@ -482,6 +538,10 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     if (!feature?.geometry) return null;
     const props = feature.properties || {};
     const geometryType = feature.geometry?.type || selectedAgentSelection.payload?.geometryType;
+    const linkedLabelStyleIndex = Number(selectedAgentSelection.payload?.labelStyleIndex);
+    const linkedLabelStyle = Number.isInteger(linkedLabelStyleIndex) && linkedLabelStyleIndex >= 0
+      ? manifest?.Label?.[linkedLabelStyleIndex] || selectedAgentSelection.payload?.labelStyle
+      : null;
     return (
       <div ref={mapFeatureRef} className="mb-3 scroll-mt-3 space-y-3 rounded border border-gray-300 bg-gray-50 p-2 ring-1 ring-gray-200">
         <div className="flex items-center justify-between">
@@ -531,6 +591,10 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
             <option value="detail">detail</option>
           </select>
         </label>
+        {linkedLabelStyle && renderLeaderLineControls(
+          linkedLabelStyle,
+          (path, value) => updateStyleSectionLive('Label', linkedLabelStyleIndex, path, value),
+        )}
       </div>
     );
   };
@@ -583,6 +647,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
         {renderColorField('Title', item.style?.title?.color, (value) => updateSelectedManifestStyle(['style', 'title', 'color'], value))}
         {renderColorField('Script', item.style?.script?.color, (value) => updateSelectedManifestStyle(['style', 'script', 'color'], value))}
         {renderColorField('Extra', item.style?.extra_info?.color, (value) => updateSelectedManifestStyle(['style', 'extra_info', 'color'], value))}
+        {renderLeaderLineControls(item, updateSelectedManifestStyle)}
       </div>
     );
   };
@@ -898,6 +963,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
                   {renderColorField('Title', item.style?.title?.color, (value) => updateStyleSectionLive('Label', index, ['style', 'title', 'color'], value))}
                   {renderColorField('Script', item.style?.script?.color, (value) => updateStyleSectionLive('Label', index, ['style', 'script', 'color'], value))}
                   {renderColorField('Extra', item.style?.extra_info?.color, (value) => updateStyleSectionLive('Label', index, ['style', 'extra_info', 'color'], value))}
+                  {renderLeaderLineControls(item, (path, value) => updateStyleSectionLive('Label', index, path, value))}
                 </div>
               ))}
             </div>

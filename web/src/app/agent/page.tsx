@@ -35,13 +35,6 @@ const DEFAULT_FIELD_OVERRIDE: FieldParamsOverride = {
   cellSize: 24,
 };
 
-const countPointIcons = (styleCode: any) => {
-  const generated = styleCode?._icon_generation?.generated_count;
-  if (Number.isFinite(Number(generated))) return Number(generated);
-  const points = Array.isArray(styleCode?.Point) ? styleCode.Point : [];
-  return points.filter((point: any) => Boolean(point?.url)).length;
-};
-
 const buildSessionAgentEvents = (data: any): AgentRunEvent[] => {
   const sessionId = data?.session_id || 'history';
   const runId = data?.session_manifest?.session_id || sessionId;
@@ -117,10 +110,6 @@ const buildSessionAgentEvents = (data: any): AgentRunEvent[] => {
     pushCompleted('style', 'Style Code', {
       style_code: data.style_code,
       style_sections: outputs.style_sections || Object.keys(data.style_code || {}).filter((key) => !key.startsWith('_')),
-    });
-    pushCompleted('icon_generation', 'Icon Generation', {
-      style_code: data.style_code,
-      icon_generation: data.style_code?._icon_generation || { generated_count: countPointIcons(data.style_code), errors: [] },
     });
   }
 

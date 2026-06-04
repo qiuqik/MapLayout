@@ -113,6 +113,32 @@ export const getFeatureLabelId = (feature: any, labelStyle?: any) => {
   return `label-${base || 'poi'}-${hierarchy}-${contentType}`;
 };
 
+const numericArray = (value: unknown): number[] => (
+  Array.isArray(value)
+    ? value.map(Number).filter((item) => Number.isFinite(item) && item > 0)
+    : []
+);
+
+export const resolveLeaderLineStyle = (labelStyle: any) => {
+  const leader = labelStyle?.leaderLine && typeof labelStyle.leaderLine === 'object'
+    ? labelStyle.leaderLine
+    : {};
+  const container = labelStyle?.style?.container && typeof labelStyle.style.container === 'object'
+    ? labelStyle.style.container
+    : {};
+  const color = leader.Color || leader.color || container.borderColor || container.color || '#4B5563';
+  const linePattern = String(leader.linePattern || leader.pattern || (leader.dashArray || leader.dasharray ? 'dashed' : 'solid')).toLowerCase();
+  const dashArray = numericArray(leader.dashArray || leader.dasharray);
+  return {
+    color,
+    width: Math.max(1, Number(leader.width || leader.lineWidth || 1)),
+    opacity: Number.isFinite(Number(leader.opacity)) ? Number(leader.opacity) : 0.55,
+    linePattern,
+    dashArray: linePattern === 'dashed' ? (dashArray.length ? dashArray : [3, 3]) : [],
+    arrow: Boolean(leader.arrow),
+  };
+};
+
 const escapeHtml = (value: unknown) => String(value ?? '')
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')

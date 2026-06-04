@@ -330,7 +330,7 @@ class MultiModalMapAgent:
             return {"agent_state": state}
 
         def node_style(data: GraphState):
-            """execute Node 4 style generate"""
+            """execute Node 4 style generation and icon tool."""
             state = data["agent_state"]
             self._emit_event(
                 "node_started",
@@ -342,42 +342,11 @@ class MultiModalMapAgent:
             start = time.perf_counter()
             state = self.style_node.execute(state)
             self._active_node_timings["node4_style"] = round((time.perf_counter() - start) * 1000, 2)
-            style_sections = sorted([k for k in state.style_code.keys() if not k.startswith("_")]) if isinstance(state.style_code, dict) else []
-            self._emit_event(
-                "node_completed",
-                session_id=state.session_id,
-                node_id="style",
-                label="Style generation",
-                status="completed",
-                payload={"style_sections": style_sections, "style_code": state.style_code},
-            )
-            return {"agent_state": state}
-
-        def node_icon(data: GraphState):
-            """execute Node 6 icon generation and persist final style JSON"""
-            state = data["agent_state"]
-            self._emit_event(
-                "node_started",
-                session_id=state.session_id,
-                node_id="icon_generation",
-                label="Icon generation",
-                status="running",
-            )
-            start = time.perf_counter()
-            state = self.icon_node.execute(state, self.session_manager.get_session_dir())
-            self._active_node_timings["node6_icon_generation"] = round((time.perf_counter() - start) * 1000, 2)
+            icon_start = time.perf_counter()
+            if not state.error:
+                state = self.icon_node.execute(state, self.session_manager.get_session_dir())
+            self._active_node_timings["node4_icon_tool"] = round((time.perf_counter() - icon_start) * 1000, 2)
             icon_meta = state.style_code.get("_icon_generation", {}) if isinstance(state.style_code, dict) else {}
-            self._emit_event(
-                "node_completed",
-                session_id=state.session_id,
-                node_id="icon_generation",
-                label="Icon generation",
-                status="completed",
-                payload={
-                    "icon_generation": icon_meta,
-                    "style_code": state.style_code,
-                },
-            )
             if isinstance(state.style_code, dict):
                 for point_style in state.style_code.get("Point") or []:
                     if isinstance(point_style, dict) and point_style.get("icon_path"):
@@ -385,12 +354,20 @@ class MultiModalMapAgent:
                         if icon_path not in self.session_manager.saved_files:
                             self.session_manager.saved_files.append(icon_path)
             style_sections = sorted([k for k in state.style_code.keys() if not k.startswith("_")]) if isinstance(state.style_code, dict) else []
+            self._emit_event(
+                "node_completed",
+                session_id=state.session_id,
+                node_id="style",
+                label="Style generation",
+                status="completed",
+                payload={"style_sections": style_sections, "style_code": state.style_code, "icon_generation": icon_meta},
+            )
             style_path = self.session_manager.save_file(state.style_code, f"style_{state.session_id}.json", "node4")
             self._emit_event(
                 "artifact_saved",
                 session_id=state.session_id,
-                node_id="icon_generation",
-                label="Style artifact saved after icon generation",
+                node_id="style",
+                label="Style artifact saved",
                 status="completed",
                 payload={
                     "path": style_path,
@@ -425,7 +402,6 @@ class MultiModalMapAgent:
         workflow.add_node("GeoJSON", node_geojson)
         workflow.add_node("Validate", node_validate)
         workflow.add_node("Style", node_style)
-        workflow.add_node("IconGeneration", node_icon)
 
         # 边
         workflow.add_edge("InitParallel", "GeoJSON")
@@ -443,8 +419,7 @@ class MultiModalMapAgent:
         )
         
         # 收尾
-        workflow.add_edge("Style", "IconGeneration")
-        workflow.add_edge("IconGeneration", END)
+        workflow.add_edge("Style", END)
 
         # 入口
         workflow.set_entry_point("InitParallel")

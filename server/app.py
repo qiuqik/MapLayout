@@ -49,6 +49,10 @@ class RerunDownstreamRequest(BaseModel):
     payload: dict
 
 
+class NavigationRouteRequest(BaseModel):
+    coordinates: list[list[float]]
+
+
 def _resolve_multimodal_session_dir(session_id: str) -> str | None:
     """Resolve either an exact output folder name or a raw run/session id suffix."""
     base = os.path.join(os.path.dirname(__file__), 'output')
@@ -172,6 +176,28 @@ def process_geojson_for_frontend(geojson_data, style_code=None):
             props['label_coord'] = list(gcj02_to_wgs84(props['label_coord'][0], props['label_coord'][1]))
 
     return processed
+
+
+@app.post("/api/multimodal/route/navigation")
+async def build_navigation_route(request: NavigationRouteRequest):
+    """Return walking-route geometry for an already WGS84 LineString."""
+    coordinates = request.coordinates or []
+    if len(coordinates) < 2:
+        return JSONResponse(status_code=400, content={"error": "coordinates must contain at least two positions"})
+
+    mapbox_token = os.getenv("MAPBOX_TOKEN")
+    if not mapbox_token:
+        return {
+            "coordinates": coordinates,
+            "source": "fallback",
+            "warning": "MAPBOX_TOKEN is not configured",
+        }
+
+    route_coords = _fetch_walking_route(coordinates, mapbox_token)
+    return {
+        "coordinates": route_coords,
+        "source": "mapbox" if route_coords != coordinates else "fallback",
+    }
 
 
 # 返回所有 geojson 文件
@@ -860,35 +886,29 @@ async def rerun_multimodal_downstream(session_id: str, request: RerunDownstreamR
             if has_hard_error():
                 return JSONResponse(status_code=500, content={"error": state.error, "events": events})
             style_code = state.style_code
-            style_sections = sorted([k for k in state.style_code.keys() if not k.startswith("_")]) if isinstance(state.style_code, dict) else []
-            append_event(
-                "node_completed",
-                "style",
-                "Style generation",
-                "completed",
-                {"style_sections": style_sections, "style_code": state.style_code},
-            )
+        elif node_id in {"style", "icon_generation"}:
+            append_event("node_started", "style", "Style generation", "running")
 
-        append_event("node_started", "icon_generation", "Icon generation", "running")
         state = agent.icon_node.execute(state, base)
         if has_hard_error():
             return JSONResponse(status_code=500, content={"error": state.error, "events": events})
         style_code = state.style_code
         icon_meta = state.style_code.get("_icon_generation", {}) if isinstance(state.style_code, dict) else {}
+        style_sections = sorted([k for k in state.style_code.keys() if not k.startswith("_")]) if isinstance(state.style_code, dict) else []
         append_event(
             "node_completed",
-            "icon_generation",
-            "Icon generation",
+            "style",
+            "Style generation",
             "completed",
-            {"icon_generation": icon_meta, "style_code": state.style_code},
+            {"style_sections": style_sections, "style_code": state.style_code, "icon_generation": icon_meta},
         )
 
         style_path = save_artifact(
             state.style_code,
             f"style_{session_id}.json",
             "node4",
-            "icon_generation",
-            "Style artifact saved after icon generation",
+            "style",
+            "Style artifact saved",
             {"style_sections": sorted([k for k in state.style_code.keys() if not k.startswith("_")]) if isinstance(state.style_code, dict) else [], "icon_generation": icon_meta},
         )
 

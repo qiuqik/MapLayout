@@ -10,6 +10,7 @@ import {
   TransformedMapData,
   buildLabelHtml,
   getFeatureLabelId,
+  resolveLeaderLineStyle,
   selectLabelStyleForFeature,
 } from './utils/mapUtils';
 import GlobalRenderer from './renderers/GlobalRenderer';
@@ -27,6 +28,7 @@ import { runVoronoiForceLayout, DEFAULT_VORONOI, DEFAULT_VORONOI_FORCE } from '@
 import DebugOverlay from './DebugOverlay';
 import type { ForceParamsOverride, FieldParamsOverride } from './ForceParamsPanel';
 import { useAgentMap } from '@/lib/agentMapContext';
+import { API_BASE_URL } from '@/lib/api';
 
 type MapSearchResult = {
   id: string;
@@ -60,6 +62,32 @@ const DEFAULT_FIELD: FieldParamsOverride = {
   obstaclePadding: 6,
   cellSize: 24,
 };
+
+const routeStyleAliases: Record<string, 'straight' | 'bezier' | 'navigation'> = {
+  straight: 'straight',
+  line: 'straight',
+  direct: 'straight',
+  bezier: 'bezier',
+  navigation: 'navigation',
+  '直线': 'straight',
+  '贝塞尔': 'bezier',
+  '曲线': 'bezier',
+  '导航': 'navigation',
+  '导航路线': 'navigation',
+};
+
+const normalizeRouteRenderStyle = (value: unknown): 'straight' | 'bezier' | 'navigation' => {
+  const key = String(value ?? '').trim().toLowerCase().replace(/[^a-z0-9\u4e00-\u9fff]+/g, '');
+  return routeStyleAliases[key] ?? 'bezier';
+};
+
+const routeCoordinateKey = (coordinates: unknown) => (
+  Array.isArray(coordinates)
+    ? coordinates
+        .map((coord: any) => Array.isArray(coord) ? `${Number(coord[0]).toFixed(5)},${Number(coord[1]).toFixed(5)}` : '')
+        .join('|')
+    : ''
+);
 
 function initialMapFrameSize() {
   if (typeof window === 'undefined') return { width: 900, height: 640 };
@@ -128,6 +156,13 @@ function getResponsiveOverlayScale(
   return Number((base * density * hierarchyFactor).toFixed(3));
 }
 
+function getViewportVisualScale(viewport: { width: number; height: number } | null) {
+  const width = viewport?.width || 1100;
+  const height = viewport?.height || 720;
+  const scale = Math.min(width / 1100, height / 720);
+  return Number(Math.max(0.58, Math.min(1.15, scale)).toFixed(3));
+}
+
 function shouldHideOverlay(
   hierarchy: LayoutItemHierarchy,
   viewport: { width: number; height: number } | null,
@@ -147,7 +182,7 @@ const MAPBOX_LAYER_TARGETS: Record<string, string[]> = {
   landuse_park: ['landuse-park', 'national-park', 'park', 'landuse'],
   park: ['landuse-park', 'national-park', 'park', 'landuse'],
   building: ['building', 'building-top', 'building-outline'],
-  road_primary: ['road-primary', 'road-motorway-trunk', 'road-major-link'],
+  road_primary: ['road','road-simple','road-primary', 'road-motorway-trunk', 'road-major-link','bridge-simple','tunnel-simple'],
   road_secondary: ['road-secondary-tertiary', 'road-street', 'road-minor', 'road-path', 'road-steps'],
   road: ['road-motorway-trunk', 'road-primary', 'road-secondary-tertiary', 'road-street', 'road-minor', 'road-path', 'road-steps'],
   road_label: [
@@ -301,6 +336,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const [placeMatches, setPlaceMatches] = useState<MapSearchResult[]>([]);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const [isExportingPng, setIsExportingPng] = useState(false);
+  const [navigationLineCache, setNavigationLineCache] = useState<Record<string, number[][]>>({});
   // Bounding rects of global items in map-container px space (set via onMeasured callback).
   const globalRectsRef = useRef<Rect[]>([]);
   // Always points to the latest recomputeLayout closure so handleGlobalMeasured can call it.
@@ -340,8 +376,61 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const pointStyles = styleCode?.Point || [];
   const labelStyles = styleCode?.Label || [];
 
-  // 后端已返回处理好的步行路线，直接使用
-  const displayLines = transformedData.lines;
+  const baseLines = transformedData.lines;
+  useEffect(() => {
+    let cancelled = false;
+    const pending = baseLines
+      .map((feature: any) => {
+        const visualId = feature.properties?.visual_id;
+        const routeStyle = routeStyles.find((item: any) => item.visual_id === visualId);
+        const coordinates = feature.geometry?.coordinates;
+        if (!visualId || normalizeRouteRenderStyle(routeStyle?.style) !== 'navigation' || !Array.isArray(coordinates) || coordinates.length < 2) {
+          return null;
+        }
+        const cacheKey = `${visualId}:${routeCoordinateKey(coordinates)}`;
+        return navigationLineCache[cacheKey] ? null : { cacheKey, coordinates };
+      })
+      .filter(Boolean) as { cacheKey: string; coordinates: number[][] }[];
+    if (pending.length === 0) return;
+
+    pending.forEach(async ({ cacheKey, coordinates }) => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/multimodal/route/navigation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ coordinates }),
+        });
+        const data = await response.json();
+        if (!response.ok || !Array.isArray(data.coordinates)) throw new Error(data.error || 'Navigation route failed');
+        if (cancelled) return;
+        setNavigationLineCache((cache) => cache[cacheKey] ? cache : { ...cache, [cacheKey]: data.coordinates });
+      } catch (error) {
+        console.warn('Navigation route fallback:', error);
+        if (!cancelled) setNavigationLineCache((cache) => cache[cacheKey] ? cache : { ...cache, [cacheKey]: coordinates });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [baseLines, navigationLineCache, routeStyles]);
+
+  const displayLines = useMemo(() => baseLines.map((feature: any) => {
+    const visualId = feature.properties?.visual_id;
+    const routeStyle = routeStyles.find((item: any) => item.visual_id === visualId);
+    const coordinates = feature.geometry?.coordinates;
+    if (!visualId || normalizeRouteRenderStyle(routeStyle?.style) !== 'navigation' || !Array.isArray(coordinates)) return feature;
+    const cacheKey = `${visualId}:${routeCoordinateKey(coordinates)}`;
+    const navigationCoordinates = navigationLineCache[cacheKey];
+    if (!navigationCoordinates) return feature;
+    return {
+      ...feature,
+      geometry: {
+        ...feature.geometry,
+        coordinates: navigationCoordinates,
+      },
+    };
+  }), [baseLines, navigationLineCache, routeStyles]);
   const effectiveMapDrag = draggable || mapTool === 'pan';
 
   const searchablePois = useMemo<MapSearchResult[]>(() => (
@@ -1147,16 +1236,54 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     if (!root || isExportingPng) return;
     setIsExportingPng(true);
     try {
+      const raw = mapRef.current as any;
+      const map = raw?.getMap ? raw.getMap() : raw;
+      const mapCanvas = map?.getCanvas?.() as HTMLCanvasElement | undefined;
+      if (!mapCanvas) throw new Error('Map canvas is not ready');
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          if (map.loaded?.()) {
+            resolve();
+            return;
+          }
+          map.once?.('idle', () => resolve());
+        }),
+        new Promise<void>((resolve) => window.setTimeout(resolve, 800)),
+      ]);
+      await (document as any).fonts?.ready?.catch?.(() => undefined);
+
       const html2canvas = (await import('html2canvas')).default;
-      const canvas = await html2canvas(root, {
+      const rect = root.getBoundingClientRect();
+      const scale = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+      const output = document.createElement('canvas');
+      output.width = Math.round(rect.width * scale);
+      output.height = Math.round(rect.height * scale);
+      const context = output.getContext('2d');
+      if (!context) throw new Error('Canvas export context unavailable');
+      context.scale(scale, scale);
+      context.drawImage(mapCanvas, 0, 0, rect.width, rect.height);
+
+      const overlayCanvas = await html2canvas(root, {
         backgroundColor: null,
         useCORS: true,
         allowTaint: true,
         logging: false,
-        ignoreElements: (element) => element.getAttribute('data-export-ignore') === 'true',
+        scale,
+        ignoreElements: (element) => (
+          element.getAttribute('data-export-ignore') === 'true' ||
+          element instanceof HTMLCanvasElement
+        ),
+        onclone: (documentClone) => {
+          const clonedRoot = documentClone.querySelector('[data-agent-map-frame="true"]') as HTMLElement | null;
+          if (clonedRoot) {
+            clonedRoot.style.background = 'transparent';
+            clonedRoot.style.boxShadow = 'none';
+          }
+        },
       });
+      context.drawImage(overlayCanvas, 0, 0, rect.width, rect.height);
       const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((nextBlob) => {
+        output.toBlob((nextBlob) => {
           if (nextBlob) resolve(nextBlob);
           else reject(new Error('Canvas export returned an empty image'));
         }, 'image/png');
@@ -1233,9 +1360,18 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const displayLeaderLines = currentDataset === 'groundtruth' && groundtruthLeaderLines.length > 0
     ? groundtruthLeaderLines
     : layoutState.leaderLines;
+  const labelStyleByOutputId = useMemo(() => {
+    const next = new Map<string, any>();
+    transformedData.points.forEach((feature: any) => {
+      const labelStyle = selectLabelStyleForFeature(feature, labelStyles);
+      next.set(getFeatureLabelId(feature, labelStyle), labelStyle);
+    });
+    return next;
+  }, [labelStyles, transformedData.points]);
   const fallbackOverlayCount = transformedData.points.length;
   const fallbackLabelScale = getResponsiveOverlayScale('secondary', viewportSize, fallbackOverlayCount);
   const hideDetailLabels = shouldHideOverlay('detail', viewportSize, fallbackOverlayCount);
+  const viewportVisualScale = getViewportVisualScale(viewportSize);
   const mapOverlayReady = mapLoaded && Boolean((mapRef.current as any)?.getMap ? (mapRef.current as any).getMap() : mapRef.current);
   const frameBounds = useCallback(() => {
     const parent = rootRef.current?.parentElement?.getBoundingClientRect();
@@ -1560,12 +1696,18 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
           doubleClickZoom={effectiveMapDrag}
           preserveDrawingBuffer
         >
-          <RouteRenderer routeStyles={routeStyles} transformedLayers={transformedLayers} selectedRouteId={selectedRouteId} />
+          <RouteRenderer
+            routeStyles={routeStyles}
+            transformedLayers={transformedLayers}
+            selectedRouteId={selectedRouteId}
+            visualScale={viewportVisualScale}
+          />
           {mapOverlayReady && (
             <PointRenderer
               points={transformedData.points}
               pointStyles={pointStyles}
               globalProps={transformedData.globalProps}
+              visualScale={viewportVisualScale}
               selectable={mapTool === 'select'}
               onFeatureSelect={selectMapFeature}
             />
@@ -1600,18 +1742,45 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
             height="100%"
             style={{ position: 'absolute', inset: 0, overflow: 'visible' }}
           >
-            {displayLeaderLines.map((l) => (
-              <line
-                key={`leader-${l.id}`}
-                x1={l.x1}
-                y1={l.y1}
-                x2={l.x2}
-                y2={l.y2}
-                stroke="rgba(0,0,0,0.45)"
-                strokeWidth={1}
-                strokeDasharray="3 3"
-              />
-            ))}
+            <defs>
+              {displayLeaderLines.map((l, index) => {
+                const leaderStyle = resolveLeaderLineStyle(labelStyleByOutputId.get(l.id));
+                if (!leaderStyle.arrow) return null;
+                const markerId = `leader-arrow-${index}`;
+                return (
+                  <marker
+                    key={`leader-arrow-${l.id}`}
+                    id={markerId}
+                    markerWidth="8"
+                    markerHeight="8"
+                    refX="7"
+                    refY="4"
+                    orient="auto"
+                    markerUnits="strokeWidth"
+                  >
+                    <path d="M0,0 L8,4 L0,8 Z" fill={leaderStyle.color} opacity={leaderStyle.opacity} />
+                  </marker>
+                );
+              })}
+            </defs>
+            {displayLeaderLines.map((l, index) => {
+              const leaderStyle = resolveLeaderLineStyle(labelStyleByOutputId.get(l.id));
+              const markerId = `leader-arrow-${index}`;
+              return (
+                <line
+                  key={`leader-${l.id}`}
+                  x1={l.x1}
+                  y1={l.y1}
+                  x2={l.x2}
+                  y2={l.y2}
+                  stroke={leaderStyle.color}
+                  strokeWidth={leaderStyle.width}
+                  strokeOpacity={leaderStyle.opacity}
+                  strokeDasharray={leaderStyle.dashArray.join(' ') || undefined}
+                  markerEnd={leaderStyle.arrow ? `url(#${markerId})` : undefined}
+                />
+              );
+            })}
           </svg>
 
           {layoutState.outputs.map((o) => {

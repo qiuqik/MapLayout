@@ -31,7 +31,7 @@ class StyleCodeGenerationNode:
     """
 
     PROMPT_NAME = "style_code_generation"
-    PROMPT_VERSION = "v0.4"
+    PROMPT_VERSION = "v0.5"
 
     def __init__(self, llm: ChatOpenAI):
         self.llm = llm
@@ -66,6 +66,25 @@ class StyleCodeGenerationNode:
         if text in {"dashed", "dash", "虚线"} or item.get("dasharray") or item.get("dashArray"):
             return "dashed"
         return "solid"
+
+    def _normalize_leader_line(self, item: dict, default_color: str) -> dict:
+        source = item.get("leaderLine") if isinstance(item.get("leaderLine"), dict) else {}
+        line_pattern = self._normalize_line_pattern(source)
+        color = (
+            source.get("Color")
+            or source.get("color")
+            or source.get("lineColor")
+            or default_color
+        )
+        return {
+            "Color": color,
+            "color": color,
+            "width": self._number(source.get("width") or source.get("lineWidth"), 1, 1, 8),
+            "linePattern": line_pattern,
+            "dashArray": source.get("dashArray") or source.get("dasharray") or ([3, 3] if line_pattern == "dashed" else []),
+            "arrow": source.get("arrow", False),
+            "opacity": source.get("opacity", 0.58),
+        }
 
     def _normalize_label_hierarchy(self, value: Any, fallback: str) -> str:
         aliases = {
@@ -264,6 +283,11 @@ class StyleCodeGenerationNode:
                 hierarchy,
             )
             collision = item.get("collision") if isinstance(item.get("collision"), dict) else {}
+            default_leader_color = (
+                style.get("container", {}).get("borderColor")
+                or style.get("title", {}).get("color")
+                or "#4B5563"
+            )
             normalized = dict(item)
             normalized.update(
                 {
@@ -275,6 +299,7 @@ class StyleCodeGenerationNode:
                     "width": self._number(item.get("width") or default_style.get("_defaultWidth"), 190, 96, 320),
                     "height": self._number(item.get("height") or default_style.get("_defaultHeight"), 68, 32, 180),
                     "style": style,
+                    "leaderLine": self._normalize_leader_line(item, default_leader_color),
                     "collision": {
                         "priority": collision.get("priority", 3 if hierarchy == "core" else 2 if hierarchy == "secondary" else 1),
                         "canShrink": collision.get("canShrink", hierarchy != "core"),
@@ -297,6 +322,10 @@ class StyleCodeGenerationNode:
                 "width": self._default_label_style(hierarchy)["_defaultWidth"],
                 "height": self._default_label_style(hierarchy)["_defaultHeight"],
                 "style": self._normalize_sectioned_style({}, self._default_label_style(hierarchy)),
+                "leaderLine": self._normalize_leader_line(
+                    {},
+                    self._default_label_style(hierarchy)["container"]["borderColor"],
+                ),
                 "collision": {
                     "priority": 3 if hierarchy == "core" else 2 if hierarchy == "secondary" else 1,
                     "canShrink": hierarchy != "core",

@@ -7,6 +7,7 @@ interface PointRendererProps {
   points: any[];
   pointStyles: any[];
   globalProps?: any;
+  visualScale?: number;
   selectable?: boolean;
   onFeatureSelect?: (feature: any, kind: 'point') => void;
 }
@@ -26,7 +27,7 @@ const resolvePointSize = (pointStyle: any): { width: number; height: number } =>
   return { width: safeSize, height: safeSize };
 };
 
-const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, selectable = false, onFeatureSelect }) => {
+const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, visualScale = 1, selectable = false, onFeatureSelect }) => {
   const renderPointIcon = (pointStyle: any, feature: any) => {
     const rawIconSrc = pointStyle.url;
     const iconSrc = rawIconSrc
@@ -35,7 +36,9 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, sele
         : `${API_BASE_URL}${rawIconSrc}`
       : '';
     const visualStyle = pointStyle.style && typeof pointStyle.style === 'object' ? pointStyle.style : {};
-    const { width, height } = resolvePointSize(pointStyle);
+    const rawSize = resolvePointSize(pointStyle);
+    const width = Math.max(10, Math.round(rawSize.width * visualScale));
+    const height = Math.max(10, Math.round(rawSize.height * visualScale));
     const fallback = pointStyle.fallback && typeof pointStyle.fallback === 'object' ? pointStyle.fallback : {};
     const fallbackColor = visualStyle.color || pointStyle.color || fallback.color || '#E4572E';
 
@@ -79,7 +82,9 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, sele
         if (!pointStyle) return null;
 
         const [lng, lat] = feature.geometry.coordinates;
-        const { width, height } = resolvePointSize(pointStyle);
+        const rawSize = resolvePointSize(pointStyle);
+        const width = Math.max(10, Math.round(rawSize.width * visualScale));
+        const height = Math.max(10, Math.round(rawSize.height * visualScale));
         
         return (
           <Marker

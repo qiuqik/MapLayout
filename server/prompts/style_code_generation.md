@@ -34,9 +34,11 @@
 - `width`
 - `height`
 - `style`: 前端创建 DOM 时使用的样式代码对象，包含 `container`、`title`、`script`、`extra_info` 四组 CSS-like 属性。
+- `leaderLine`: 控制 POI 与 label 卡片的连接线，字段与 Route 线条一致：`Color`、`color`、`width`、`linePattern`、`dashArray`、`arrow`、`opacity`。
 - `collision`: 包含 `priority`、`canShrink`、`canHide`。
 - `core` 优先级最高，`secondary` 次之，`detail` 最容易触发退让、缩小或隐藏。
 - `container` 控制背景、边框、阴影、内边距；`title`、`script`、`extra_info` 分别控制三层文字。
+- `leaderLine.Color/color` 必须与 label 边框或路线主色协调，不能与地图底图混淆；`linePattern` 只能是 `"solid"` 或 `"dashed"`；虚线时输出 `dashArray`，实线时输出空数组；默认不绘制箭头，除非连接方向需要强调。
 
 ## Global 样式
 输出两个固定槽位：

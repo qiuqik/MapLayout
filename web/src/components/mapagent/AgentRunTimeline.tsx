@@ -21,7 +21,6 @@ const NODE_ORDER = [
   { id: 'geojson', label: 'GeoJSON' },
   { id: 'validation', label: 'QA' },
   { id: 'style', label: 'Style' },
-  { id: 'icon_generation', label: 'Icons' },
 ];
 
 const NODE_WIDTH = 116;
@@ -33,7 +32,6 @@ const FLOW_POSITIONS: Record<string, { x: number; y: number }> = {
   geojson: { x: 428, y: 67 },
   validation: { x: 656, y: 67 },
   style: { x: 884, y: 67 },
-  icon_generation: { x: 1112, y: 67 },
 };
 
 const compactText = (value: unknown, max = 86) => {
@@ -60,7 +58,12 @@ const summarizeEvent = (event?: AgentRunEvent) => {
   }
   if (event.node_id === 'geojson') return `${payload.feature_count ?? 0} features`;
   if (event.node_id === 'validation') return payload.is_valid ? 'Passed' : compactText(payload.validation_feedback || 'Needs retry');
-  if (event.node_id === 'style') return (payload.style_sections || []).join(', ');
+  if (event.node_id === 'style') {
+    const sections = (payload.style_sections || []).join(', ');
+    const iconMeta = payload.icon_generation || payload.style_code?._icon_generation;
+    const iconText = iconMeta ? `${iconMeta.generated_count ?? 0} icons${iconMeta.errors?.length ? `, ${iconMeta.errors.length} errors` : ''}` : '';
+    return [sections, iconText].filter(Boolean).join(' · ');
+  }
   if (event.node_id === 'icon_generation') {
     const meta = payload.icon_generation || {};
     return `${meta.generated_count ?? 0} generated${meta.errors?.length ? `, ${meta.errors.length} errors` : ''}`;
@@ -312,17 +315,12 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       complete: completedNodeIds.has('validation') && completedNodeIds.has('style'),
       dashed: true,
     });
-    addFlowEdge('edge-style-icons', 'style', 'icon_generation', {
-      active: isAgentRunning && runningNodeId === 'icon_generation' && completedNodeIds.has('style'),
-      complete: completedNodeIds.has('style') && completedNodeIds.has('icon_generation'),
-      dashed: true,
-    });
     addFlowEdge('edge-validation-retry-geojson', 'validation', 'geojson', {
       label: 'retry',
       active: isAgentRunning && runningNodeId === 'geojson' && Boolean(statesByNode.get('validation')?.failed),
       complete: false,
       dashed: true,
-      type: 'smoothstep',
+      type: 'simplebezier',
     });
 
     return { nodes, edges };
@@ -365,7 +363,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
   };
 
   const selectedNodeId = selectedAgentEvent?.node_id || selectedAgentEvent?.type || null;
-  const canRerun = Boolean(sessionId && selectedAgentEvent && ['intent', 'visual', 'geojson', 'style', 'icon_generation', 'workflow_completed'].includes(selectedNodeId || ''));
+  const canRerun = Boolean(sessionId && selectedAgentEvent && ['intent', 'visual', 'geojson', 'style', 'workflow_completed'].includes(selectedNodeId || ''));
 
   const recordCodeEdit = () => {
     if (!selectedAgentEvent) return;

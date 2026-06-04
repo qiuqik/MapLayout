@@ -6,6 +6,7 @@ interface RouteRendererProps {
   routeStyles: any[];
   transformedLayers: any;
   selectedRouteId?: string | null;
+  visualScale?: number;
 }
 
 type RouteRenderStyle = 'straight' | 'bezier' | 'navigation';
@@ -75,7 +76,7 @@ const shapeRouteFeature = (feature: any, renderStyle: RouteRenderStyle) => {
   };
 };
 
-const RouteRenderer: React.FC<RouteRendererProps> = ({ routeStyles, transformedLayers, selectedRouteId }) => {
+const RouteRenderer: React.FC<RouteRendererProps> = ({ routeStyles, transformedLayers, selectedRouteId, visualScale = 1 }) => {
   return (
     <>
       {routeStyles.map((routeStyle: any) => {
@@ -88,7 +89,8 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ routeStyles, transformedL
 
         const linePattern = String(routeStyle.linePattern || routeStyle.pattern || 'solid').toLowerCase();
         const lineColor = routeStyle.Color || routeStyle.color || '#E4572E';
-        const lineWidth = Number(routeStyle.width || 4) + (selectedRouteId === routeStyle.visual_id ? 2 : 0);
+        const baseLineWidth = Number(routeStyle.width || 4) * visualScale;
+        const lineWidth = Math.max(1.5, baseLineWidth + (selectedRouteId === routeStyle.visual_id ? 2 * visualScale : 0));
         const dashArray = numericArray(routeStyle.dashArray || routeStyle.dasharray);
         const shouldDrawArrows = routeStyle.arrow !== false;
 
@@ -117,9 +119,9 @@ const RouteRenderer: React.FC<RouteRendererProps> = ({ routeStyles, transformedL
                 type="symbol"
                 layout={{
                   'symbol-placement': 'line',
-                  'symbol-spacing': 120,
+                  'symbol-spacing': Math.max(76, Math.round(120 * visualScale)),
                   'text-field': '➜',
-                  'text-size': Math.max(12, lineWidth * 3.2),
+                  'text-size': Math.max(10, lineWidth * 3.2),
                   'text-allow-overlap': true,
                   'text-ignore-placement': true,
                   'text-keep-upright': false,
