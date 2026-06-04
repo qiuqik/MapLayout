@@ -890,6 +890,10 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     const labels = asArray(styleSource.Label);
     const globals = asArray(styleSource.Global);
     const routesForStyle = asArray(styleSource.Route);
+    const navigationStatusSource = manifest?._navigation_status || styleSource._navigation_status;
+    const navigationStatus = navigationStatusSource && typeof navigationStatusSource === 'object'
+      ? navigationStatusSource
+      : {};
     const iconMeta = isMapStyleSelection ? null : parsedEditor?._icon_generation;
     const openGlobalSection = selectedStyleSection === 'Global';
     const openLabelSection = selectedStyleSection === 'Label';
@@ -1048,6 +1052,13 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
                         </button>
                       ))}
                     </div>
+                    {(item.style || 'bezier') === 'navigation' && item.visual_id && (
+                      <div className="rounded border border-gray-100 bg-white px-2 py-1 text-[10px] text-gray-500">
+                        navigation: {navigationStatus[item.visual_id]?.state || 'idle'}
+                        {navigationStatus[item.visual_id]?.warning ? ` · ${navigationStatus[item.visual_id].warning}` : ''}
+                        {navigationStatus[item.visual_id]?.error ? ` · ${navigationStatus[item.visual_id].error}` : ''}
+                      </div>
+                    )}
                   </div>
                   <div className="grid grid-cols-2 gap-1">
                     {(['solid', 'dashed'] as const).map((linePattern) => (

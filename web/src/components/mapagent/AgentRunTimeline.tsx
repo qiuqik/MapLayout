@@ -29,9 +29,9 @@ const FLOW_POSITIONS: Record<string, { x: number; y: number }> = {
   input: { x: 0, y: 74 },
   intent: { x: 180, y: 18 },
   visual: { x: 180, y: 116 },
-  geojson: { x: 428, y: 67 },
-  validation: { x: 656, y: 67 },
-  style: { x: 884, y: 67 },
+  geojson: { x: 430, y: 67 },
+  validation: { x: 660, y: 67 },
+  style: { x: 890, y: 67 },
 };
 
 const compactText = (value: unknown, max = 86) => {
@@ -216,7 +216,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       id: string,
       source: string,
       target: string,
-      options: { label?: string; active?: boolean; complete?: boolean; dashed?: boolean; type?: Edge['type'] } = {},
+      options: { label?: string; active?: boolean; complete?: boolean; dashed?: boolean; type?: Edge['type']; pathOptions?: Record<string, unknown> } = {},
     ) => {
       edges.push({
         id,
@@ -232,6 +232,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
           strokeDasharray: options.dashed ? '7 6' : undefined,
         },
         labelStyle: { fontSize: 9, fill: options.active ? '#131722' : '#6b7280' },
+        ...(options.pathOptions ? { pathOptions: options.pathOptions } : {}),
       });
     };
 
@@ -320,7 +321,8 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       active: isAgentRunning && runningNodeId === 'geojson' && Boolean(statesByNode.get('validation')?.failed),
       complete: false,
       dashed: true,
-      type: 'simplebezier',
+      type: 'smoothstep',
+      pathOptions: { offset: 72, borderRadius: 18 },
     });
 
     return { nodes, edges };

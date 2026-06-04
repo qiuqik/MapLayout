@@ -6,6 +6,7 @@ interface StyleManifest {
   Label?: any[];
   Global?: any[];
   _icon_generation?: any;
+  _navigation_status?: Record<string, any>;
 }
 
 export interface AgentRunEvent {
@@ -31,7 +32,7 @@ interface AgentMapContextType {
   specfilename: string | null;
   setSpecfilename: (name: string | null) => void;
   manifest: StyleManifest | null;
-  setManifest: (spec: StyleManifest | null) => void;
+  setManifest: React.Dispatch<React.SetStateAction<StyleManifest | null>>;
   geojson: any | null;
   setGeojson: (geojson: any | null) => void;
   visualStructure: any | null;

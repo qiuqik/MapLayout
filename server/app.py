@@ -53,6 +53,15 @@ class NavigationRouteRequest(BaseModel):
     coordinates: list[list[float]]
 
 
+class LabelOptimizationRequest(BaseModel):
+    screenshot: str | None = None
+    viewport: dict | None = None
+    geojson: dict | None = None
+    style_code: dict | None = None
+    layout: dict | None = None
+    max_rounds: int = 3
+
+
 def _resolve_multimodal_session_dir(session_id: str) -> str | None:
     """Resolve either an exact output folder name or a raw run/session id suffix."""
     base = os.path.join(os.path.dirname(__file__), 'output')
@@ -923,6 +932,84 @@ async def rerun_multimodal_downstream(session_id: str, request: RerunDownstreamR
         }
     except Exception as e:
         print(f"❌ downstream rerun 失败: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/api/multimodal/session/{session_id}/optimize-label-layout")
+async def optimize_label_layout(session_id: str, request: LabelOptimizationRequest):
+    """Manual label-layout optimization scaffold.
+
+    The endpoint persists the current layout/screenshot context and returns a
+    best-effort pass-through candidate. The response shape is intentionally
+    compatible with a future VLM placement + validation loop.
+    """
+    base = _resolve_multimodal_session_dir(session_id)
+    if not base:
+        return JSONResponse(status_code=404, content={"error": "会话不存在"})
+
+    try:
+        layout = request.layout or {}
+        outputs = layout.get("outputs") if isinstance(layout, dict) else []
+        if not isinstance(outputs, list):
+            outputs = []
+        final_positions = [
+            {
+                "id": item.get("id"),
+                "anchorLngLat": item.get("anchorLngLat"),
+                "centerLngLat": item.get("centerLngLat"),
+            }
+            for item in outputs
+            if isinstance(item, dict) and item.get("id")
+        ]
+        issues = []
+        if not final_positions:
+            issues.append("No label outputs were provided; returning an empty best-effort layout.")
+        screenshot_size = len(request.screenshot or "")
+        result = {
+            "success": True,
+            "session_id": session_id,
+            "mode": "manual_scaffold",
+            "rounds": [
+                {
+                    "round": 1,
+                    "placement_agent": "pass_through",
+                    "validation_agent": "structure_check",
+                    "candidate_count": len(final_positions),
+                    "issues": issues,
+                }
+            ],
+            "final_positions": final_positions,
+            "validation": {
+                "passed": len(issues) == 0,
+                "issues": issues,
+                "suggested_adjustments": [],
+            },
+            "artifacts": {
+                "screenshot_chars": screenshot_size,
+                "viewport": request.viewport,
+            },
+        }
+
+        target_dir = os.path.join(base, "label_optimization")
+        os.makedirs(target_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        artifact = {
+            **result,
+            "input": {
+                "viewport": request.viewport,
+                "geojson_feature_count": len((request.geojson or {}).get("features", [])) if isinstance(request.geojson, dict) else 0,
+                "style_sections": sorted([key for key in (request.style_code or {}).keys() if not key.startswith("_")]) if isinstance(request.style_code, dict) else [],
+                "layout": layout,
+                "screenshot_chars": screenshot_size,
+            },
+        }
+        artifact_path = os.path.join(target_dir, f"label_optimization_{timestamp}.json")
+        with open(artifact_path, "w", encoding="utf-8") as f:
+            json.dump(artifact, f, ensure_ascii=False, indent=2)
+        result["artifact_path"] = os.path.relpath(artifact_path, base)
+        return result
+    except Exception as e:
+        print(f"❌ label optimization failed: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 

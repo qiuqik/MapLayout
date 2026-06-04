@@ -204,24 +204,30 @@ export const buildLabelHtml = (feature: any, labelStyle: any) => {
     ...containerStyle,
   }, true);
   const titleCss = styleObjectToCss({
+    display: 'block',
     fontWeight: hierarchy === 'core' ? 800 : 700,
     fontSize: hierarchy === 'core' ? 14 : 12,
     lineHeight: 1.25,
     marginBottom: script ? 4 : 0,
+    transform: 'translateY(-0.08em)',
     ...titleStyle,
   }, true);
   const scriptCss = styleObjectToCss({
+    display: 'block',
     fontSize: hierarchy === 'core' ? 12 : 11,
     lineHeight: 1.35,
     opacity: 0.82,
     marginTop: 2,
+    transform: 'translateY(-0.08em)',
     ...scriptStyle,
   }, true);
   const extraCss = styleObjectToCss({
+    display: 'block',
     fontSize: 10,
     lineHeight: 1.25,
     opacity: 0.72,
     marginTop: 4,
+    transform: 'translateY(-0.08em)',
     ...extraStyle,
   }, true);
 

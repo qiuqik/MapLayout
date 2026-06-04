@@ -454,6 +454,7 @@ function AgentPageContent() {
           <TravelMapWithNoSSR
             geojson={originGeojson}
             styleCode={manifest}
+            sessionId={currentSession?.session_id || activeRunId}
             visualStructure={visualStructure}
             showHeatmap={showHeatmap}
             forceParams={forceParams}

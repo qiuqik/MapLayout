@@ -1,7 +1,7 @@
 'use client';
 import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import MapGL, { MapRef } from 'react-map-gl/mapbox';
-import { DownloadIcon, HandIcon, Maximize2Icon, MousePointer2Icon, SearchIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
+import { DownloadIcon, HandIcon, Maximize2Icon, MousePointer2Icon, SearchIcon, SparklesIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-react';
 // @ts-ignore
 import 'mapbox-gl/dist/mapbox-gl.css';
 import {
@@ -39,6 +39,13 @@ type MapSearchResult = {
 };
 
 type FrameResizeEdge = 'left' | 'right' | 'top' | 'bottom';
+
+type NavigationRouteStatus = {
+  state: 'idle' | 'loading' | 'mapbox' | 'fallback' | 'error';
+  source?: string;
+  warning?: string;
+  error?: string;
+};
 
 const MIN_FRAME_WIDTH = 360;
 const MIN_FRAME_HEIGHT = 280;
@@ -162,6 +169,160 @@ function getViewportVisualScale(viewport: { width: number; height: number } | nu
   const scale = Math.min(width / 1100, height / 720);
   return Number(Math.max(0.58, Math.min(1.15, scale)).toFixed(3));
 }
+
+const waitForAnimationFrames = (count = 1) => new Promise<void>((resolve) => {
+  const step = (remaining: number) => {
+    if (remaining <= 0) {
+      resolve();
+      return;
+    }
+    window.requestAnimationFrame(() => step(remaining - 1));
+  };
+  step(count);
+});
+
+const waitForMapIdle = (map: any, timeoutMs = 1600) => new Promise<void>((resolve) => {
+  if (!map?.once) {
+    resolve();
+    return;
+  }
+
+  let settled = false;
+  let timer: number | undefined;
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    if (timer !== undefined) window.clearTimeout(timer);
+    resolve();
+  };
+  timer = window.setTimeout(finish, timeoutMs);
+
+  if (map.loaded?.() && !map.isMoving?.()) {
+    finish();
+    return;
+  }
+  map.once('idle', finish);
+});
+
+const captureMapCamera = (map: any) => {
+  if (!map) return null;
+  const center = map.getCenter?.();
+  return {
+    center: center ? [center.lng, center.lat] as [number, number] : undefined,
+    zoom: map.getZoom?.(),
+    bearing: map.getBearing?.(),
+    pitch: map.getPitch?.(),
+    padding: map.getPadding?.(),
+  };
+};
+
+const restoreMapCamera = (map: any, camera: ReturnType<typeof captureMapCamera>) => {
+  if (!map || !camera?.center) return;
+  map.jumpTo?.({
+    center: camera.center,
+    zoom: camera.zoom,
+    bearing: camera.bearing,
+    pitch: camera.pitch,
+    padding: camera.padding,
+  });
+};
+
+const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ''));
+  reader.onerror = () => reject(reader.error || new Error('Failed to read blob'));
+  reader.readAsDataURL(blob);
+});
+
+const composeViewportPngBlob = async (root: HTMLElement, map: any, mapCanvas: HTMLCanvasElement) => {
+  const camera = captureMapCamera(map);
+  const rect = root.getBoundingClientRect();
+  const canvasRect = mapCanvas.getBoundingClientRect();
+  const canvasLeft = canvasRect.left - rect.left;
+  const canvasTop = canvasRect.top - rect.top;
+  const exportWidth = Math.max(1, Math.round(rect.width));
+  const exportHeight = Math.max(1, Math.round(rect.height));
+
+  await waitForAnimationFrames(2);
+  await waitForMapIdle(map);
+  restoreMapCamera(map, camera);
+  await waitForAnimationFrames(1);
+  await (document as any).fonts?.ready?.catch?.(() => undefined);
+  restoreMapCamera(map, camera);
+  await waitForAnimationFrames(1);
+
+  const html2canvas = (await import('html2canvas')).default;
+  const scale = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  const output = document.createElement('canvas');
+  output.width = Math.round(exportWidth * scale);
+  output.height = Math.round(exportHeight * scale);
+  const context = output.getContext('2d');
+  if (!context) throw new Error('Canvas export context unavailable');
+  context.scale(scale, scale);
+  context.drawImage(
+    mapCanvas,
+    0,
+    0,
+    mapCanvas.width,
+    mapCanvas.height,
+    canvasLeft,
+    canvasTop,
+    canvasRect.width,
+    canvasRect.height,
+  );
+
+  const overlayCanvas = await html2canvas(root, {
+    backgroundColor: null,
+    useCORS: true,
+    allowTaint: true,
+    logging: false,
+    scale,
+    width: exportWidth,
+    height: exportHeight,
+    windowWidth: document.documentElement.clientWidth,
+    windowHeight: document.documentElement.clientHeight,
+    ignoreElements: (element) => (
+      element.getAttribute('data-export-ignore') === 'true' ||
+      element instanceof HTMLCanvasElement
+    ),
+    onclone: (documentClone) => {
+      const clonedRoot = documentClone.querySelector('[data-agent-map-frame="true"]') as HTMLElement | null;
+      if (clonedRoot) {
+        clonedRoot.style.width = `${exportWidth}px`;
+        clonedRoot.style.height = `${exportHeight}px`;
+        clonedRoot.style.background = 'transparent';
+        clonedRoot.style.boxShadow = 'none';
+      }
+    },
+  });
+  context.drawImage(overlayCanvas, 0, 0, exportWidth, exportHeight);
+  return new Promise<Blob>((resolve, reject) => {
+    output.toBlob((nextBlob) => {
+      if (nextBlob) resolve(nextBlob);
+      else reject(new Error('Canvas export returned an empty image'));
+    }, 'image/png');
+  });
+};
+
+const lineRectEdgePoint = (
+  start: { x: number; y: number },
+  rect: { x: number; y: number; width: number; height: number },
+) => {
+  const center = { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+  const dx = center.x - start.x;
+  const dy = center.y - start.y;
+  if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return center;
+  const halfWidth = rect.width / 2;
+  const halfHeight = rect.height / 2;
+  const scale = Math.min(
+    Math.abs(dx) > 0.001 ? halfWidth / Math.abs(dx) : Number.POSITIVE_INFINITY,
+    Math.abs(dy) > 0.001 ? halfHeight / Math.abs(dy) : Number.POSITIVE_INFINITY,
+  );
+  return {
+    x: center.x - dx * scale,
+    y: center.y - dy * scale,
+  };
+};
 
 function shouldHideOverlay(
   hierarchy: LayoutItemHierarchy,
@@ -288,6 +449,7 @@ function applyMapboxStylesheet(map: any, visualStructure: any) {
 interface TravelMapProps {
   geojson: any;
   styleCode: any;
+  sessionId?: string | null;
   visualStructure?: any;
   showHeatmap?: boolean;
   forceParams?: Partial<ForceParamsOverride>;
@@ -307,8 +469,8 @@ interface TravelMapProps {
   layoutSeed?: number;
 }
 
-export default function TravelMap({ geojson, styleCode, visualStructure, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, onRouteSelect, selectedRouteId, rerunLayoutTrigger = 0, layoutAlgorithm = 'force', layoutSeed = 1 }: TravelMapProps) {
-  const { setSelectedAgentSelection } = useAgentMap();
+export default function TravelMap({ geojson, styleCode, sessionId, visualStructure, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, onRouteSelect, selectedRouteId, rerunLayoutTrigger = 0, layoutAlgorithm = 'force', layoutSeed = 1 }: TravelMapProps) {
+  const { activeRunId, appendAgentEvent, setSelectedAgentSelection, setManifest } = useAgentMap();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapRef>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -336,7 +498,10 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const [placeMatches, setPlaceMatches] = useState<MapSearchResult[]>([]);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const [isExportingPng, setIsExportingPng] = useState(false);
+  const [isOptimizingLabels, setIsOptimizingLabels] = useState(false);
   const [navigationLineCache, setNavigationLineCache] = useState<Record<string, number[][]>>({});
+  const [navigationRouteStatus, setNavigationRouteStatus] = useState<Record<string, NavigationRouteStatus>>({});
+  const effectiveSessionId = sessionId || activeRunId;
   // Bounding rects of global items in map-container px space (set via onMeasured callback).
   const globalRectsRef = useRef<Rect[]>([]);
   // Always points to the latest recomputeLayout closure so handleGlobalMeasured can call it.
@@ -377,6 +542,27 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
   const labelStyles = styleCode?.Label || [];
 
   const baseLines = transformedData.lines;
+  const navigationStatusByRouteId = useMemo(() => {
+    const next: Record<string, NavigationRouteStatus> = {};
+    baseLines.forEach((feature: any) => {
+      const visualId = feature.properties?.visual_id;
+      const routeStyle = routeStyles.find((item: any) => item.visual_id === visualId);
+      const coordinates = feature.geometry?.coordinates;
+      if (!visualId || normalizeRouteRenderStyle(routeStyle?.style) !== 'navigation' || !Array.isArray(coordinates)) return;
+      const cacheKey = `${visualId}:${routeCoordinateKey(coordinates)}`;
+      next[visualId] = navigationRouteStatus[cacheKey] || { state: navigationLineCache[cacheKey] ? 'mapbox' : 'idle' };
+    });
+    return next;
+  }, [baseLines, navigationLineCache, navigationRouteStatus, routeStyles]);
+
+  useEffect(() => {
+    setManifest((current) => {
+      if (!current) return current;
+      if (JSON.stringify(current._navigation_status || {}) === JSON.stringify(navigationStatusByRouteId)) return current;
+      return { ...current, _navigation_status: navigationStatusByRouteId };
+    });
+  }, [navigationStatusByRouteId, setManifest]);
+
   useEffect(() => {
     let cancelled = false;
     const pending = baseLines
@@ -394,6 +580,10 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     if (pending.length === 0) return;
 
     pending.forEach(async ({ cacheKey, coordinates }) => {
+      setNavigationRouteStatus((status) => ({
+        ...status,
+        [cacheKey]: { state: 'loading' },
+      }));
       try {
         const response = await fetch(`${API_BASE_URL}/api/multimodal/route/navigation`, {
           method: 'POST',
@@ -404,9 +594,27 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
         if (!response.ok || !Array.isArray(data.coordinates)) throw new Error(data.error || 'Navigation route failed');
         if (cancelled) return;
         setNavigationLineCache((cache) => cache[cacheKey] ? cache : { ...cache, [cacheKey]: data.coordinates });
+        setNavigationRouteStatus((status) => ({
+          ...status,
+          [cacheKey]: {
+            state: data.source === 'mapbox' ? 'mapbox' : 'fallback',
+            source: data.source || 'fallback',
+            warning: data.warning,
+          },
+        }));
       } catch (error) {
         console.warn('Navigation route fallback:', error);
         if (!cancelled) setNavigationLineCache((cache) => cache[cacheKey] ? cache : { ...cache, [cacheKey]: coordinates });
+        if (!cancelled) {
+          setNavigationRouteStatus((status) => ({
+            ...status,
+            [cacheKey]: {
+              state: 'error',
+              source: 'fallback',
+              error: error instanceof Error ? error.message : 'Navigation route failed',
+            },
+          }));
+        }
       }
     });
 
@@ -1240,54 +1448,7 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
       const map = raw?.getMap ? raw.getMap() : raw;
       const mapCanvas = map?.getCanvas?.() as HTMLCanvasElement | undefined;
       if (!mapCanvas) throw new Error('Map canvas is not ready');
-      await Promise.race([
-        new Promise<void>((resolve) => {
-          if (map.loaded?.()) {
-            resolve();
-            return;
-          }
-          map.once?.('idle', () => resolve());
-        }),
-        new Promise<void>((resolve) => window.setTimeout(resolve, 800)),
-      ]);
-      await (document as any).fonts?.ready?.catch?.(() => undefined);
-
-      const html2canvas = (await import('html2canvas')).default;
-      const rect = root.getBoundingClientRect();
-      const scale = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
-      const output = document.createElement('canvas');
-      output.width = Math.round(rect.width * scale);
-      output.height = Math.round(rect.height * scale);
-      const context = output.getContext('2d');
-      if (!context) throw new Error('Canvas export context unavailable');
-      context.scale(scale, scale);
-      context.drawImage(mapCanvas, 0, 0, rect.width, rect.height);
-
-      const overlayCanvas = await html2canvas(root, {
-        backgroundColor: null,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        scale,
-        ignoreElements: (element) => (
-          element.getAttribute('data-export-ignore') === 'true' ||
-          element instanceof HTMLCanvasElement
-        ),
-        onclone: (documentClone) => {
-          const clonedRoot = documentClone.querySelector('[data-agent-map-frame="true"]') as HTMLElement | null;
-          if (clonedRoot) {
-            clonedRoot.style.background = 'transparent';
-            clonedRoot.style.boxShadow = 'none';
-          }
-        },
-      });
-      context.drawImage(overlayCanvas, 0, 0, rect.width, rect.height);
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        output.toBlob((nextBlob) => {
-          if (nextBlob) resolve(nextBlob);
-          else reject(new Error('Canvas export returned an empty image'));
-        }, 'image/png');
-      });
+      const blob = await composeViewportPngBlob(root, map, mapCanvas);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -1303,6 +1464,58 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
       setIsExportingPng(false);
     }
   }, [isExportingPng]);
+
+  const optimizeLabels = useCallback(async () => {
+    const root = rootRef.current;
+    if (!root || isOptimizingLabels) return;
+    if (!effectiveSessionId) {
+      alert('Run a session before optimizing labels.');
+      return;
+    }
+    setIsOptimizingLabels(true);
+    try {
+      const raw = mapRef.current as any;
+      const map = raw?.getMap ? raw.getMap() : raw;
+      const mapCanvas = map?.getCanvas?.() as HTMLCanvasElement | undefined;
+      if (!mapCanvas) throw new Error('Map canvas is not ready');
+      const blob = await composeViewportPngBlob(root, map, mapCanvas);
+      const screenshot = await blobToDataUrl(blob);
+      const response = await fetch(`${API_BASE_URL}/api/multimodal/session/${effectiveSessionId}/optimize-label-layout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          screenshot,
+          viewport: viewportSize,
+          geojson,
+          style_code: styleCode,
+          layout: {
+            inputs: layoutState.inputs,
+            outputs: layoutState.outputs,
+            leaderLines: layoutState.leaderLines,
+          },
+          max_rounds: 3,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.error) throw new Error(data.error || 'Label optimization failed');
+      appendAgentEvent({
+        type: 'node_completed',
+        run_id: effectiveSessionId,
+        session_id: effectiveSessionId,
+        node_id: 'label_optimization',
+        label: 'Label optimization',
+        status: data.validation?.passed ? 'passed' : 'completed',
+        payload: data,
+        timestamp: new Date().toISOString(),
+      });
+      alert(data.validation?.passed ? 'Label layout validation passed.' : 'Label optimization completed with issues.');
+    } catch (error: any) {
+      console.error('Optimize labels failed:', error);
+      alert(error?.message || 'Optimize labels failed.');
+    } finally {
+      setIsOptimizingLabels(false);
+    }
+  }, [appendAgentEvent, effectiveSessionId, geojson, isOptimizingLabels, layoutState.inputs, layoutState.leaderLines, layoutState.outputs, styleCode, viewportSize]);
 
   const flyToSearchResult = useCallback((item: MapSearchResult) => {
     const raw = mapRef.current as any;
@@ -1368,6 +1581,26 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
     });
     return next;
   }, [labelStyles, transformedData.points]);
+
+  const selectLeaderLine = useCallback((leader: LeaderLine) => {
+    if (mapTool === 'pan') return;
+    const labelStyle = labelStyleByOutputId.get(leader.id);
+    const labelStyleIndex = labelStyle ? labelStyles.indexOf(labelStyle) : -1;
+    const output = layoutState.outputs.find((item) => item.id === leader.id);
+    setSelectedAgentSelection({
+      kind: 'map_feature',
+      node_id: 'map_leader_line',
+      label: output?.id || 'Leader line',
+      payload: {
+        leaderLine: leader,
+        labelStyle,
+        styleSection: 'Label',
+        styleIndex: labelStyleIndex,
+        geometryType: 'LeaderLine',
+      },
+    });
+  }, [labelStyleByOutputId, labelStyles, layoutState.outputs, mapTool, setSelectedAgentSelection]);
+
   const fallbackOverlayCount = transformedData.points.length;
   const fallbackLabelScale = getResponsiveOverlayScale('secondary', viewportSize, fallbackOverlayCount);
   const hideDetailLabels = shouldHideOverlay('detail', viewportSize, fallbackOverlayCount);
@@ -1536,6 +1769,15 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
           className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded disabled:opacity-50"
         >
           <DownloadIcon className={`h-4 w-4 ${isExportingPng ? 'animate-pulse' : ''}`} />
+        </button>
+        <button
+          type="button"
+          title="Optimize label layout"
+          onClick={optimizeLabels}
+          disabled={isOptimizingLabels || !effectiveSessionId}
+          className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <SparklesIcon className={`h-4 w-4 ${isOptimizingLabels ? 'animate-pulse' : ''}`} />
         </button>
         <div className="mx-1 h-5 w-px bg-gray-200" />
         <button
@@ -1766,19 +2008,56 @@ export default function TravelMap({ geojson, styleCode, visualStructure, showHea
             {displayLeaderLines.map((l, index) => {
               const leaderStyle = resolveLeaderLineStyle(labelStyleByOutputId.get(l.id));
               const markerId = `leader-arrow-${index}`;
+              const output = layoutState.outputs.find((item) => item.id === l.id);
+              const end = output
+                ? lineRectEdgePoint(
+                    { x: l.x1, y: l.y1 },
+                    {
+                      x: l.x2 - output.width / 2,
+                      y: l.y2 - output.height / 2,
+                      width: output.width,
+                      height: output.height,
+                    },
+                  )
+                : { x: l.x2, y: l.y2 };
               return (
-                <line
-                  key={`leader-${l.id}`}
-                  x1={l.x1}
-                  y1={l.y1}
-                  x2={l.x2}
-                  y2={l.y2}
-                  stroke={leaderStyle.color}
-                  strokeWidth={leaderStyle.width}
-                  strokeOpacity={leaderStyle.opacity}
-                  strokeDasharray={leaderStyle.dashArray.join(' ') || undefined}
-                  markerEnd={leaderStyle.arrow ? `url(#${markerId})` : undefined}
-                />
+                <React.Fragment key={`leader-${l.id}`}>
+                  <line
+                    x1={l.x1}
+                    y1={l.y1}
+                    x2={end.x}
+                    y2={end.y}
+                    stroke="transparent"
+                    strokeWidth={Math.max(10, leaderStyle.width + 8)}
+                    style={{
+                      cursor: mapTool === 'select' ? 'pointer' : 'default',
+                      pointerEvents: mapTool === 'select' ? 'stroke' : 'none',
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      selectLeaderLine(l);
+                    }}
+                  />
+                  <line
+                    x1={l.x1}
+                    y1={l.y1}
+                    x2={end.x}
+                    y2={end.y}
+                    stroke={leaderStyle.color}
+                    strokeWidth={leaderStyle.width}
+                    strokeOpacity={leaderStyle.opacity}
+                    strokeDasharray={leaderStyle.dashArray.join(' ') || undefined}
+                    markerEnd={leaderStyle.arrow ? `url(#${markerId})` : undefined}
+                    style={{
+                      cursor: mapTool === 'select' ? 'pointer' : 'default',
+                      pointerEvents: mapTool === 'select' ? 'stroke' : 'none',
+                    }}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      selectLeaderLine(l);
+                    }}
+                  />
+                </React.Fragment>
               );
             })}
           </svg>
