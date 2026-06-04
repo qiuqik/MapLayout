@@ -13,6 +13,44 @@ CHINA_CITY_MARKERS = {
     "澳门", "台北", "北京市", "上海市", "杭州市", "广州市", "深圳市",
 }
 
+FOREIGN_CITY_MARKERS = {
+    "新加坡", "singapore", "sentosa",
+    "巴黎", "paris", "伦敦", "london", "东京", "tokyo", "大阪", "osaka", "京都", "kyoto",
+    "首尔", "seoul", "曼谷", "bangkok", "吉隆坡", "kuala lumpur", "纽约", "new york",
+    "洛杉矶", "los angeles", "悉尼", "sydney", "墨尔本", "melbourne", "罗马", "rome",
+}
+
+KNOWN_POI_COORDS = {
+    "singapore": {
+        "福康宁公园": (103.8465, 1.2950),
+        "fort canning": (103.8465, 1.2950),
+        "鱼尾狮公园": (103.8545, 1.2868),
+        "merlion": (103.8545, 1.2868),
+        "克拉码头": (103.8465, 1.2906),
+        "clarke quay": (103.8465, 1.2906),
+        "圣淘沙": (103.8303, 1.2494),
+        "sentosa": (103.8303, 1.2494),
+        "新加坡环球影城": (103.8238, 1.2540),
+        "环球影城": (103.8238, 1.2540),
+        "universal studios": (103.8238, 1.2540),
+        "s.e.a.海洋馆": (103.8203, 1.2588),
+        "sea aquarium": (103.8203, 1.2588),
+        "s.e.a. aquarium": (103.8203, 1.2588),
+        "西乐索海滩": (103.8129, 1.2536),
+        "siloso beach": (103.8129, 1.2536),
+        "唐人街": (103.8439, 1.2836),
+        "chinatown": (103.8439, 1.2836),
+        "小印度": (103.8520, 1.3067),
+        "little india": (103.8520, 1.3067),
+        "哈芝巷": (103.8593, 1.3007),
+        "haji lane": (103.8593, 1.3007),
+        "斯里维拉玛卡里雅曼兴都庙": (103.8521, 1.3065),
+        "sri veeramakaliamman": (103.8521, 1.3065),
+        "佛牙寺龙华院": (103.8442, 1.2815),
+        "buddha tooth relic": (103.8442, 1.2815),
+    }
+}
+
 class AMapService:
     def __init__(self):
         load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
@@ -46,6 +84,10 @@ class AMapService:
         Returns:
             (longitude, latitude) 或 None
         """
+        known = self._lookup_known_poi(keyword, city)
+        if known:
+            return known
+
         if self._looks_foreign_context(keyword, city, location):
             result = self._search_mapbox(keyword, city)
             if result:
@@ -179,6 +221,8 @@ class AMapService:
         if original and is_out_of_china(original[0], original[1]):
             return True
         city_text = str(city or "").strip()
+        if self._has_foreign_marker(city_text) or self._has_foreign_marker(keyword):
+            return True
         if city_text and not self._is_china_scope(city_text):
             return True
         query_text = f"{keyword} {city_text}".strip()
@@ -189,6 +233,8 @@ class AMapService:
     def _is_china_scope(self, text: str) -> bool:
         compact = str(text or "").replace(" ", "")
         if not compact:
+            return False
+        if self._has_foreign_marker(compact):
             return False
         if any(marker in compact for marker in CHINA_CITY_MARKERS):
             return True
@@ -208,3 +254,24 @@ class AMapService:
             for key in ["pname", "cityname", "adname", "district", "address", "name"]
         )
         return city_token in haystack or city_text in haystack
+
+    def _has_foreign_marker(self, text: str) -> bool:
+        compact = str(text or "").strip().lower()
+        return any(marker in compact for marker in FOREIGN_CITY_MARKERS)
+
+    def _known_city_key(self, city: str = "", keyword: str = "") -> Optional[str]:
+        text = f"{city} {keyword}".lower()
+        if "新加坡" in text or "singapore" in text or "sentosa" in text:
+            return "singapore"
+        return None
+
+    def _lookup_known_poi(self, keyword: str, city: str = "") -> Optional[Tuple[float, float]]:
+        city_key = self._known_city_key(city, keyword)
+        if not city_key:
+            return None
+        query = str(keyword or "").lower().replace(" ", "")
+        for alias, coords in KNOWN_POI_COORDS.get(city_key, {}).items():
+            alias_key = alias.lower().replace(" ", "")
+            if alias_key and alias_key in query:
+                return coords
+        return None

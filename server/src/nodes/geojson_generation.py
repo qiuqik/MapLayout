@@ -10,6 +10,24 @@ from ..validators.schema_validators import validate_geojson
 from ..amap_service import AMapService
 import math
 
+CITY_BOUNDS = {
+    "新加坡": (103.55, 1.15, 104.15, 1.50),
+    "singapore": (103.55, 1.15, 104.15, 1.50),
+}
+
+SINGAPORE_REQUESTED_POIS = [
+    {"name": "福康宁公园", "aliases": ["福康宁公园", "Fort Canning"], "coordinates": [103.8465, 1.2950], "category": "nature", "day": 1},
+    {"name": "鱼尾狮公园", "aliases": ["鱼尾狮公园", "鱼尾狮", "Merlion"], "coordinates": [103.8545, 1.2868], "category": "scenic", "day": 1},
+    {"name": "克拉码头", "aliases": ["克拉码头", "Clarke Quay"], "coordinates": [103.8465, 1.2906], "category": "food", "day": 1},
+    {"name": "圣淘沙", "aliases": ["圣淘沙", "Sentosa"], "coordinates": [103.8303, 1.2494], "category": "scenic", "day": 2},
+    {"name": "新加坡环球影城", "aliases": ["新加坡环球影城", "环球影城", "Universal Studios"], "coordinates": [103.8238, 1.2540], "category": "entertainment", "day": 2},
+    {"name": "S.E.A.海洋馆", "aliases": ["S.E.A.海洋馆", "S.E.A. Aquarium", "SEA Aquarium"], "coordinates": [103.8203, 1.2588], "category": "entertainment", "day": 2},
+    {"name": "西乐索海滩", "aliases": ["西乐索海滩", "Siloso Beach"], "coordinates": [103.8129, 1.2536], "category": "nature", "day": 2},
+    {"name": "唐人街", "aliases": ["唐人街", "Chinatown"], "coordinates": [103.8439, 1.2836], "category": "culture", "day": 3},
+    {"name": "小印度", "aliases": ["小印度", "Little India"], "coordinates": [103.8520, 1.3067], "category": "culture", "day": 3},
+    {"name": "哈芝巷", "aliases": ["哈芝巷", "Haji Lane"], "coordinates": [103.8593, 1.3007], "category": "culture", "day": 3},
+]
+
 class GeoJSONGenerationNode:
     """Node 3: 数据结构化与拓扑映射 (Model: GPT-5/o1)
     
@@ -240,6 +258,142 @@ class GeoJSONGenerationNode:
         # 3. 当前产品形态只保留具体 POI 和按天路线，避免非具体地点混入 POI 层。
         geojson_data["features"] = valid_points + valid_lines
         return geojson_data
+
+    def _city_bounds(self, city: str):
+        city_text = str(city or "").lower()
+        for key, bounds in CITY_BOUNDS.items():
+            if key.lower() in city_text:
+                return bounds
+        return None
+
+    def _within_bounds(self, coords, bounds) -> bool:
+        if not coords or not bounds or len(coords) < 2:
+            return False
+        lon, lat = coords[0], coords[1]
+        west, south, east, north = bounds
+        return west <= lon <= east and south <= lat <= north
+
+    def _infer_trip_days(self, text: str, geojson_data: dict) -> int:
+        chinese_digits = {
+            "一": 1, "二": 2, "两": 2, "三": 3, "四": 4, "五": 5,
+            "六": 6, "七": 7, "八": 8, "九": 9, "十": 10,
+        }
+        match = re.search(r"(\d+)\s*(?:天|日|day|days)", text or "", re.IGNORECASE)
+        if match:
+            return max(1, int(match.group(1)))
+        match = re.search(r"([一二两三四五六七八九十])\s*(?:天|日)", text or "")
+        if match:
+            return chinese_digits.get(match.group(1), 1)
+        days = [
+            self._normalize_day((feature.get("properties") or {}).get("day"), fallback=1)
+            for feature in geojson_data.get("features", [])
+        ]
+        return max(days) if days else 1
+
+    def _alias_in_text(self, text: str, aliases: list[str]) -> bool:
+        normalized_text = self._normalize_poi_name(text)
+        return any(
+            bool(self._normalize_poi_name(alias)) and self._normalize_poi_name(alias) in normalized_text
+            for alias in aliases
+        )
+
+    def _ensure_requested_known_pois(self, geojson_data: dict, user_text: str) -> dict:
+        city = str(geojson_data.get("_city") or "")
+        if "新加坡" not in city and "singapore" not in city.lower():
+            return geojson_data
+        features = geojson_data.setdefault("features", [])
+        point_features = [feature for feature in features if feature.get("geometry", {}).get("type") == "Point"]
+        trip_days = self._infer_trip_days(user_text, geojson_data)
+        day_counts: dict[int, int] = {}
+        for feature in point_features:
+            props = feature.get("properties") or {}
+            day = self._normalize_day(props.get("day"), fallback=1)
+            day_counts[day] = day_counts.get(day, 0) + 1
+
+        for poi in SINGAPORE_REQUESTED_POIS:
+            if not self._alias_in_text(user_text, poi["aliases"]):
+                continue
+            requested_name = poi["name"]
+            requested_coord = poi["coordinates"]
+            if any(self._alias_in_text(feature.get("properties", {}).get("name", ""), poi["aliases"]) for feature in point_features):
+                continue
+
+            nearby = None
+            for feature in point_features:
+                props = feature.get("properties") or {}
+                if self._alias_in_text(user_text, [props.get("name", "")]):
+                    continue
+                dist = self._distance_meters(requested_coord, feature.get("geometry", {}).get("coordinates"))
+                if dist < 220:
+                    nearby = feature
+                    break
+
+            if nearby:
+                props = nearby.setdefault("properties", {})
+                props["name"] = requested_name
+                props["label_title"] = requested_name
+                props["category"] = poi["category"]
+                props["visual_id"] = f"point_{poi['category']}"
+                nearby.setdefault("geometry", {})["coordinates"] = list(requested_coord)
+                props["label_coord"] = list(requested_coord)
+                continue
+
+            preferred_day = min(max(1, int(poi["day"])), trip_days)
+            day = preferred_day if day_counts.get(preferred_day, 0) < self.max_pois_per_day else min(
+                range(1, trip_days + 1),
+                key=lambda candidate_day: day_counts.get(candidate_day, 0),
+            )
+            day_counts[day] = day_counts.get(day, 0) + 1
+            order = day_counts[day]
+            feature = {
+                "type": "Feature",
+                "geometry": {"type": "Point", "coordinates": list(requested_coord)},
+                "properties": {
+                    "visual_id": f"point_{poi['category']}",
+                    "category": poi["category"],
+                    "name": requested_name,
+                    "day": f"D{day}",
+                    "order": order,
+                    "label_level": "secondary" if order > 1 else "core",
+                    "label_title": requested_name,
+                    "label_script": "用户明确指定的行程地点",
+                    "label_extra_info": "",
+                    "label_coord": list(requested_coord),
+                },
+            }
+            features.append(feature)
+            point_features.append(feature)
+
+        return geojson_data
+
+    def _enforce_city_bounds(self, geojson_data: dict) -> dict:
+        """Known destination guard: reject or re-geocode points outside the destination envelope."""
+        city = geojson_data.get("_city", "")
+        bounds = self._city_bounds(city)
+        if not bounds:
+            return geojson_data
+
+        kept_points = []
+        for feature in geojson_data.get("features", []):
+            if feature.get("geometry", {}).get("type") != "Point":
+                continue
+            props = feature.get("properties", {})
+            coords = feature.get("geometry", {}).get("coordinates")
+            name = props.get("name", "")
+            if self._within_bounds(coords, bounds):
+                kept_points.append(feature)
+                continue
+            corrected = self.amap_service.search_poi(name, city=city)
+            if corrected and self._within_bounds(corrected, bounds):
+                feature["geometry"]["coordinates"] = list(corrected)
+                feature["properties"]["label_coord"] = feature["properties"].get("label_coord") or list(corrected)
+                kept_points.append(feature)
+                print(f"      ✅ [{name}] 城市范围外坐标已重定位到 {city}")
+            else:
+                print(f"      ⚠️ [{name}] 超出 {city} 范围且无法重定位，将被剔除")
+
+        geojson_data["features"] = kept_points
+        return self._normalize_travel_semantics(geojson_data, {})
 
     def _normalize_day(self, value, fallback: int = 1) -> int:
         if isinstance(value, int):
@@ -603,7 +757,9 @@ class GeoJSONGenerationNode:
                         }
                     ]
                 geojson_data = self._correct_and_sync_topology(geojson_data)
+                geojson_data = self._ensure_requested_known_pois(geojson_data, state.user_text)
                 geojson_data = self._normalize_travel_semantics(geojson_data, state.visual_structure)
+                geojson_data = self._enforce_city_bounds(geojson_data)
                 geojson_data = self._annotate_feature_metadata(geojson_data)
 
                 schema_report = validate_geojson(geojson_data)
