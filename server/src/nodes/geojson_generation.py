@@ -329,53 +329,6 @@ class GeoJSONGenerationNode:
                 return area
         return ""
 
-    def _remove_non_requested_area_duplicates(self, geojson_data: dict, user_text: str) -> dict:
-        features = geojson_data.get("features", [])
-        points = [feature for feature in features if feature.get("geometry", {}).get("type") == "Point"]
-        removed_ids = set()
-
-        def is_requested(feature: dict) -> bool:
-            name = (feature.get("properties") or {}).get("name", "")
-            return self._alias_in_text(user_text, [name])
-
-        for index, first in enumerate(points):
-            if id(first) in removed_ids:
-                continue
-            first_props = first.get("properties") or {}
-            first_area = self._macro_area(first_props.get("name", ""))
-            if not first_area:
-                continue
-            for second in points[index + 1:]:
-                if id(second) in removed_ids:
-                    continue
-                second_props = second.get("properties") or {}
-                if first_props.get("day") != second_props.get("day"):
-                    continue
-                if first_area != self._macro_area(second_props.get("name", "")):
-                    continue
-                dist = self._distance_meters(
-                    first.get("geometry", {}).get("coordinates"),
-                    second.get("geometry", {}).get("coordinates"),
-                )
-                if dist >= 750:
-                    continue
-                first_requested = is_requested(first)
-                second_requested = is_requested(second)
-                if first_requested and second_requested:
-                    continue
-                remove_feature = first if second_requested else second
-                removed_ids.add(id(remove_feature))
-                print(
-                    f"      ↪️ 移除同区域过密 POI: {(remove_feature.get('properties') or {}).get('name', '')}"
-                )
-
-        if removed_ids:
-            geojson_data["features"] = [
-                feature for feature in features
-                if feature.get("geometry", {}).get("type") != "Point" or id(feature) not in removed_ids
-            ]
-        return geojson_data
-
     def _ensure_requested_known_pois(self, geojson_data: dict, user_text: str) -> dict:
         city = str(geojson_data.get("_city") or "")
         if "新加坡" not in city and "singapore" not in city.lower():
@@ -534,9 +487,7 @@ class GeoJSONGenerationNode:
                 ):
                     return True
             dist = self._distance_meters(candidate_coord, existing.get("geometry", {}).get("coordinates"))
-            if dist < 35:
-                return True
-            if candidate_day == existing_props.get("day") and dist < 120:
+            if candidate_day == existing_props.get("day") and dist < 20:
                 return True
         return False
 
@@ -836,10 +787,9 @@ class GeoJSONGenerationNode:
                             "script": state.global_description or "",
                             "extra_info": "",
                         }
-                    ]
+                ]
                 geojson_data = self._correct_and_sync_topology(geojson_data)
                 geojson_data = self._ensure_requested_known_pois(geojson_data, state.user_text)
-                geojson_data = self._remove_non_requested_area_duplicates(geojson_data, state.user_text)
                 geojson_data = self._normalize_travel_semantics(geojson_data, state.visual_structure)
                 geojson_data = self._enforce_city_bounds(geojson_data)
                 geojson_data = self._annotate_feature_metadata(geojson_data)

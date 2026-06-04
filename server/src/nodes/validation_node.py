@@ -159,8 +159,17 @@ class ValidationNode:
                 )
                 both_requested = self._mentioned_by_user(first_name, user_text) and self._mentioned_by_user(second_name, user_text)
                 if not both_requested and dist < 750 and (same_area or contains):
+                    requested_names = [
+                        name for name in [first_name, second_name]
+                        if self._mentioned_by_user(name, user_text)
+                    ]
+                    action = (
+                        f"优先保留用户明确点名的 {requested_names[0]}，删除另一个未点名 POI。"
+                        if requested_names
+                        else "请 Node3 基于原始用户请求和当天路线语义重新选择其一；若用户未点名这两个 POI，删除更偏离用户请求或更像泛化补点的一个，并同步更新 LineString、point_names 与 global_properties。"
+                    )
                     issues.append(
-                        f"同一天存在疑似重复/过密 POI：{first_name} 与 {second_name} 相距约 {int(dist)} 米且同属{first_area or '相同'}区域；请保留更符合用户输入的一个。"
+                        f"同一天存在疑似重复/过密 POI：{first_name} 与 {second_name} 相距约 {int(dist)} 米且同属{first_area or '相同'}区域。{action}"
                     )
 
         return issues
