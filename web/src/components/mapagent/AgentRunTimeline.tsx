@@ -13,7 +13,7 @@ import {
   type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { downstreamNodesForRerun, useAgentMap, type AgentRunEvent } from '@/lib/agentMapContext';
+import { downstreamNodesForRerun, replayAgentEvents, useAgentMap, type AgentRunEvent } from '@/lib/agentMapContext';
 import { API_BASE_URL } from '@/lib/api';
 
 const NODE_ORDER = [
@@ -68,6 +68,17 @@ const findLastEvent = (events: AgentRunEvent[], predicate: (event: AgentRunEvent
   }
   return undefined;
 };
+
+const findLastEventIndex = (events: AgentRunEvent[], predicate: (event: AgentRunEvent) => boolean) => {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    if (predicate(events[index])) return index;
+  }
+  return -1;
+};
+
+const isRunningEvent = (event: AgentRunEvent) => (
+  event.type === 'node_started' || event.status === 'running' || event.status === 'retrying'
+);
 
 const summarizeEvent = (event?: AgentRunEvent) => {
   const payload = event?.payload || {};
@@ -198,11 +209,23 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
   const flowGraph = useMemo(() => {
     const nodes: Node[] = [];
     const edges: Edge[] = [];
-    const statesByNode = new Map(NODE_ORDER.map((node) => [node.id, nodeState(agentEvents, node.id)]));
-    const runningNodeId = NODE_ORDER.find((node) => statesByNode.get(node.id)?.running)?.id;
-    const completedNodeIds = new Set(
-      NODE_ORDER.filter((node) => Boolean(statesByNode.get(node.id)?.completed)).map((node) => node.id),
+    const rerunStartIndex = findLastEventIndex(
+      agentEvents,
+      (event) => event.type === 'node_started' && Boolean(event.payload?.local_rerun_preview),
     );
+    const flowEvents = rerunStartIndex >= 0 ? agentEvents.slice(rerunStartIndex) : agentEvents;
+    const hasRerunScope = rerunStartIndex >= 0;
+    const statesByNode = new Map(NODE_ORDER.map((node) => [node.id, nodeState(agentEvents, node.id)]));
+    const flowStatesByNode = new Map(NODE_ORDER.map((node) => [node.id, nodeState(flowEvents, node.id)]));
+    const runningNodeId = findLastEvent(flowEvents, (event) => {
+      const nodeId = event.node_id;
+      return Boolean(nodeId && flowStatesByNode.get(nodeId)?.running && isRunningEvent(event));
+    })?.node_id;
+    const completedNodeIds = new Set(
+      NODE_ORDER.filter((node) => Boolean(flowStatesByNode.get(node.id)?.completed)).map((node) => node.id),
+    );
+    const validationFailed = Boolean(flowStatesByNode.get('validation')?.failed);
+    const hasValidationRetry = flowEvents.some((event) => event.type === 'node_retry' || event.status === 'retrying');
     const hasRunInput = agentEvents.length > 0 || Boolean(activeRunId);
 
     nodes.push({
@@ -290,13 +313,14 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
 
     NODE_ORDER.forEach((node) => {
       const state = statesByNode.get(node.id) || nodeState(agentEvents, node.id);
+      const flowState = flowStatesByNode.get(node.id) || nodeState(flowEvents, node.id);
       const event = state.completed || state.latest || placeholderEvent(node.id, node.label, activeRunId);
       const isComplete = Boolean(state.completed);
       const isSelectedAgent = selectedAgentSelection?.kind !== 'map_feature' && selectedAgentEvent?.node_id === node.id;
       const position = FLOW_POSITIONS[node.id];
-      const statusClass = state.failed
+      const statusClass = flowState.failed || state.failed
         ? 'border-[#131722] bg-[#F2F2F2]'
-        : state.running
+        : isAgentRunning && flowState.running
           ? 'border-[#131722] bg-white'
           : isComplete
             ? 'border-[#131722] bg-[#F2F2F2]'
@@ -340,22 +364,22 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
 
     addFlowEdge('edge-input-intent', 'input', 'intent', {
       active: isAgentRunning && runningNodeId === 'intent',
-      complete: completedNodeIds.has('intent'),
+      complete: !hasRerunScope && completedNodeIds.has('intent'),
       dashed: true,
     });
     addFlowEdge('edge-input-visual', 'input', 'visual', {
       active: isAgentRunning && runningNodeId === 'visual',
-      complete: completedNodeIds.has('visual'),
+      complete: !hasRerunScope && completedNodeIds.has('visual'),
       dashed: true,
     });
     addFlowEdge('edge-intent-geojson', 'intent', 'geojson', {
-      active: isAgentRunning && runningNodeId === 'geojson' && completedNodeIds.has('intent'),
-      complete: completedNodeIds.has('intent') && completedNodeIds.has('geojson'),
+      active: !hasRerunScope && isAgentRunning && runningNodeId === 'geojson' && completedNodeIds.has('intent'),
+      complete: !hasRerunScope && completedNodeIds.has('intent') && completedNodeIds.has('geojson'),
       dashed: true,
     });
     addFlowEdge('edge-visual-geojson', 'visual', 'geojson', {
-      active: isAgentRunning && runningNodeId === 'geojson' && completedNodeIds.has('visual'),
-      complete: completedNodeIds.has('visual') && completedNodeIds.has('geojson'),
+      active: !hasRerunScope && isAgentRunning && runningNodeId === 'geojson' && completedNodeIds.has('visual'),
+      complete: !hasRerunScope && completedNodeIds.has('visual') && completedNodeIds.has('geojson'),
       dashed: true,
     });
     addHandledFlowEdge('edge-geojson-validation', 'geojson', 'validation', {
@@ -373,8 +397,8 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
     });
     addHandledFlowEdge('edge-validation-retry-geojson', 'validation', 'geojson', {
       label: 'retry',
-      active: isAgentRunning && runningNodeId === 'geojson' && Boolean(statesByNode.get('validation')?.failed),
-      complete: completedNodeIds.has('validation') && !statesByNode.get('validation')?.failed,
+      active: isAgentRunning && runningNodeId === 'geojson' && validationFailed,
+      complete: hasValidationRetry,
       dashed: true,
       type: 'straight',
       sourceHandle: 'out-bottom-left',
@@ -488,7 +512,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       if (data.geojson) setGeojson(data.geojson);
       if (data.style_code) setManifest(data.style_code);
       if (data.visual_structure) setVisualStructure(data.visual_structure);
-      asArray(data.events).forEach((event: AgentRunEvent) => appendAgentEvent(event));
+      await replayAgentEvents(asArray(data.events), appendAgentEvent, setSelectedAgentEvent);
     } catch (error: any) {
       if (firstPendingNode) {
         appendAgentEvent({

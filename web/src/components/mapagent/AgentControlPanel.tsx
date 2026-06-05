@@ -3,7 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCwIcon } from 'lucide-react';
 import { API_BASE_URL, buildFileUrl } from '@/lib/api';
-import { downstreamNodesForRerun, useAgentMap, type AgentRunEvent, type AgentSelection } from '@/lib/agentMapContext';
+import {
+  downstreamNodesForRerun,
+  replayAgentEvents,
+  useAgentMap,
+  type AgentRunEvent,
+  type AgentSelection,
+} from '@/lib/agentMapContext';
 
 interface AgentControlPanelProps {
   sessionId?: string;
@@ -404,9 +410,9 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
 
       const events = Array.isArray(data.events) ? data.events : [];
       if (events.length > 0) {
-        events.forEach((event: AgentRunEvent) => appendAgentEvent(event));
+        await replayAgentEvents(events, appendAgentEvent, setSelectedAgentEvent);
       } else {
-        appendAgentEvent({
+        const fallbackEvent: AgentRunEvent = {
           type: 'node_completed',
           run_id: sessionId,
           session_id: sessionId,
@@ -415,7 +421,9 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
           status: 'completed',
           payload: { style_code: data.style_code, geojson: data.geojson },
           timestamp: new Date().toISOString(),
-        });
+        };
+        appendAgentEvent(fallbackEvent);
+        setSelectedAgentEvent(fallbackEvent);
       }
     } catch (error: any) {
       if (firstPendingNode) {

@@ -54,6 +54,28 @@ export const downstreamNodesForRerun = (nodeId?: string | null): { node_id: stri
   return [];
 };
 
+export const shouldAutoSelectAgentEvent = (event: AgentRunEvent) => (
+  event.type === 'node_started' ||
+  event.type === 'node_completed' ||
+  event.type === 'node_validation' ||
+  event.type === 'workflow_error'
+);
+
+export const replayAgentEvents = async (
+  events: AgentRunEvent[],
+  appendAgentEvent: (event: AgentRunEvent) => void,
+  setSelectedAgentEvent?: (event: AgentRunEvent) => void,
+) => {
+  for (const event of events) {
+    appendAgentEvent(event);
+    if (setSelectedAgentEvent && shouldAutoSelectAgentEvent(event)) {
+      setSelectedAgentEvent(event);
+    }
+    const delay = event.type === 'artifact_saved' ? 50 : 260;
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+};
+
 interface AgentMapContextType {
   specfilename: string | null;
   setSpecfilename: (name: string | null) => void;
