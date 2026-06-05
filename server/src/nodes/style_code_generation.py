@@ -144,10 +144,10 @@ class StyleCodeGenerationNode:
         if raw_size is None and isinstance(item.get("style"), dict):
             raw_size = item["style"].get("size")
         if isinstance(raw_size, list):
-            width = self._number(raw_size[0] if raw_size else None, 30, 18, 44)
-            height = self._number(raw_size[1] if len(raw_size) > 1 else width, width, 18, 44)
+            width = self._number(raw_size[0] if raw_size else None, 42, 24, 56)
+            height = self._number(raw_size[1] if len(raw_size) > 1 else width, width, 24, 56)
             return [width, height]
-        size = self._number(raw_size, 30, 18, 44)
+        size = self._number(raw_size, 42, 24, 56)
         return [size, size]
 
     def _normalize_point_styles(self, style_code: dict) -> list[dict]:
@@ -195,7 +195,7 @@ class StyleCodeGenerationNode:
                 "icon描述": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
                 "icon_description": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
                 "iconDescription": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
-                "size": [30, 30],
+                "size": [50, 50],
                 "style": {"color": "#E4572E"},
             }
         ]
@@ -438,7 +438,7 @@ class StyleCodeGenerationNode:
                     "icon描述": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
                     "icon_description": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
                     "iconDescription": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
-                    "size": [30, 30],
+                "size": [50, 50],
                     "style": {"color": "#E4572E"},
                 }
             ],

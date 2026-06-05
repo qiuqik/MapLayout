@@ -10,7 +10,11 @@ from .utils.coord_transform import is_out_of_china
 CHINA_CITY_MARKERS = {
     "中国", "北京", "上海", "天津", "重庆", "广州", "深圳", "杭州", "南京", "苏州", "成都", "西安",
     "武汉", "长沙", "厦门", "青岛", "大连", "宁波", "无锡", "福州", "昆明", "桂林", "拉萨", "香港",
-    "澳门", "台北", "北京市", "上海市", "杭州市", "广州市", "深圳市",
+    "澳门", "台北", "三亚", "海口", "黄山", "张家界", "丽江", "大理", "乌鲁木齐", "哈尔滨", "沈阳",
+    "长春", "济南", "郑州", "合肥", "南昌", "贵阳", "南宁", "兰州", "银川", "西宁", "呼和浩特",
+    "九寨沟", "稻城", "西双版纳", "乌镇", "婺源", "平遥", "敦煌", "嘉峪关", "武夷山", "庐山",
+    "神农架", "峨眉山", "乐山", "秦皇岛", "北戴河", "承德", "洛阳", "开封", "扬州", "绍兴",
+    "北京市", "上海市", "杭州市", "广州市", "深圳市",
 }
 
 FOREIGN_CITY_MARKERS = {
@@ -18,6 +22,11 @@ FOREIGN_CITY_MARKERS = {
     "巴黎", "paris", "伦敦", "london", "东京", "tokyo", "大阪", "osaka", "京都", "kyoto",
     "首尔", "seoul", "曼谷", "bangkok", "吉隆坡", "kuala lumpur", "纽约", "new york",
     "洛杉矶", "los angeles", "悉尼", "sydney", "墨尔本", "melbourne", "罗马", "rome",
+    "夏威夷", "hawaii", "欧胡", "oahu", "檀香山", "honolulu", "威基基", "waikiki",
+    "巴厘", "bali", "普吉", "phuket", "清迈", "chiang mai",
+    "美国", "usa", "united states", "韩国", "泰国", "马来西亚", "印尼", "印度尼西亚",
+    "越南", "柬埔寨", "澳大利亚", "澳洲", "意大利", "法国", "英国", "德国", "西班牙",
+    "葡萄牙", "加拿大",
 }
 
 KNOWN_POI_COORDS = {
@@ -63,7 +72,31 @@ KNOWN_POI_COORDS = {
         "sri veeramakaliamman": (103.8521, 1.3065),
         "佛牙寺龙华院": (103.8442, 1.2815),
         "buddha tooth relic": (103.8442, 1.2815),
-    }
+    },
+    "hawaii_oahu": {
+        "威基基海滩": (-157.8272, 21.2767),
+        "waikiki beach": (-157.8272, 21.2767),
+        "卡皮欧拉尼公园": (-157.8193, 21.2686),
+        "kapiolani park": (-157.8193, 21.2686),
+        "钻石头山州立纪念碑": (-157.8059, 21.2620),
+        "钻石头山": (-157.8059, 21.2620),
+        "diamond head state monument": (-157.8059, 21.2620),
+        "diamond head": (-157.8059, 21.2620),
+        "珍珠港": (-157.9500, 21.3672),
+        "pearl harbor": (-157.9500, 21.3672),
+        "伊奥拉尼宫": (-157.8583, 21.3069),
+        "iolani palace": (-157.8583, 21.3069),
+        "阿拉莫阿那中心": (-157.8430, 21.2910),
+        "ala moana center": (-157.8430, 21.2910),
+        "恐龙湾": (-157.6938, 21.2690),
+        "hanauma bay": (-157.6938, 21.2690),
+        "拉尼凯海滩": (-157.7144, 21.3926),
+        "lanikai beach": (-157.7144, 21.3926),
+        "凯卢阿海滩": (-157.7394, 21.3976),
+        "kailua beach": (-157.7394, 21.3976),
+        "北岸": (-158.0515, 21.5900),
+        "north shore": (-158.0515, 21.5900),
+    },
 }
 
 class AMapService:
@@ -337,6 +370,20 @@ class AMapService:
             "melbourne": "Melbourne",
             "罗马": "Rome",
             "rome": "Rome",
+            "夏威夷": "Hawaii",
+            "hawaii": "Hawaii",
+            "夏威夷欧胡岛": "Oahu, Hawaii",
+            "欧胡岛": "Oahu, Hawaii",
+            "欧胡": "Oahu, Hawaii",
+            "oahu": "Oahu, Hawaii",
+            "檀香山": "Honolulu, Hawaii",
+            "honolulu": "Honolulu, Hawaii",
+            "巴厘岛": "Bali",
+            "巴厘": "Bali",
+            "bali": "Bali",
+            "普吉岛": "Phuket",
+            "普吉": "Phuket",
+            "phuket": "Phuket",
         }
         return aliases.get(city_text, str(city or ""))
 
@@ -345,10 +392,19 @@ class AMapService:
         if not city_key:
             return ""
         query = str(keyword or "").lower().replace(" ", "")
-        for alias in KNOWN_POI_COORDS.get(city_key, {}):
+        known = KNOWN_POI_COORDS.get(city_key, {})
+        matched_coords = None
+        for alias, coords in known.items():
             alias_key = alias.lower().replace(" ", "")
-            if alias_key and alias_key in query and any(("a" <= char.lower() <= "z") for char in alias):
-                return alias
+            if alias_key and alias_key in query:
+                if any(("a" <= char.lower() <= "z") for char in alias):
+                    return alias
+                matched_coords = coords
+                break
+        if matched_coords:
+            for alias, coords in known.items():
+                if coords == matched_coords and any(("a" <= char.lower() <= "z") for char in alias):
+                    return alias
         return ""
 
     def _foreign_query(self, keyword: str, city: str = "", search_name_en: Optional[str] = None) -> str:
@@ -391,9 +447,11 @@ class AMapService:
             return False
         if any(marker in compact for marker in CHINA_CITY_MARKERS):
             return True
+        if any(suffix in compact for suffix in ("市", "省", "自治区", "自治州", "地区", "盟")):
+            return True
         has_cjk = any("\u4e00" <= char <= "\u9fff" for char in compact)
         has_latin = any(("a" <= char.lower() <= "z") for char in compact)
-        return has_cjk and not has_latin
+        return has_cjk and not has_latin and any(marker in compact for marker in ("中国", "中华", "大陆", "内地"))
 
     def _matches_city_scope(self, item: dict, city: str = "") -> bool:
         city_text = str(city or "").strip()
@@ -416,6 +474,8 @@ class AMapService:
         text = f"{city} {keyword}".lower()
         if "新加坡" in text or "singapore" in text or "sentosa" in text:
             return "singapore"
+        if any(marker in text for marker in ["夏威夷", "hawaii", "欧胡", "oahu", "檀香山", "honolulu", "威基基", "waikiki"]):
+            return "hawaii_oahu"
         return None
 
     def _lookup_known_poi(self, keyword: str, city: str = "") -> Optional[Tuple[float, float]]:

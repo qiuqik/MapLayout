@@ -3,6 +3,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from ..utils.agent_utils import AgentState, _extract_first_json_object, _robust_json_loads
 from ..utils.prompt_loader import load_prompt
+from ..amap_service import CHINA_CITY_MARKERS, FOREIGN_CITY_MARKERS
 import copy
 import math
 import re
@@ -110,6 +111,35 @@ class ValidationNode:
         except (TypeError, ValueError, IndexError):
             return False
 
+    def _foreign_city_bounds(self, city: str):
+        city_text = str(city or "").lower()
+        bounds_by_marker = {
+            "新加坡": (103.55, 1.15, 104.15, 1.50),
+            "singapore": (103.55, 1.15, 104.15, 1.50),
+            "夏威夷": (-161.0, 18.7, -154.6, 22.4),
+            "hawaii": (-161.0, 18.7, -154.6, 22.4),
+            "欧胡": (-158.35, 21.20, -157.60, 21.75),
+            "oahu": (-158.35, 21.20, -157.60, 21.75),
+            "檀香山": (-158.10, 21.20, -157.65, 21.45),
+            "honolulu": (-158.10, 21.20, -157.65, 21.45),
+        }
+        for marker, bounds in bounds_by_marker.items():
+            if marker in city_text:
+                return bounds
+        return None
+
+    def _is_foreign_city(self, city: str) -> bool:
+        compact = str(city or "").replace(" ", "").lower()
+        if not compact:
+            return False
+        if any(marker in compact for marker in FOREIGN_CITY_MARKERS):
+            return True
+        if any(marker in compact for marker in CHINA_CITY_MARKERS):
+            return False
+        if any(suffix in compact for suffix in ("市", "省", "自治区", "自治州", "地区", "盟")):
+            return False
+        return bool(compact)
+
     def _route_consistency_issues(self, data: dict) -> list[str]:
         issues = []
         points_by_day: dict[str, list[dict]] = {}
@@ -168,23 +198,26 @@ class ValidationNode:
             if feature.get("geometry", {}).get("type") == "Point"
         ]
 
-        if "新加坡" in city or "singapore" in city.lower():
+        foreign_bounds = self._foreign_city_bounds(city)
+        if self._is_foreign_city(city):
             for feature in points:
                 name = (feature.get("properties") or {}).get("name", "")
                 props = feature.get("properties") or {}
                 provider = str(props.get("geocode_provider") or "").lower()
                 search_name_en = str(props.get("search_name_en") or props.get("geocode_query") or "")
                 if provider == "amap":
-                    issues.append(f"{name} 是新加坡 POI，但 geocode_provider 为 amap，疑似使用了国内坐标检索；应改用 Mapbox 英文查询。")
+                    issues.append(f"{name} 属于国外目的地 {city}，但 geocode_provider 为 amap，疑似使用了国内坐标检索；应改用 Mapbox 英文查询。")
                 if provider in {"mapbox", "model", "known", "skipped"} and not any(("a" <= char.lower() <= "z") for char in search_name_en):
-                    issues.append(f"{name} 是新加坡 POI，但缺少英文 search_name_en/geocode_query，国外坐标检索字段不完整。")
+                    issues.append(f"{name} 属于国外目的地 {city}，但缺少英文 search_name_en/geocode_query，国外坐标检索字段不完整。")
                 coords = feature.get("geometry", {}).get("coordinates")
                 try:
                     lon, lat = float(coords[0]), float(coords[1])
                 except (TypeError, ValueError, IndexError):
                     continue
-                if not (103.55 <= lon <= 104.15 and 1.15 <= lat <= 1.50):
-                    issues.append(f"{name} 坐标 {coords} 超出新加坡范围。")
+                if foreign_bounds:
+                    west, south, east, north = foreign_bounds
+                    if not (west <= lon <= east and south <= lat <= north):
+                        issues.append(f"{name} 坐标 {coords} 超出 {city} 范围。")
 
         for feature in points:
             name = (feature.get("properties") or {}).get("name", "")

@@ -28,11 +28,11 @@ const NODE_WIDTH = 116;
 
 const FLOW_POSITIONS: Record<string, { x: number; y: number }> = {
   input: { x: 0, y: 82 },
-  intent: { x: 180, y: 82 },
-  visual: { x: 180, y: 170 },
-  geojson: { x: 430, y: 82 },
-  validation: { x: 430, y: 0 },
-  style: { x: 680, y: 82 },
+  intent: { x: 180, y: 40 },
+  visual: { x: 180, y: 120 },
+  geojson: { x: 430, y: 102 },
+  validation: { x: 430, y: 10 },
+  style: { x: 680, y: 60 },
 };
 
 const hiddenHandleStyle = {
@@ -49,6 +49,7 @@ const FlowNode = ({ data }: { data: { label: ReactNode } }) => (
     <Handle id="out-right" type="source" position={Position.Right} style={hiddenHandleStyle} />
     <Handle id="out-top-right" type="source" position={Position.Top} style={{ ...hiddenHandleStyle, left: '72%' }} />
     <Handle id="in-top-left" type="target" position={Position.Top} style={{ ...hiddenHandleStyle, left: '28%' }} />
+    <Handle id="in-bottom-left" type="target" position={Position.Bottom} style={{ ...hiddenHandleStyle, left: '50%' }} />
     <Handle id="out-bottom-left" type="source" position={Position.Bottom} style={{ ...hiddenHandleStyle, left: '28%' }} />
     <Handle id="in-bottom-right" type="target" position={Position.Bottom} style={{ ...hiddenHandleStyle, left: '72%' }} />
     {data.label}
@@ -393,10 +394,11 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       complete: completedNodeIds.has('geojson') && completedNodeIds.has('style'),
       dashed: true,
     });
-    addFlowEdge('edge-visual-style', 'visual', 'style', {
+    addHandledFlowEdge('edge-visual-style', 'visual', 'style', {
       active: isAgentRunning && runningNodeId === 'style' && allCompletedNodeIds.has('visual'),
       complete: completedNodeIds.has('visual') && completedNodeIds.has('style'),
       dashed: true,
+      targetHandle: 'in-bottom-left',
     });
     addHandledFlowEdge('edge-validation-retry-geojson', 'validation', 'geojson', {
       label: 'retry',
