@@ -175,6 +175,8 @@ class StyleCodeGenerationNode:
                     "visual_id": visual_id,
                     "category": category,
                     "icon描述": str(icon_description),
+                    "icon_description": str(icon_description),
+                    "iconDescription": str(icon_description),
                     "size": self._normalize_point_size(item),
                     "style": item.get("style") if isinstance(item.get("style"), dict) else {},
                 }
@@ -191,6 +193,8 @@ class StyleCodeGenerationNode:
                 "visual_id": "point_poi",
                 "category": "poi",
                 "icon描述": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
+                "icon_description": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
+                "iconDescription": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
                 "size": [22, 22],
                 "style": {"color": "#E4572E"},
             }
@@ -432,6 +436,8 @@ class StyleCodeGenerationNode:
                     "visual_id": "point_poi",
                     "category": "poi",
                     "icon描述": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
+                    "icon_description": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
+                    "iconDescription": "精致旅行 POI 小图标，透明背景，轮廓清晰，色彩取自主强调色",
                     "size": [22, 22],
                     "style": {"color": "#E4572E"},
                 }

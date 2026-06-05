@@ -1011,7 +1011,11 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
                       else updateStyleSectionLive('Point', index, ['style', 'size', 1], next);
                     })}
                   </div>
-                  {renderField('Icon prompt', item.icon_description || item.description, (value) => updateStyleSectionLive('Point', index, ['icon_description'], value), { multiline: true })}
+                  {renderField('Icon prompt', item.icon_description || item.iconDescription || item['icon描述'] || item.description, (value) => {
+                    updateStyleSectionLive('Point', index, ['icon_description'], value);
+                    updateStyleSectionLive('Point', index, ['iconDescription'], value);
+                    updateStyleSectionLive('Point', index, ['icon描述'], value);
+                  }, { multiline: true })}
                   {renderField('URL', item.url, (value) => updateStyleSectionLive('Point', index, ['url'], value))}
                 </div>
               ))}
