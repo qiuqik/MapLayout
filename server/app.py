@@ -89,7 +89,10 @@ def _load_latest_session_json(session_dir: str, subdir: str) -> dict | None:
     target = os.path.join(session_dir, subdir)
     if not os.path.isdir(target):
         return None
-    files = sorted([name for name in os.listdir(target) if name.endswith('.json')])
+    files = sorted(
+        [name for name in os.listdir(target) if name.endswith('.json')],
+        key=lambda name: (os.path.getmtime(os.path.join(target, name)), name),
+    )
     if not files:
         return None
     with open(os.path.join(target, files[-1]), "r", encoding="utf-8") as f:
@@ -605,7 +608,11 @@ async def get_multimodal_session_icon(session_id: str, filename: str):
     icon_path = os.path.join(base, 'icon', safe_filename)
     if not os.path.exists(icon_path):
         return JSONResponse(status_code=404, content={"error": "图标不存在"})
-    return FileResponse(icon_path, media_type="image/png")
+    return FileResponse(
+        icon_path,
+        media_type="image/png",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @app.get("/api/multimodal/session/{session_id}")
