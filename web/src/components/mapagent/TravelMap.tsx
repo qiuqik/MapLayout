@@ -335,6 +335,100 @@ function shouldHideOverlay(
   return false;
 }
 
+const expandRect = (rect: Rect, amount: number): Rect => ({
+  x: rect.x - amount,
+  y: rect.y - amount,
+  width: rect.width + amount * 2,
+  height: rect.height + amount * 2,
+});
+
+const rectsOverlap = (a: Rect, b: Rect, padding = 0) => {
+  const expandedB = expandRect(b, padding);
+  return (
+    a.x < expandedB.x + expandedB.width &&
+    a.x + a.width > expandedB.x &&
+    a.y < expandedB.y + expandedB.height &&
+    a.y + a.height > expandedB.y
+  );
+};
+
+const pointInRect = (point: { x: number; y: number }, rect: Rect) => (
+  point.x >= rect.x &&
+  point.x <= rect.x + rect.width &&
+  point.y >= rect.y &&
+  point.y <= rect.y + rect.height
+);
+
+const lineSegmentsIntersect = (
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  c: { x: number; y: number },
+  d: { x: number; y: number },
+) => {
+  const epsilon = 1e-6;
+  const cross = (p: { x: number; y: number }, q: { x: number; y: number }, r: { x: number; y: number }) => (
+    (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x)
+  );
+  const orientation = (p: { x: number; y: number }, q: { x: number; y: number }, r: { x: number; y: number }) => {
+    const value = cross(p, q, r);
+    if (Math.abs(value) <= epsilon) return 0;
+    return value > 0 ? 1 : -1;
+  };
+  const onSegment = (p: { x: number; y: number }, q: { x: number; y: number }, r: { x: number; y: number }) => (
+    q.x <= Math.max(p.x, r.x) + epsilon &&
+    q.x + epsilon >= Math.min(p.x, r.x) &&
+    q.y <= Math.max(p.y, r.y) + epsilon &&
+    q.y + epsilon >= Math.min(p.y, r.y)
+  );
+  const o1 = orientation(a, b, c);
+  const o2 = orientation(a, b, d);
+  const o3 = orientation(c, d, a);
+  const o4 = orientation(c, d, b);
+  if (o1 !== o2 && o3 !== o4) return true;
+  if (o1 === 0 && onSegment(a, c, b)) return true;
+  if (o2 === 0 && onSegment(a, d, b)) return true;
+  if (o3 === 0 && onSegment(c, a, d)) return true;
+  if (o4 === 0 && onSegment(c, b, d)) return true;
+  return false;
+};
+
+const rectIntersectsSegment = (rect: Rect, segment: { x1: number; y1: number; x2: number; y2: number }, padding = 0) => {
+  const expanded = expandRect(rect, padding);
+  const start = { x: segment.x1, y: segment.y1 };
+  const end = { x: segment.x2, y: segment.y2 };
+  if (pointInRect(start, expanded) || pointInRect(end, expanded)) return true;
+  const topLeft = { x: expanded.x, y: expanded.y };
+  const topRight = { x: expanded.x + expanded.width, y: expanded.y };
+  const bottomRight = { x: expanded.x + expanded.width, y: expanded.y + expanded.height };
+  const bottomLeft = { x: expanded.x, y: expanded.y + expanded.height };
+  return (
+    lineSegmentsIntersect(start, end, topLeft, topRight) ||
+    lineSegmentsIntersect(start, end, topRight, bottomRight) ||
+    lineSegmentsIntersect(start, end, bottomRight, bottomLeft) ||
+    lineSegmentsIntersect(start, end, bottomLeft, topLeft)
+  );
+};
+
+const outputRect = (output: LayoutItemOutput): Rect => ({
+  x: output.cx - output.width / 2,
+  y: output.cy - output.height / 2,
+  width: output.width,
+  height: output.height,
+});
+
+const scaleOutputBox = (output: LayoutItemOutput, factor: number): LayoutItemOutput => {
+  const nextWidth = Math.max(42, output.width * factor);
+  const nextHeight = Math.max(24, output.height * factor);
+  return {
+    ...output,
+    width: nextWidth,
+    height: nextHeight,
+    x: output.cx - nextWidth / 2,
+    y: output.cy - nextHeight / 2,
+    scale: Math.max(0.52, (output.scale ?? 1) * factor),
+  };
+};
+
 const MAPBOX_LAYER_TARGETS: Record<string, string[]> = {
   background: ['background'],
   land: ['land', 'landcover', 'landuse'],
@@ -689,76 +783,53 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
     if (!map) return;
 
     const pointCoords = transformedData.points
-      .map((feature: any) => feature.geometry?.coordinates);
-    const lineCoords = displayLines.flatMap((feature: any) => (
-      Array.isArray(feature.geometry?.coordinates) ? feature.geometry.coordinates : []
-    ));
-    const coords = [...pointCoords, ...lineCoords]
+      .map((feature: any) => feature.geometry?.coordinates)
       .filter((coord: any): coord is [number, number] => (
         Array.isArray(coord) &&
         typeof coord[0] === 'number' &&
         typeof coord[1] === 'number'
       ));
+    const fallbackLineCoords = displayLines.flatMap((feature: any) => (
+      Array.isArray(feature.geometry?.coordinates) ? feature.geometry.coordinates : []
+    ))
+      .filter((coord: any): coord is [number, number] => (
+        Array.isArray(coord) &&
+        typeof coord[0] === 'number' &&
+        typeof coord[1] === 'number'
+      ));
+    const coords = pointCoords.length > 0 ? pointCoords : fallbackLineCoords;
     if (coords.length === 0) return;
 
     const lons = coords.map((c) => c[0]);
     const lats = coords.map((c) => c[1]);
-    const bounds: [[number, number], [number, number]] = [
-      [Math.min(...lons), Math.min(...lats)],
-      [Math.max(...lons), Math.max(...lats)],
-    ];
+    let minLng = Math.min(...lons);
+    let maxLng = Math.max(...lons);
+    let minLat = Math.min(...lats);
+    let maxLat = Math.max(...lats);
+    if (Math.abs(maxLng - minLng) < 0.0008) {
+      minLng -= 0.0004;
+      maxLng += 0.0004;
+    }
+    if (Math.abs(maxLat - minLat) < 0.0008) {
+      minLat -= 0.0004;
+      maxLat += 0.0004;
+    }
+    const bounds: [[number, number], [number, number]] = [[minLng, minLat], [maxLng, maxLat]];
 
     const { width, height } = map.getContainer().getBoundingClientRect();
     if (!width || !height) return;
 
-    const basePad = Math.round(Math.min(width, height) * 0.08);
-    const safeGap = Math.round(Math.min(width, height) * 0.035);
-    const padding = {
-      top: basePad,
-      bottom: basePad,
-      left: basePad,
-      right: basePad,
-    };
-    globalRectsRef.current.forEach((rect) => {
-      const centerX = rect.x + rect.width / 2;
-      const centerY = rect.y + rect.height / 2;
-      if (centerY < height / 2) {
-        padding.top = Math.max(padding.top, Math.ceil(rect.y + rect.height + safeGap));
-      } else {
-        padding.bottom = Math.max(padding.bottom, Math.ceil(height - rect.y + safeGap));
-      }
-      if (centerX < width / 2) {
-        padding.left = Math.max(padding.left, Math.ceil(rect.x + rect.width + safeGap));
-      } else {
-        padding.right = Math.max(padding.right, Math.ceil(width - rect.x + safeGap));
-      }
-    });
-
-    const normalizeAxisPadding = (start: number, end: number, total: number) => {
-      const maxSide = total * 0.46;
-      let nextStart = Math.min(start, maxSide);
-      let nextEnd = Math.min(end, maxSide);
-      const maxSum = total * 0.82;
-      const sum = nextStart + nextEnd;
-      if (sum > maxSum && sum > 0) {
-        const scale = maxSum / sum;
-        nextStart *= scale;
-        nextEnd *= scale;
-      }
-      return [Math.round(nextStart), Math.round(nextEnd)] as const;
-    };
-
-    const [safeTop, safeBottom] = normalizeAxisPadding(padding.top, padding.bottom, height);
-    const [safeLeft, safeRight] = normalizeAxisPadding(padding.left, padding.right, width);
+    const basePad = Math.max(16, Math.min(56, Math.round(Math.min(width, height) * 0.045)));
 
     map.fitBounds(bounds, {
       padding: {
-        top: safeTop,
-        bottom: safeBottom,
-        left: safeLeft,
-        right: safeRight,
+        top: basePad,
+        bottom: basePad,
+        left: basePad,
+        right: basePad,
       },
       duration,
+      maxZoom: 15.8,
     });
   }, [displayLines, transformedData.points]);
 
@@ -980,11 +1051,10 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
         }))
         .filter((r) => r.width > 0 && r.height > 0 && !(r.width > maxW && r.height > maxH));
       globalRectsRef.current = converted;
-      fitMapToContent(500);
       // Recompute layout with updated obstacles (via ref, always latest closure)
       recomputeLayoutRef.current();
     },
-    [fitMapToContent]
+    []
   );
 
   useEffect(() => {
@@ -1084,10 +1154,14 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
       })
     );
 
-    // Point obstacles remain rect-based; lines use exact segment distances.
+    const visualScale = getViewportVisualScale(viewport);
+    const pointObstacleRadius = Math.max(22, Math.round(32 * visualScale));
+    const routeObstaclePadding = Math.max(10, Math.round(12 * visualScale));
+
+    // Point/global obstacles remain rect-based; lines use exact segment distances.
     const obstacles = buildObstacleRects(
       { pointsPx, linesPx: [], polygonsPx: [] },
-      { pointRadius: 10, lineHalfWidth: 6, polygonHalfWidth: 0, lineSampleStep: 24 }
+      { pointRadius: pointObstacleRadius, lineHalfWidth: routeObstaclePadding, polygonHalfWidth: 0, lineSampleStep: 24 }
     );
     const segments = buildObstacleSegments({ linesPx, polygonsPx: [] });
 
@@ -1171,8 +1245,37 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
 
     const { outputs, leaderLines } = layoutResult;
     const runtimeMs = performance.now() - layoutStart;
+
+    const viewportRect: Rect = { x: 0, y: 0, width: viewport.width, height: viewport.height };
+    const protectedObstacles = [...allObstacles];
+    const outputCollides = (output: LayoutItemOutput) => {
+      const rect = outputRect(output);
+      const insideViewport = (
+        rect.x >= 4 &&
+        rect.y >= 4 &&
+        rect.x + rect.width <= viewportRect.width - 4 &&
+        rect.y + rect.height <= viewportRect.height - 4
+      );
+      if (!insideViewport) return true;
+      if (protectedObstacles.some((obstacle) => rectsOverlap(rect, obstacle, 8))) return true;
+      return segments.some((segment) => rectIntersectsSegment(rect, segment, routeObstaclePadding));
+    };
+
+    const collisionSafeOutputs = outputs.flatMap((output) => {
+      if (!outputCollides(output)) return [output];
+      if (output.hierarchy === 'detail') return [];
+
+      const shrinkFactor = output.hierarchy === 'core' ? 0.82 : 0.74;
+      const shrunk = scaleOutputBox(output, shrinkFactor);
+      if (!outputCollides(shrunk)) return [shrunk];
+
+      const secondPass = scaleOutputBox(output, output.hierarchy === 'core' ? 0.68 : 0.6);
+      return outputCollides(secondPass) ? [] : [secondPass];
+    });
+    const visibleOutputIds = new Set(collisionSafeOutputs.map((output) => output.id));
+    const collisionSafeLeaderLines = leaderLines.filter((line) => visibleOutputIds.has(line.id));
     
-    const outputsWithLngLat = outputs.map(o => {
+    const outputsWithLngLat = collisionSafeOutputs.map(o => {
       const lngLat = map.unproject([o.cx, o.cy]);
       return {
         ...o,
@@ -1194,7 +1297,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
     };
     
     console.log("after layout outputs:", outputsWithLngLat);
-    setLayoutState((s) => ({ ...s, viewport, outputs: outputsWithLngLat, leaderLines, metadata }));
+    setLayoutState((s) => ({ ...s, viewport, outputs: outputsWithLngLat, leaderLines: collisionSafeLeaderLines, metadata }));
   }, [displayLines, transformedData.points, forceParams, fieldParams, layoutState.inputs, rerunLayoutTrigger, layoutAlgorithm, layoutSeed]);
 
   // Keep recomputeLayoutRef always pointing to the latest closure.

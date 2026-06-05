@@ -35,30 +35,79 @@ const numericArray = (value: unknown): number[] => (
     : []
 );
 
+const routeSignedArea = (coords: number[][]) => {
+  let area = 0;
+  for (let i = 0; i < coords.length - 1; i += 1) {
+    const [x1, y1] = coords[i];
+    const [x2, y2] = coords[i + 1];
+    area += x1 * y2 - x2 * y1;
+  }
+  return area;
+};
+
+const catmullRomPoint = (
+  p0: number[],
+  p1: number[],
+  p2: number[],
+  p3: number[],
+  t: number,
+) => {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  return [
+    0.5 * (
+      (2 * p1[0]) +
+      (-p0[0] + p2[0]) * t +
+      (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 +
+      (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3
+    ),
+    0.5 * (
+      (2 * p1[1]) +
+      (-p0[1] + p2[1]) * t +
+      (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 +
+      (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3
+    ),
+  ];
+};
+
 const buildCurveCoords = (coords: number[][]) => {
   if (coords.length < 3) return coords;
+  const routeArea = routeSignedArea(coords);
+  const side = routeArea >= 0 ? 1 : -1;
+  const lons = coords.map((coord) => coord[0]);
+  const lats = coords.map((coord) => coord[1]);
+  const routeSpan = Math.hypot(
+    Math.max(...lons) - Math.min(...lons),
+    Math.max(...lats) - Math.min(...lats),
+  );
+  const maxBulge = Math.min(0.045, Math.max(0.002, routeSpan * 0.075));
   const result: number[][] = [];
-  for (let i = 0; i < coords.length - 1; i++) {
-    const start = coords[i];
-    const end = coords[i + 1];
-    const dx = end[0] - start[0];
-    const dy = end[1] - start[1];
-    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-    const bend = Math.min(0.018, distance * 0.18) * (i % 2 === 0 ? 1 : -1);
-    const control = [
-      (start[0] + end[0]) / 2 - (dy / distance) * bend,
-      (start[1] + end[1]) / 2 + (dx / distance) * bend,
-    ];
 
-    for (let step = 0; step <= 14; step++) {
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p0 = coords[Math.max(0, i - 1)];
+    const p1 = coords[i];
+    const p2 = coords[i + 1];
+    const p3 = coords[Math.min(coords.length - 1, i + 2)];
+    const segmentDx = p2[0] - p1[0];
+    const segmentDy = p2[1] - p1[1];
+    const segmentDistance = Math.hypot(segmentDx, segmentDy) || 1;
+    const normal = [-(segmentDy / segmentDistance) * side, (segmentDx / segmentDistance) * side];
+
+    for (let step = 0; step <= 18; step++) {
       if (i > 0 && step === 0) continue;
-      const t = step / 14;
-      const oneMinusT = 1 - t;
+      const t = step / 18;
+      const point = catmullRomPoint(p0, p1, p2, p3, t);
+      const globalProgress = (i + t) / Math.max(1, coords.length - 1);
+      const bulge = Math.sin(Math.PI * globalProgress) * Math.min(maxBulge, segmentDistance * 0.22);
       result.push([
-        oneMinusT * oneMinusT * start[0] + 2 * oneMinusT * t * control[0] + t * t * end[0],
-        oneMinusT * oneMinusT * start[1] + 2 * oneMinusT * t * control[1] + t * t * end[1],
+        point[0] + normal[0] * bulge,
+        point[1] + normal[1] * bulge,
       ]);
     }
+  }
+  if (result.length > 0) {
+    result[0] = coords[0];
+    result[result.length - 1] = coords[coords.length - 1];
   }
   return result;
 };

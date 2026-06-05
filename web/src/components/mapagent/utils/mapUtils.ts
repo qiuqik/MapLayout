@@ -257,11 +257,13 @@ export const calculateMapViewState = (transformedData: TransformedMapData) => {
     coords.push(feature.geometry.coordinates);
   });
 
-  lines.forEach((feature: any) => {
-    feature.geometry.coordinates.forEach((coord: number[]) => {
-      coords.push(coord);
+  if (coords.length === 0) {
+    lines.forEach((feature: any) => {
+      feature.geometry.coordinates.forEach((coord: number[]) => {
+        coords.push(coord);
+      });
     });
-  });
+  }
 
   if (coords.length === 0) {
     return {
@@ -274,10 +276,10 @@ export const calculateMapViewState = (transformedData: TransformedMapData) => {
   const lons = coords.map((c) => c[0]);
   const lats = coords.map((c) => c[1]);
   
-  const minLng = Math.min(...lons) - 0.01;
-  const maxLng = Math.max(...lons) + 0.01;
-  const minLat = Math.min(...lats) - 0.01;
-  const maxLat = Math.max(...lats) + 0.01;
+  const minLng = Math.min(...lons) - 0.004;
+  const maxLng = Math.max(...lons) + 0.004;
+  const minLat = Math.min(...lats) - 0.004;
+  const maxLat = Math.max(...lats) + 0.004;
 
   const centerLng = (minLng + maxLng) / 2;
   const centerLat = (minLat + maxLat) / 2;
@@ -286,7 +288,7 @@ export const calculateMapViewState = (transformedData: TransformedMapData) => {
   
   const lngZoom = Math.log2(360 / lngDiff);
   const latZoom = Math.log2(180 / latDiff);
-  const zoom = Math.min(15, Math.max(8, Math.min(lngZoom, latZoom) - 0.5));
+  const zoom = Math.min(15.8, Math.max(8, Math.min(lngZoom, latZoom) - 0.2));
 
   return {
     longitude: centerLng,
