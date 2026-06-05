@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshCwIcon } from 'lucide-react';
 import { API_BASE_URL, buildFileUrl } from '@/lib/api';
-import { useAgentMap, type AgentRunEvent, type AgentSelection } from '@/lib/agentMapContext';
+import { downstreamNodesForRerun, useAgentMap, type AgentRunEvent, type AgentSelection } from '@/lib/agentMapContext';
 
 interface AgentControlPanelProps {
   sessionId?: string;
@@ -120,6 +120,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     selectedAgentSelection,
     setSelectedAgentSelection,
     appendAgentEvent,
+    setIsAgentRunning,
   } = useAgentMap();
   const [editorText, setEditorText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -368,6 +369,24 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
       return;
     }
     setBusy(true);
+    setIsAgentRunning(true);
+    const selectedNodeId = selectedAgentEvent.node_id || selectedAgentEvent.type;
+    const pendingNodes = downstreamNodesForRerun(selectedNodeId);
+    const firstPendingNode = pendingNodes[0];
+    if (firstPendingNode) {
+      const event: AgentRunEvent = {
+        type: 'node_started',
+        run_id: sessionId,
+        session_id: sessionId,
+        node_id: firstPendingNode.node_id,
+        label: firstPendingNode.label,
+        status: 'running',
+        payload: { local_rerun_preview: true },
+        timestamp: new Date().toISOString(),
+      };
+      appendAgentEvent(event);
+      setSelectedAgentEvent(event);
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/api/multimodal/session/${sessionId}/rerun-downstream`, {
         method: 'POST',
@@ -399,9 +418,25 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
         });
       }
     } catch (error: any) {
+      if (firstPendingNode) {
+        appendAgentEvent({
+          type: 'workflow_error',
+          run_id: sessionId,
+          session_id: sessionId,
+          node_id: firstPendingNode.node_id,
+          label: firstPendingNode.label,
+          status: 'failed',
+          payload: {
+            error: error.message || 'Downstream rerun failed',
+            local_rerun_preview: true,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
       alert(error.message || 'Downstream rerun failed');
     } finally {
       setBusy(false);
+      setIsAgentRunning(false);
     }
   };
 

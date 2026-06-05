@@ -28,6 +28,32 @@ export interface AgentSelection {
   payload?: Record<string, any>;
 }
 
+export const downstreamNodesForRerun = (nodeId?: string | null): { node_id: string; label: string }[] => {
+  if (nodeId === 'intent' || nodeId === 'visual') {
+    return [
+      { node_id: 'geojson', label: 'GeoJSON generation' },
+      { node_id: 'validation', label: 'Validation' },
+      { node_id: 'style', label: 'Style generation' },
+    ];
+  }
+  if (nodeId === 'geojson') {
+    return [
+      { node_id: 'validation', label: 'Validation' },
+      { node_id: 'style', label: 'Style generation' },
+    ];
+  }
+  if (nodeId === 'style' || nodeId === 'icon_generation') {
+    return [{ node_id: 'style', label: 'Style generation' }];
+  }
+  if (nodeId === 'workflow_completed') {
+    return [
+      { node_id: 'validation', label: 'Validation' },
+      { node_id: 'style', label: 'Style generation' },
+    ];
+  }
+  return [];
+};
+
 interface AgentMapContextType {
   specfilename: string | null;
   setSpecfilename: (name: string | null) => void;

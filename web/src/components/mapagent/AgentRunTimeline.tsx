@@ -13,7 +13,7 @@ import {
   type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { useAgentMap, type AgentRunEvent } from '@/lib/agentMapContext';
+import { downstreamNodesForRerun, useAgentMap, type AgentRunEvent } from '@/lib/agentMapContext';
 import { API_BASE_URL } from '@/lib/api';
 
 const NODE_ORDER = [
@@ -158,6 +158,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
     setGeojson,
     setManifest,
     appendAgentEvent,
+    setIsAgentRunning,
   } = useAgentMap();
   const [activeTab, setActiveTab] = useState<'flow' | 'code'>('flow');
   const [codeText, setCodeText] = useState('{}');
@@ -456,6 +457,23 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
     }
     recordCodeEdit();
     setRerunBusy(true);
+    setIsAgentRunning(true);
+    const pendingNodes = downstreamNodesForRerun(selectedNodeId);
+    const firstPendingNode = pendingNodes[0];
+    if (firstPendingNode) {
+      const event: AgentRunEvent = {
+        type: 'node_started',
+        run_id: activeRunId || sessionId || 'local',
+        session_id: sessionId || undefined,
+        node_id: firstPendingNode.node_id,
+        label: firstPendingNode.label,
+        status: 'running',
+        payload: { local_rerun_preview: true },
+        timestamp: new Date().toISOString(),
+      };
+      appendAgentEvent(event);
+      setSelectedAgentEvent(event);
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/api/multimodal/session/${sessionId}/rerun-downstream`, {
         method: 'POST',
@@ -472,9 +490,25 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       if (data.visual_structure) setVisualStructure(data.visual_structure);
       asArray(data.events).forEach((event: AgentRunEvent) => appendAgentEvent(event));
     } catch (error: any) {
+      if (firstPendingNode) {
+        appendAgentEvent({
+          type: 'workflow_error',
+          run_id: activeRunId || sessionId || 'local',
+          session_id: sessionId || undefined,
+          node_id: firstPendingNode.node_id,
+          label: firstPendingNode.label,
+          status: 'failed',
+          payload: {
+            error: error.message || 'Downstream rerun failed',
+            local_rerun_preview: true,
+          },
+          timestamp: new Date().toISOString(),
+        });
+      }
       setCodeError(error.message || 'Downstream rerun failed');
     } finally {
       setRerunBusy(false);
+      setIsAgentRunning(false);
     }
   };
 
