@@ -314,7 +314,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
                 event.stopPropagation();
                 selectFlowNodeById(node.id);
               }}
-              className="w-[96px] text-left"
+              className="block h-full w-full text-left"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate text-xs font-semibold text-gray-900">{node.label}</span>
@@ -327,6 +327,8 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
         style: {
           width: NODE_WIDTH,
           minHeight: 62,
+          padding: '10px 12px',
+          boxSizing: 'border-box',
           borderRadius: 8,
           borderWidth: isSelectedAgent ? 2 : 1,
           borderColor: isSelectedAgent ? '#111827' : undefined,
