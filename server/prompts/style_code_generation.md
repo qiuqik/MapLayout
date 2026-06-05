@@ -10,7 +10,7 @@
 - `visual_id`
 - `category`
 - `icon描述`: 中文描述图标外观，用于后续 icon_generation agent 生成图像。必须说明形状、材质、颜色、视角、背景透明要求。
-- `size`: 图标在地图上的显示像素尺寸，例如 `[22, 22]`；常规 POI 建议 18-24px，核心 POI 最大不超过 30px，不要把生成图原始分辨率当作显示尺寸。
+- `size`: 图标在地图上的显示像素尺寸，例如 `[30, 30]`；常规 POI 建议 26-34px，核心 POI 可到 40-44px，不要把生成图原始分辨率当作显示尺寸。
 - `anchor`: 图标锚点，例如 `"bottom"` 或 `"center"`。
 - `fallback`: 图像生成前的兜底样式，至少包含 `color`、`borderColor`、`shadow`。
 - 同一 `category` 共享同一 `visual_id` 与同一图标风格，用于减少 POI 重复和图标噪声。

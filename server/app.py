@@ -795,7 +795,7 @@ async def rerun_multimodal_downstream(session_id: str, request: RerunDownstreamR
 
         if not visual_structure:
             return JSONResponse(status_code=400, content={"error": "缺少 visual_structure"})
-        if not geojson_data and node_id not in {"intent", "visual", "style", "icon_generation"}:
+        if not geojson_data and node_id not in {"intent"}:
             return JSONResponse(status_code=400, content={"error": "缺少 geojson"})
         if not style_code and node_id in {"style", "icon_generation"}:
             return JSONResponse(status_code=400, content={"error": "缺少 style_code"})
@@ -891,9 +891,6 @@ async def rerun_multimodal_downstream(session_id: str, request: RerunDownstreamR
                 return JSONResponse(status_code=500, content={"error": state.error, "events": events})
         elif node_id == "visual":
             save_artifact(visual_structure, f"visual_rerun_{timestamp}.json", "node2", "visual", "Visual artifact saved")
-            run_geojson_and_validation()
-            if has_hard_error():
-                return JSONResponse(status_code=500, content={"error": state.error, "events": events})
         elif node_id == "geojson":
             save_artifact(
                 geojson_data,

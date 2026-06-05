@@ -27,12 +27,12 @@ const NODE_ORDER = [
 const NODE_WIDTH = 116;
 
 const FLOW_POSITIONS: Record<string, { x: number; y: number }> = {
-  input: { x: 0, y: 74 },
-  intent: { x: 180, y: 18 },
-  visual: { x: 180, y: 116 },
-  geojson: { x: 500, y: 92 },
-  validation: { x: 500, y: 0 },
-  style: { x: 760, y: 92 },
+  input: { x: 0, y: 82 },
+  intent: { x: 180, y: 82 },
+  visual: { x: 180, y: 170 },
+  geojson: { x: 430, y: 82 },
+  validation: { x: 430, y: 0 },
+  style: { x: 680, y: 82 },
 };
 
 const hiddenHandleStyle = {
@@ -224,6 +224,9 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
     const completedNodeIds = new Set(
       NODE_ORDER.filter((node) => Boolean(flowStatesByNode.get(node.id)?.completed)).map((node) => node.id),
     );
+    const allCompletedNodeIds = new Set(
+      NODE_ORDER.filter((node) => Boolean(statesByNode.get(node.id)?.completed)).map((node) => node.id),
+    );
     const validationFailed = Boolean(flowStatesByNode.get('validation')?.failed);
     const hasValidationRetry = flowEvents.some((event) => event.type === 'node_retry' || event.status === 'retrying');
     const hasRunInput = agentEvents.length > 0 || Boolean(activeRunId);
@@ -367,23 +370,18 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       complete: !hasRerunScope && completedNodeIds.has('intent'),
       dashed: true,
     });
+    addFlowEdge('edge-intent-geojson', 'intent', 'geojson', {
+      active: isAgentRunning && runningNodeId === 'geojson' && allCompletedNodeIds.has('intent'),
+      complete: !hasRerunScope && completedNodeIds.has('intent') && completedNodeIds.has('geojson'),
+      dashed: true,
+    });
     addFlowEdge('edge-input-visual', 'input', 'visual', {
       active: isAgentRunning && runningNodeId === 'visual',
       complete: !hasRerunScope && completedNodeIds.has('visual'),
       dashed: true,
     });
-    addFlowEdge('edge-intent-geojson', 'intent', 'geojson', {
-      active: !hasRerunScope && isAgentRunning && runningNodeId === 'geojson' && completedNodeIds.has('intent'),
-      complete: !hasRerunScope && completedNodeIds.has('intent') && completedNodeIds.has('geojson'),
-      dashed: true,
-    });
-    addFlowEdge('edge-visual-geojson', 'visual', 'geojson', {
-      active: !hasRerunScope && isAgentRunning && runningNodeId === 'geojson' && completedNodeIds.has('visual'),
-      complete: !hasRerunScope && completedNodeIds.has('visual') && completedNodeIds.has('geojson'),
-      dashed: true,
-    });
     addHandledFlowEdge('edge-geojson-validation', 'geojson', 'validation', {
-      active: isAgentRunning && runningNodeId === 'validation' && completedNodeIds.has('geojson'),
+      active: isAgentRunning && runningNodeId === 'validation' && allCompletedNodeIds.has('geojson'),
       complete: completedNodeIds.has('geojson') && completedNodeIds.has('validation'),
       dashed: true,
       type: 'straight',
@@ -391,8 +389,13 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       targetHandle: 'in-bottom-right',
     });
     addFlowEdge('edge-geojson-style', 'geojson', 'style', {
-      active: isAgentRunning && runningNodeId === 'style' && completedNodeIds.has('validation'),
+      active: isAgentRunning && runningNodeId === 'style' && allCompletedNodeIds.has('geojson'),
       complete: completedNodeIds.has('geojson') && completedNodeIds.has('style'),
+      dashed: true,
+    });
+    addFlowEdge('edge-visual-style', 'visual', 'style', {
+      active: isAgentRunning && runningNodeId === 'style' && allCompletedNodeIds.has('visual'),
+      complete: completedNodeIds.has('visual') && completedNodeIds.has('style'),
       dashed: true,
     });
     addHandledFlowEdge('edge-validation-retry-geojson', 'validation', 'geojson', {
@@ -594,7 +597,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       </div>
 
       {activeTab === 'flow' ? (
-        <div className="h-[178px] overflow-hidden">
+        <div className="h-[240px] overflow-hidden">
           <ReactFlow
             nodes={flowGraph.nodes}
             edges={flowGraph.edges}
@@ -614,7 +617,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
           </ReactFlow>
         </div>
       ) : (
-        <div className="grid h-[178px] grid-cols-[52px_1fr] overflow-hidden bg-gray-950 font-mono text-[10px] leading-4">
+        <div className="grid h-[240px] grid-cols-[52px_1fr] overflow-hidden bg-gray-950 font-mono text-[10px] leading-4">
           <div className="overflow-hidden border-r border-gray-800 bg-gray-900 py-2 text-right text-gray-500">
             {selectedLines.map((_, index) => (
               <div key={`line-${index}`} className="px-2">{index + 1}</div>

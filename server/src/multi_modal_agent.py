@@ -20,13 +20,12 @@ from datetime import datetime
 from typing import Callable, List, Optional, Dict, Any
 from pathlib import Path
 from pydantic import BaseModel, Field
-from concurrent.futures import ThreadPoolExecutor
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import SystemMessage, HumanMessage
 from dotenv import load_dotenv
 from typing import TypedDict, Literal
-from langgraph.graph import StateGraph, END
+from langgraph.graph import StateGraph, END, START
 
 import sys
 from pathlib import Path
@@ -116,9 +115,13 @@ class SessionManager:
             return f.read()
 
 
-class GraphState(TypedDict):
+class GraphState(TypedDict, total=False):
     """LangGraph 状态包装器"""
     agent_state: AgentState
+    intent_state: AgentState
+    visual_state: AgentState
+    geojson_state: AgentState
+    style_gate_state: AgentState
 
 class MultiModalMapAgent:
     """多模态地图生成 Agent 主类
@@ -177,11 +180,9 @@ class MultiModalMapAgent:
         """构建核心的状态机有向图"""
         workflow = StateGraph(GraphState)
 
-        # define graph nodes
-        def node_init_parallel(data: GraphState):
-            """parallel node1 and node2"""
-            state = data["agent_state"]
-            init_start = time.perf_counter()
+        def node_intent(data: GraphState):
+            """execute Node 1 intent enrichment."""
+            state = data["agent_state"].model_copy(deep=True)
             self._emit_event(
                 "node_started",
                 session_id=state.session_id,
@@ -189,46 +190,21 @@ class MultiModalMapAgent:
                 label="Intent enrichment",
                 status="running",
             )
+            start = time.perf_counter()
+            state = self.intent_node.execute(state)
+            self._active_node_timings["node1_intent"] = round((time.perf_counter() - start) * 1000, 2)
             self._emit_event(
-                "node_started",
+                "node_completed",
                 session_id=state.session_id,
-                node_id="visual",
-                label="Visual structure extraction",
-                status="running",
+                node_id="intent",
+                label="Intent enrichment",
+                status="completed",
+                payload={
+                    "intent_enriched": state.intent_enriched,
+                    "global_title": state.global_title,
+                    "global_description": state.global_description,
+                },
             )
-
-            def timed_execute(node_name: str, fn, node_state: AgentState) -> AgentState:
-                start = time.perf_counter()
-                result = fn(node_state)
-                self._active_node_timings[node_name] = round((time.perf_counter() - start) * 1000, 2)
-                return result
-
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                future_intent = executor.submit(timed_execute, "node1_intent", self.intent_node.execute, state)
-                future_visual = executor.submit(timed_execute, "node2_visual", self.visual_node.execute, state)
-                state = future_intent.result()
-                self._emit_event(
-                    "node_completed",
-                    session_id=state.session_id,
-                    node_id="intent",
-                    label="Intent enrichment",
-                    status="completed",
-                    payload={
-                        "intent_enriched": state.intent_enriched,
-                        "global_title": state.global_title,
-                        "global_description": state.global_description,
-                    },
-                )
-                state = future_visual.result()
-                self._emit_event(
-                    "node_completed",
-                    session_id=state.session_id,
-                    node_id="visual",
-                    label="Visual structure extraction",
-                    status="completed",
-                    payload={"visual_structure": state.visual_structure},
-                )
-            self._active_node_timings["init_parallel"] = round((time.perf_counter() - init_start) * 1000, 2)
             intent_path = self.session_manager.save_file(
                 {"intent_enriched": state.intent_enriched}, f"intent_{state.session_id}.json", "node1"
             )
@@ -240,6 +216,29 @@ class MultiModalMapAgent:
                 status="completed",
                 payload={"path": intent_path, "subdir": "node1"},
             )
+            return {"intent_state": state}
+
+        def node_visual(data: GraphState):
+            """execute Node 2 visual structure extraction."""
+            state = data["agent_state"].model_copy(deep=True)
+            self._emit_event(
+                "node_started",
+                session_id=state.session_id,
+                node_id="visual",
+                label="Visual structure extraction",
+                status="running",
+            )
+            start = time.perf_counter()
+            state = self.visual_node.execute(state)
+            self._active_node_timings["node2_visual"] = round((time.perf_counter() - start) * 1000, 2)
+            self._emit_event(
+                "node_completed",
+                session_id=state.session_id,
+                node_id="visual",
+                label="Visual structure extraction",
+                status="completed",
+                payload={"visual_structure": state.visual_structure},
+            )
             visual_path = self.session_manager.save_file(state.visual_structure, f"visual_{state.session_id}.json", "node2")
             self._emit_event(
                 "artifact_saved",
@@ -249,11 +248,11 @@ class MultiModalMapAgent:
                 status="completed",
                 payload={"path": visual_path, "subdir": "node2"},
             )
-            return {"agent_state": state}
+            return {"visual_state": state}
         
         def node_geojson(data: GraphState):
             """execute Node 3 and its QA loop check."""
-            state = data["agent_state"]
+            state = data.get("geojson_state") or data["intent_state"]
             self._emit_event(
                 "node_started",
                 session_id=state.session_id,
@@ -327,11 +326,20 @@ class MultiModalMapAgent:
                     status="retrying",
                     payload=validation_payload,
                 )
-            return {"agent_state": state}
+            return {"geojson_state": state, "agent_state": state}
+
+        def node_style_gate(data: GraphState):
+            """Fan-in marker: GeoJSON is valid and ready to meet Visual at Style."""
+            return {"style_gate_state": data["geojson_state"]}
 
         def node_style(data: GraphState):
             """execute Node 4 style generation and icon tool."""
-            state = data["agent_state"]
+            state = data.get("style_gate_state") or data["geojson_state"]
+            visual_state = data.get("visual_state")
+            if visual_state:
+                state.visual_structure = visual_state.visual_structure
+                if visual_state.error and not state.error:
+                    state.error = visual_state.error
             self._emit_event(
                 "node_started",
                 session_id=state.session_id,
@@ -380,7 +388,7 @@ class MultiModalMapAgent:
 
         def router(data: GraphState) -> str:
             """根据验证节点的结果决定图的走向"""
-            state = data["agent_state"]
+            state = data["geojson_state"]
 
             # 如果中途发生了硬性错误（非验证相关），直接退出
             if state.error and "验证节点" not in state.error:
@@ -398,29 +406,31 @@ class MultiModalMapAgent:
             return "to_style"
         
         # 节点
-        workflow.add_node("InitParallel", node_init_parallel)
+        workflow.add_node("Intent", node_intent)
+        workflow.add_node("Visual", node_visual)
         workflow.add_node("GeoJSON", node_geojson)
+        workflow.add_node("StyleGate", node_style_gate)
         workflow.add_node("Style", node_style)
 
         # 边
-        workflow.add_edge("InitParallel", "GeoJSON")
+        workflow.add_edge(START, "Intent")
+        workflow.add_edge(START, "Visual")
+        workflow.add_edge("Intent", "GeoJSON")
 
         # 条件边 (动态分支路由)
         workflow.add_conditional_edges(
             "GeoJSON",
             router,
             {
-                "to_style": "Style",
+                "to_style": "StyleGate",
                 "to_geojson": "GeoJSON",  # 验证不通过，携带 feedback 重做 node3
                 "to_end": END
             }
         )
+        workflow.add_edge(["Visual", "StyleGate"], "Style")
         
         # 收尾
         workflow.add_edge("Style", END)
-
-        # 入口
-        workflow.set_entry_point("InitParallel")
 
         return workflow.compile()
 

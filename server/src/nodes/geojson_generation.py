@@ -39,8 +39,8 @@ SINGAPORE_KNOWN_POIS = [
 class GeoJSONGenerationNode:
     """Node 3: 数据结构化与拓扑映射 (Model: GPT-5/o1)
     
-    输入: 节点 1 的意图丰富结果 + 节点 2 的视觉结构
-    逻辑: 将用户的旅行规划提取为标准的 GeoJSON 格式，并将规划中的元素与 visual.json 中的视觉分类 `visual_id` 一一对应
+    输入: 节点 1 的意图丰富结果 + QA 反馈（第二次及之后）
+    逻辑: 将用户的旅行规划提取为标准 GeoJSON，并在 QA retry 时按反馈删除、替换或修正 POI/路线
     输出: 标准的 GeoJSON FeatureCollection
     """
 
@@ -204,7 +204,7 @@ class GeoJSONGenerationNode:
         
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", system_prompt),
-            ("human", "用户旅行规划：\n{intent_enriched}\n\n视觉元素字典：\n{visual_structure}\n\n{feedback_section}请生成 GeoJSON 数据：")
+            ("human", "用户旅行规划：\n{intent_enriched}\n\n{feedback_section}请生成 GeoJSON 数据：")
         ])
         
         self.chain = self.prompt | self.llm
@@ -686,7 +686,7 @@ class GeoJSONGenerationNode:
 
         geojson_data["global_properties"] = normalized[:2]
 
-    def _normalize_travel_semantics(self, geojson_data: dict, visual_structure: dict | None = None) -> dict:
+    def _normalize_travel_semantics(self, geojson_data: dict) -> dict:
         """Deduplicate concrete POIs, classify labels, and rebuild one route per day."""
         features = geojson_data.get("features", [])
 
@@ -842,17 +842,11 @@ class GeoJSONGenerationNode:
             print(f"❌ [Node 3] 缺少意图描述")
             return state
         
-        if not state.visual_structure:
-            state.error = "缺少视觉结构解析结果"
-            print(f"❌ [Node 3] 缺少视觉结构")
-            return state
-        
         retry_count = 0
         
         while retry_count < max_retries:
             try:
                 import json
-                visual_structure_str = json.dumps(state.visual_structure, ensure_ascii=False)
 
                 # 如果有上轮验证反馈，将其拼入 prompt 中
                 if state.validation_feedback and state.geojson_data:
@@ -866,7 +860,6 @@ class GeoJSONGenerationNode:
 
                 response = self.chain.invoke({
                     "intent_enriched": state.intent_enriched,
-                    "visual_structure": visual_structure_str,
                     "feedback_section": feedback_section
                 })
                 content = response.content
@@ -886,7 +879,7 @@ class GeoJSONGenerationNode:
                 geojson_data = self._correct_and_sync_topology(geojson_data, allow_external_geocode=allow_external_geocode)
                 if allow_external_geocode:
                     geojson_data = self._ensure_requested_known_pois(geojson_data, state.user_text)
-                geojson_data = self._normalize_travel_semantics(geojson_data, state.visual_structure)
+                geojson_data = self._normalize_travel_semantics(geojson_data)
                 geojson_data = self._enforce_city_bounds(geojson_data, allow_external_geocode=allow_external_geocode)
                 geojson_data = self._annotate_feature_metadata(geojson_data)
 

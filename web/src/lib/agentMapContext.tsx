@@ -29,12 +29,15 @@ export interface AgentSelection {
 }
 
 export const downstreamNodesForRerun = (nodeId?: string | null): { node_id: string; label: string }[] => {
-  if (nodeId === 'intent' || nodeId === 'visual') {
+  if (nodeId === 'intent') {
     return [
       { node_id: 'geojson', label: 'GeoJSON generation' },
       { node_id: 'validation', label: 'Validation' },
       { node_id: 'style', label: 'Style generation' },
     ];
+  }
+  if (nodeId === 'visual') {
+    return [{ node_id: 'style', label: 'Style generation' }];
   }
   if (nodeId === 'geojson') {
     return [

@@ -20,12 +20,12 @@ const resolvePointSize = (pointStyle: any): { width: number; height: number } =>
     const width = Number(rawSize[0]);
     const height = Number(rawSize[1] ?? rawSize[0]);
     return {
-      width: Number.isFinite(width) && width > 0 ? clamp(width, 12, 30) : 22,
-      height: Number.isFinite(height) && height > 0 ? clamp(height, 12, 30) : 22,
+      width: Number.isFinite(width) && width > 0 ? clamp(width, 16, 46) : 30,
+      height: Number.isFinite(height) && height > 0 ? clamp(height, 16, 46) : 30,
     };
   }
   const size = Number(rawSize);
-  const safeSize = Number.isFinite(size) && size > 0 ? clamp(size, 12, 30) : 22;
+  const safeSize = Number.isFinite(size) && size > 0 ? clamp(size, 16, 46) : 30;
   return { width: safeSize, height: safeSize };
 };
 
@@ -39,8 +39,8 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, visu
       : '';
     const visualStyle = pointStyle.style && typeof pointStyle.style === 'object' ? pointStyle.style : {};
     const rawSize = resolvePointSize(pointStyle);
-    const width = clamp(Math.round(rawSize.width * visualScale), 10, 34);
-    const height = clamp(Math.round(rawSize.height * visualScale), 10, 34);
+    const width = clamp(Math.round(rawSize.width * visualScale), 14, 52);
+    const height = clamp(Math.round(rawSize.height * visualScale), 14, 52);
     const fallback = pointStyle.fallback && typeof pointStyle.fallback === 'object' ? pointStyle.fallback : {};
     const fallbackColor = visualStyle.color || pointStyle.color || fallback.color || '#E4572E';
 
@@ -85,8 +85,8 @@ const PointRenderer: React.FC<PointRendererProps> = ({ points, pointStyles, visu
 
         const [lng, lat] = feature.geometry.coordinates;
         const rawSize = resolvePointSize(pointStyle);
-        const width = clamp(Math.round(rawSize.width * visualScale), 10, 34);
-        const height = clamp(Math.round(rawSize.height * visualScale), 10, 34);
+        const width = clamp(Math.round(rawSize.width * visualScale), 14, 52);
+        const height = clamp(Math.round(rawSize.height * visualScale), 14, 52);
         
         return (
           <Marker
