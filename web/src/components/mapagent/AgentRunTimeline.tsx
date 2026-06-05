@@ -1,10 +1,11 @@
 'use client';
 
 import { Code2Icon, GitBranchIcon, RefreshCwIcon, SaveIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Background,
   Controls,
+  Handle,
   MarkerType,
   Position,
   ReactFlow,
@@ -30,9 +31,31 @@ const FLOW_POSITIONS: Record<string, { x: number; y: number }> = {
   intent: { x: 180, y: 18 },
   visual: { x: 180, y: 116 },
   geojson: { x: 500, y: 92 },
-  validation: { x: 590, y: 0 },
+  validation: { x: 500, y: 0 },
   style: { x: 760, y: 92 },
 };
+
+const hiddenHandleStyle = {
+  width: 1,
+  height: 1,
+  border: 0,
+  opacity: 0,
+  pointerEvents: 'none' as const,
+};
+
+const FlowNode = ({ data }: { data: { label: ReactNode } }) => (
+  <>
+    <Handle id="in-left" type="target" position={Position.Left} style={hiddenHandleStyle} />
+    <Handle id="out-right" type="source" position={Position.Right} style={hiddenHandleStyle} />
+    <Handle id="out-top-right" type="source" position={Position.Top} style={{ ...hiddenHandleStyle, left: '72%' }} />
+    <Handle id="in-top-left" type="target" position={Position.Top} style={{ ...hiddenHandleStyle, left: '28%' }} />
+    <Handle id="out-bottom-left" type="source" position={Position.Bottom} style={{ ...hiddenHandleStyle, left: '28%' }} />
+    <Handle id="in-bottom-right" type="target" position={Position.Bottom} style={{ ...hiddenHandleStyle, left: '72%' }} />
+    {data.label}
+  </>
+);
+
+const nodeTypes = { flowNode: FlowNode };
 
 const compactText = (value: unknown, max = 86) => {
   const text = typeof value === 'string' ? value : JSON.stringify(value ?? '');
@@ -222,6 +245,34 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
         id,
         source,
         target,
+        sourceHandle: source === 'input' ? undefined : 'out-right',
+        targetHandle: target === 'input' ? undefined : 'in-left',
+        label: options.label,
+        type: options.type || 'smoothstep',
+        animated: Boolean(options.active),
+        markerEnd: { type: MarkerType.ArrowClosed },
+        style: {
+          stroke: options.active ? '#131722' : options.complete ? '#4b5563' : '#9ca3af',
+          strokeWidth: options.active ? 2.2 : 1.4,
+          strokeDasharray: options.dashed ? '7 6' : undefined,
+        },
+        labelStyle: { fontSize: 9, fill: options.active ? '#131722' : '#6b7280' },
+        ...(options.pathOptions ? { pathOptions: options.pathOptions } : {}),
+      });
+    };
+
+    const addHandledFlowEdge = (
+      id: string,
+      source: string,
+      target: string,
+      options: Parameters<typeof addFlowEdge>[3] & { sourceHandle?: string; targetHandle?: string } = {},
+    ) => {
+      edges.push({
+        id,
+        source,
+        target,
+        sourceHandle: options.sourceHandle,
+        targetHandle: options.targetHandle,
         label: options.label,
         type: options.type || 'smoothstep',
         animated: Boolean(options.active),
@@ -252,10 +303,8 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
 
       nodes.push({
         id: node.id,
-        type: 'default',
+        type: 'flowNode',
         position,
-        sourcePosition: Position.Right,
-        targetPosition: Position.Left,
         data: {
           label: (
             <button
@@ -306,25 +355,27 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       complete: completedNodeIds.has('visual') && completedNodeIds.has('geojson'),
       dashed: true,
     });
-    addFlowEdge('edge-geojson-validation', 'geojson', 'validation', {
+    addHandledFlowEdge('edge-geojson-validation', 'geojson', 'validation', {
       active: isAgentRunning && runningNodeId === 'validation' && completedNodeIds.has('geojson'),
       complete: completedNodeIds.has('geojson') && completedNodeIds.has('validation'),
       dashed: true,
-      type: 'smoothstep',
-      pathOptions: { offset: 42, borderRadius: 18 },
+      type: 'straight',
+      sourceHandle: 'out-top-right',
+      targetHandle: 'in-bottom-right',
     });
     addFlowEdge('edge-geojson-style', 'geojson', 'style', {
       active: isAgentRunning && runningNodeId === 'style' && completedNodeIds.has('validation'),
       complete: completedNodeIds.has('geojson') && completedNodeIds.has('style'),
       dashed: true,
     });
-    addFlowEdge('edge-validation-retry-geojson', 'validation', 'geojson', {
+    addHandledFlowEdge('edge-validation-retry-geojson', 'validation', 'geojson', {
       label: 'retry',
       active: isAgentRunning && runningNodeId === 'geojson' && Boolean(statesByNode.get('validation')?.failed),
       complete: completedNodeIds.has('validation') && !statesByNode.get('validation')?.failed,
       dashed: true,
-      type: 'smoothstep',
-      pathOptions: { offset: 38, borderRadius: 18 },
+      type: 'straight',
+      sourceHandle: 'out-bottom-left',
+      targetHandle: 'in-top-left',
     });
 
     return { nodes, edges };
@@ -487,6 +538,7 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
           <ReactFlow
             nodes={flowGraph.nodes}
             edges={flowGraph.edges}
+            nodeTypes={nodeTypes}
             onNodeClick={(_, node) => selectFlowNodeById(node.id)}
             fitView
             fitViewOptions={{ padding: 0.12, minZoom: 0.68, maxZoom: 1.2 }}
