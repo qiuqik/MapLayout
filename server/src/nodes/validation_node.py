@@ -171,6 +171,13 @@ class ValidationNode:
         if "新加坡" in city or "singapore" in city.lower():
             for feature in points:
                 name = (feature.get("properties") or {}).get("name", "")
+                props = feature.get("properties") or {}
+                provider = str(props.get("geocode_provider") or "").lower()
+                search_name_en = str(props.get("search_name_en") or props.get("geocode_query") or "")
+                if provider == "amap":
+                    issues.append(f"{name} 是新加坡 POI，但 geocode_provider 为 amap，疑似使用了国内坐标检索；应改用 Mapbox 英文查询。")
+                if provider in {"mapbox", "model", "known", "skipped"} and not any(("a" <= char.lower() <= "z") for char in search_name_en):
+                    issues.append(f"{name} 是新加坡 POI，但缺少英文 search_name_en/geocode_query，国外坐标检索字段不完整。")
                 coords = feature.get("geometry", {}).get("coordinates")
                 try:
                     lon, lat = float(coords[0]), float(coords[1])

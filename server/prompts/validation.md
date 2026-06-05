@@ -33,6 +33,8 @@
    - 合并重复、同义、包含关系或距离过近的 POI。
    - 对用户未点名、且同一天落在同一小片区的补充 POI，要严格判断是否冗余；例如“滨海湾金沙空中花园”和“滨海湾花园”同时出现且用户未点名时，应要求 Node 3 删除更偏离用户请求或更像补点的一个，并同步更新 LineString、point_names 和 global_properties。
    - 单个 POI 文案只描述该地点相关信息；总预算、全局主题、整段行程总结应放在 `global_properties`。
+   - 检查坐标检索来源字段：国内目的地应使用 `geocode_provider: "amap"` 或可信本地来源；国外目的地应使用 `geocode_provider: "mapbox"`、`"known"` 或 `"model"`，并应有英文 `search_name_en` / `geocode_query`。如果新加坡、巴黎、东京等国外 POI 显示为 AMap 国内查询结果，必须打回 Node 3。
+   - 如果 Point 中存在 `geocode_warning`，需要判断该 warning 是否导致坐标不可信；如果坐标明显不在目的地，应打回 Node 3，而不是忽略。
 
 ### 豁免审查清单
 1. 忽略标签锚点偏移；当前契约中标签由 Point properties 驱动，前端会进行布局。

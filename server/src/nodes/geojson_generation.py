@@ -211,11 +211,45 @@ class GeoJSONGenerationNode:
     
 
     
-    def _correct_and_sync_topology(self, geojson_data: dict) -> dict:
+    def _geocode_query_fields(self, props: dict) -> tuple[str, str | None, str | None]:
+        name = props.get("name") or props.get("label_title") or ""
+        query = props.get("geocode_query") or props.get("search_name") or props.get("searchName") or name
+        search_name_en = props.get("search_name_en") or props.get("searchNameEn") or props.get("geocode_query_en")
+        provider_hint = props.get("geocode_provider_hint") or props.get("geocode_provider") or props.get("provider_hint")
+        return str(query or name), str(search_name_en).strip() if search_name_en else None, str(provider_hint).strip() if provider_hint else None
+
+    def _apply_geocode_metadata(self, props: dict, result: dict | None, fallback_query: str, skipped: bool = False) -> None:
+        if skipped:
+            props.setdefault("geocode_query", fallback_query)
+            props["geocode_provider"] = props.get("geocode_provider") or "skipped"
+            props["geocode_source"] = props.get("geocode_source") or "qa_retry_no_external_geocode"
+            props["geocode_confidence"] = props.get("geocode_confidence") or "model"
+            return
+        if not result:
+            return
+        props["geocode_query"] = result.get("query") or fallback_query
+        props["geocode_provider"] = result.get("provider") or ""
+        props["geocode_language"] = result.get("language") or ""
+        props["geocode_city"] = result.get("city") or ""
+        props["geocode_source"] = result.get("source") or ""
+        props["geocode_confidence"] = result.get("confidence") or ""
+        props["geocode_coordinate_system"] = result.get("coordinate_system") or ""
+        if result.get("warning"):
+            props["geocode_warning"] = result["warning"]
+
+    def _correct_and_sync_topology(self, geojson_data: dict, allow_external_geocode: bool = True) -> dict:
         """核心逻辑：基于原始坐标映射，同步更新所有几何图形"""
         features = geojson_data.get("features", [])
         city = geojson_data.get("_city", "")
         bounds = self._city_bounds(city)
+        if not allow_external_geocode:
+            print("   ↪️ QA retry 轮跳过外部坐标检索，保留 Node3 按 QA 修正后的坐标")
+            for feat in features:
+                if feat.get("geometry", {}).get("type") == "Point":
+                    props = feat.setdefault("properties", {})
+                    query, _, _ = self._geocode_query_fields(props)
+                    self._apply_geocode_metadata(props, None, query, skipped=True)
+            return geojson_data
         
         # 1. 建立全局坐标真值表
         # 格式: { (原始经度, 原始纬度): [修正后经度, 修正后纬度] }
@@ -226,19 +260,46 @@ class GeoJSONGenerationNode:
         for feat in features:
             if feat.get("geometry", {}).get("type") == "Point":
                 old_coords = tuple(feat["geometry"]["coordinates"])
-                name = feat.get("properties", {}).get("name", "")
+                props = feat.setdefault("properties", {})
+                name = props.get("name", "")
                 
                 # 避免对同一原始坐标重复请求 API
                 if old_coords not in coord_map:
                     location_str = f"{old_coords[0]},{old_coords[1]}"
-                    known_coords = self._lookup_known_destination_poi(name, city)
-                    if known_coords:
-                        new_coords = known_coords
+                    query, search_name_en, provider_hint = self._geocode_query_fields(props)
+                    geocode_result = self.amap_service.geocode_poi(
+                        query,
+                        city=city,
+                        location=location_str,
+                        search_name_en=search_name_en,
+                        provider_hint=provider_hint,
+                    )
+                    geocoded_coords = geocode_result.get("coordinates") if geocode_result else None
+                    if geocoded_coords and (not bounds or self._within_bounds(geocoded_coords, bounds)):
+                        new_coords = geocoded_coords
+                        self._apply_geocode_metadata(props, geocode_result, query)
                     elif bounds and self._within_bounds(old_coords, bounds):
                         new_coords = old_coords
-                        print(f"      ↪️ [{name}] 已在 {city} 范围内，保留模型/QA坐标，避免 geocoder 覆盖")
+                        self._apply_geocode_metadata(
+                            props,
+                            {
+                                "coordinates": list(new_coords),
+                                "provider": "model",
+                                "query": query,
+                                "language": "en" if search_name_en else "zh",
+                                "city": city,
+                                "source": "model_within_destination_bounds",
+                                "confidence": "model",
+                                "coordinate_system": "WGS84",
+                            },
+                            query,
+                        )
+                        if geocoded_coords:
+                            props["geocode_warning"] = f"Geocoder result {geocoded_coords} is outside {city}; kept model coordinates."
+                        print(f"      ↪️ [{name}] geocoder 未命中可信结果，保留 {city} 范围内模型坐标")
                     else:
-                        new_coords = self.amap_service.search_poi(name, city=city, location=location_str)
+                        new_coords = None
+                        self._apply_geocode_metadata(props, geocode_result, query)
                     
                     if new_coords:
                         coord_map[old_coords] = list(new_coords)
@@ -322,6 +383,12 @@ class GeoJSONGenerationNode:
                 return tuple(poi["coordinates"])
         return None
 
+    def _english_alias(self, aliases: list[str]) -> str:
+        for alias in aliases:
+            if any(("a" <= char.lower() <= "z") for char in str(alias)):
+                return alias
+        return aliases[0] if aliases else ""
+
     def _macro_area(self, name: str) -> str:
         normalized = self._normalize_poi_name(name)
         for area in ["滨海湾", "圣淘沙", "小印度", "唐人街", "克拉码头"]:
@@ -347,6 +414,7 @@ class GeoJSONGenerationNode:
                 continue
             requested_name = poi["name"]
             requested_coord = poi["coordinates"]
+            search_name_en = self._english_alias(poi["aliases"])
             if any(self._alias_in_text(feature.get("properties", {}).get("name", ""), poi["aliases"]) for feature in point_features):
                 continue
 
@@ -368,6 +436,15 @@ class GeoJSONGenerationNode:
                 props["visual_id"] = f"point_{poi['category']}"
                 nearby.setdefault("geometry", {})["coordinates"] = list(requested_coord)
                 props["label_coord"] = list(requested_coord)
+                props["search_name"] = requested_name
+                props["search_name_en"] = search_name_en
+                props["geocode_provider_hint"] = "mapbox"
+                props["geocode_provider"] = "known"
+                props["geocode_query"] = f"{search_name_en}, Singapore" if search_name_en else requested_name
+                props["geocode_language"] = "en"
+                props["geocode_source"] = "known_poi_fallback"
+                props["geocode_confidence"] = "high"
+                props["geocode_coordinate_system"] = "WGS84"
                 continue
 
             preferred_day = min(max(1, int(poi["day"])), trip_days)
@@ -391,6 +468,15 @@ class GeoJSONGenerationNode:
                     "label_script": "用户明确指定的行程地点",
                     "label_extra_info": "",
                     "label_coord": list(requested_coord),
+                    "search_name": requested_name,
+                    "search_name_en": search_name_en,
+                    "geocode_provider_hint": "mapbox",
+                    "geocode_provider": "known",
+                    "geocode_query": f"{search_name_en}, Singapore" if search_name_en else requested_name,
+                    "geocode_language": "en",
+                    "geocode_source": "known_poi_fallback",
+                    "geocode_confidence": "high",
+                    "geocode_coordinate_system": "WGS84",
                 },
             }
             features.append(feature)
@@ -398,7 +484,7 @@ class GeoJSONGenerationNode:
 
         return geojson_data
 
-    def _enforce_city_bounds(self, geojson_data: dict) -> dict:
+    def _enforce_city_bounds(self, geojson_data: dict, allow_external_geocode: bool = True) -> dict:
         """Known destination guard: reject or re-geocode points outside the destination envelope."""
         city = geojson_data.get("_city", "")
         bounds = self._city_bounds(city)
@@ -415,9 +501,17 @@ class GeoJSONGenerationNode:
             if self._within_bounds(coords, bounds):
                 kept_points.append(feature)
                 continue
-            corrected = self.amap_service.search_poi(name, city=city)
+            if not allow_external_geocode:
+                props["geocode_warning"] = f"Coordinates are outside {city}; external geocoder skipped during QA retry."
+                kept_points.append(feature)
+                print(f"      ↪️ [{name}] 超出 {city} 范围，QA retry 轮不重定位，交由 QA 判断")
+                continue
+            query, search_name_en, provider_hint = self._geocode_query_fields(props)
+            result = self.amap_service.geocode_poi(query, city=city, search_name_en=search_name_en, provider_hint=provider_hint)
+            corrected = result.get("coordinates") if result else None
             if corrected and self._within_bounds(corrected, bounds):
                 feature["geometry"]["coordinates"] = list(corrected)
+                self._apply_geocode_metadata(props, result, query)
                 feature["properties"]["label_coord"] = feature["properties"].get("label_coord") or list(corrected)
                 kept_points.append(feature)
                 print(f"      ✅ [{name}] 城市范围外坐标已重定位到 {city}")
@@ -788,10 +882,12 @@ class GeoJSONGenerationNode:
                             "extra_info": "",
                         }
                 ]
-                geojson_data = self._correct_and_sync_topology(geojson_data)
-                geojson_data = self._ensure_requested_known_pois(geojson_data, state.user_text)
+                allow_external_geocode = state.validation_retry_count == 0
+                geojson_data = self._correct_and_sync_topology(geojson_data, allow_external_geocode=allow_external_geocode)
+                if allow_external_geocode:
+                    geojson_data = self._ensure_requested_known_pois(geojson_data, state.user_text)
                 geojson_data = self._normalize_travel_semantics(geojson_data, state.visual_structure)
-                geojson_data = self._enforce_city_bounds(geojson_data)
+                geojson_data = self._enforce_city_bounds(geojson_data, allow_external_geocode=allow_external_geocode)
                 geojson_data = self._annotate_feature_metadata(geojson_data)
 
                 schema_report = validate_geojson(geojson_data)

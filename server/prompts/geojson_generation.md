@@ -18,6 +18,9 @@ GeoJSON 只使用以下四类语义对象：
      - `label_title`: 主标题，通常为地点名。
      - `label_script`: 副标题或一句短说明。
      - `label_extra_info`: 第三层补充信息，可为空字符串。
+     - `search_name`: 坐标检索使用的主查询词。国内 POI 使用中文地点名。
+     - `search_name_en`: 国外 POI 必须提供英文查询词，例如 `"Merlion Park"`、`"Universal Studios Singapore"`。
+     - `geocode_provider_hint`: 坐标检索建议，国内目的地填 `"amap"`，国外目的地填 `"mapbox"`。
    - `geometry.coordinates` 即经纬度坐标 `[lng, lat]`。
 
 2. `Route`
@@ -61,6 +64,7 @@ GeoJSON 只使用以下四类语义对象：
 7. `features` 中的 geometry 类型只使用 `Point` 与 `LineString`。Point 代表具体地点，LineString 代表当天按顺序连接的路线。
 8. 如果 QA 反馈要求删除、替换或合并某个 POI，必须在下一轮 GeoJSON 中真正执行；不要因为 Node 1 的意图扩写、参考图片或坐标修正再次保留被 QA 否定的 POI。
 9. 修复 QA 反馈后，必须同步更新对应当天 `LineString.coordinates`、`Route.properties.point_names` 以及 `global_properties` 中的路线描述，不能留下已删除 POI 的文字残留。
+10. 如果收到 QA 反馈，下一轮必须优先按 QA 反馈改动 POI 清单和路线；不要依赖坐标检索结果重新补回被 QA 要求删除的 POI。
 
 ## 目的地与 POI 约束
 1. `_city` 必须是用户明确目的地；如果用户说“去新加坡游玩三天”，`_city` 必须是 `"新加坡"`，所有 Point 坐标必须落在新加坡附近，不能生成日本、中国大陆、马来西亚、缅甸等其他国家坐标。
@@ -69,6 +73,7 @@ GeoJSON 只使用以下四类语义对象：
 4. 用户明确提到的区域型地点（如唐人街、小印度、圣淘沙）可以作为该区域中心 POI 保留；不要随意替换成区域内寺庙或商场，除非用户要求更具体的内部景点。
 5. 对于新加坡常见 POI，坐标应保持在新加坡城市范围内：鱼尾狮公园、克拉码头、福康宁公园、圣淘沙、新加坡环球影城、S.E.A.海洋馆、西乐索海滩、唐人街、小印度、哈芝巷等均应互相接近，不应形成跨国路线。
 6. 不要为了填满每天 3-5 个点而增加用户未提及、且与用户点名地点处于同一小片区的补点；如果 QA 指出两个同区域补点重复或过密，应按 QA 建议删减到更符合用户请求的一个。
+7. 坐标检索字段必须与目的地匹配：国内城市使用中文 `search_name` + `geocode_provider_hint: "amap"`；国外城市使用英文 `search_name_en` + `geocode_provider_hint: "mapbox"`。例如新加坡 POI 不要只用中文名触发中国同名 POI 检索。
 
 ## 输出格式
 严格输出 JSON。

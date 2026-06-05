@@ -291,10 +291,9 @@ class MultiModalMapAgent:
             )
 
             # QA is a loop check attached to the freshly generated GeoJSON.
-            # Clear stale QA state before invoking so the QA prompt only sees
-            # the latest GeoJSON payload, not prior feedback/status text.
+            # Keep validation_feedback intact until validation writes the new
+            # result, because the next GeoJSON retry depends on that feedback.
             state.failed_node = "none"
-            state.validation_feedback = ""
             self._emit_event(
                 "node_started",
                 session_id=state.session_id,

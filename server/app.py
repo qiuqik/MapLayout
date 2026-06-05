@@ -869,7 +869,6 @@ async def rerun_multimodal_downstream(session_id: str, request: RerunDownstreamR
         def run_validation():
             nonlocal state
             state.failed_node = "none"
-            state.validation_feedback = ""
             append_event("node_started", "validation", "Validation", "running")
             state = agent.validation_node.execute(state)
             append_event(

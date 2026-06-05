@@ -3,7 +3,7 @@
 """
 import os
 import requests
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Any
 from dotenv import load_dotenv
 from .utils.coord_transform import is_out_of_china
 
@@ -78,55 +78,139 @@ class AMapService:
             or os.getenv("NEXT_PUBLIC_MAPBOX_TOKEN")
             or os.getenv("MAPBOX_ACCESS_TOKEN")
         )
-        
+
         # 高德地图文本搜索 API URL
         self.base_url_place = "https://restapi.amap.com/v5/place/text"
         # 高德地图输入提示 API URL（用于二次检索）
         self.base_url_tips = "https://restapi.amap.com/v3/assistant/inputtips"
         self.base_url_mapbox = "https://api.mapbox.com/geocoding/v5/mapbox.places"
         
+    def geocode_poi(
+        self,
+        keyword: str,
+        city: str = "",
+        location: Optional[str] = None,
+        search_name_en: Optional[str] = None,
+        provider_hint: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        """Search a POI and return coordinates plus provenance metadata."""
+        keyword = str(keyword or "").strip()
+        city = str(city or "").strip()
+        provider_hint = str(provider_hint or "").strip().lower()
+        city_is_china = bool(city and self._is_china_scope(city))
+        city_is_foreign = bool(city and not city_is_china and self._looks_foreign_context(keyword, city, location))
+        foreign = not city_is_china and (city_is_foreign or provider_hint == "mapbox" or (
+            provider_hint != "amap" and self._looks_foreign_context(keyword, city, location)
+        ))
+
+        if foreign:
+            query = self._foreign_query(keyword, city, search_name_en)
+            result = self._search_mapbox(query, "")
+            if result:
+                return {
+                    "coordinates": list(result),
+                    "provider": "mapbox",
+                    "query": query,
+                    "language": "en",
+                    "city": self._english_city_name(city) or city,
+                    "source": "mapbox_geocoding",
+                    "confidence": "medium",
+                    "coordinate_system": "WGS84",
+                }
+
+            known = self._lookup_known_poi(keyword, city) or self._lookup_known_poi(search_name_en or "", city)
+            if known:
+                return {
+                    "coordinates": list(known),
+                    "provider": "known",
+                    "query": query,
+                    "language": "en",
+                    "city": self._english_city_name(city) or city,
+                    "source": "known_poi_fallback",
+                    "confidence": "high",
+                    "coordinate_system": "WGS84",
+                }
+
+            original = self._parse_location(location)
+            if original and is_out_of_china(original[0], original[1]):
+                print(f"📍 国外 POI 未命中 Mapbox，保留模型坐标: {keyword}")
+                return {
+                    "coordinates": list(original),
+                    "provider": "model",
+                    "query": query,
+                    "language": "en",
+                    "city": self._english_city_name(city) or city,
+                    "source": "model_coordinate_fallback",
+                    "confidence": "low",
+                    "coordinate_system": "WGS84",
+                    "warning": "MAPBOX_TOKEN missing or Mapbox returned no result; kept model coordinates.",
+                }
+            print(f"⚠️ 国外 POI 未命中，跳过高德国内同名兜底: {keyword}")
+            return None
+
+        query = keyword
+        known = self._lookup_known_poi(keyword, city)
+        if known:
+            return {
+                "coordinates": list(known),
+                "provider": "known",
+                "query": query,
+                "language": "zh",
+                "city": city,
+                "source": "known_poi_fallback",
+                "confidence": "high",
+                "coordinate_system": "WGS84",
+            }
+
+        result = self._search_poi_primary(keyword, city)
+        if result:
+            return {
+                "coordinates": list(result),
+                "provider": "amap",
+                "query": query,
+                "language": "zh",
+                "city": city,
+                "source": "amap_place_text",
+                "confidence": "medium",
+                "coordinate_system": "GCJ-02",
+            }
+
+        print(f"📍 一级检索失败，触发二级检索 (inputtips): {keyword}")
+        result = self._search_poi_fallback(keyword, city, location)
+        if result:
+            return {
+                "coordinates": list(result),
+                "provider": "amap",
+                "query": query,
+                "language": "zh",
+                "city": city,
+                "source": "amap_inputtips",
+                "confidence": "low",
+                "coordinate_system": "GCJ-02",
+            }
+
+        print(f"⚠️ POI 检索失败: {keyword}")
+        return None
+
     def search_poi(self, keyword: str, city: str = "", location: Optional[str] = None) -> Optional[Tuple[float, float]]:
         """
         根据关键字搜索 POI，返回高德 GCJ-02 坐标 (longitude, latitude)。
         如果第一次搜索失败，使用 inputtips API 进行二次检索。
         如果仍未找到，则返回 None。
-        
+
         Args:
             keyword: 搜索关键词
             city: 城市（可选）
             location: 中心点坐标，格式为 "longitude,latitude"（可选）
-            
+
         Returns:
             (longitude, latitude) 或 None
         """
-        known = self._lookup_known_poi(keyword, city)
-        if known:
-            return known
-
-        if self._looks_foreign_context(keyword, city, location):
-            result = self._search_mapbox(keyword, city)
-            if result:
-                return result
-            original = self._parse_location(location)
-            if original and is_out_of_china(original[0], original[1]):
-                print(f"📍 国外 POI 未命中 Mapbox，保留模型坐标: {keyword}")
-                return original
-            print(f"⚠️ 国外 POI 未命中，跳过高德国内同名兜底: {keyword}")
+        result = self.geocode_poi(keyword, city=city, location=location)
+        if not result:
             return None
-
-        # 第一次尝试：使用文本搜索 API
-        result = self._search_poi_primary(keyword, city)
-        if result:
-            return result
-        
-        # 二次检索：使用 inputtips API
-        print(f"📍 一级检索失败，触发二级检索 (inputtips): {keyword}")
-        result = self._search_poi_fallback(keyword, city, location)
-        if result:
-            return result
-        
-        print(f"⚠️ POI 检索失败: {keyword}")
-        return None
+        coords = result.get("coordinates")
+        return tuple(coords) if coords else None
     
     def _search_poi_primary(self, keyword: str, city: str = "") -> Optional[Tuple[float, float]]:
         """第一级检索：使用文本搜索 API (v5/place/text)"""
@@ -206,7 +290,7 @@ class AMapService:
                 params={
                     "access_token": self.mapbox_token,
                     "limit": 1,
-                    "language": "zh,en",
+                    "language": "en",
                 },
                 timeout=10,
             )
@@ -222,6 +306,58 @@ class AMapService:
             print(f"Mapbox 国外 POI 检索异常: {e}")
         return None
 
+    def _english_city_name(self, city: str = "") -> str:
+        city_text = str(city or "").strip().lower()
+        aliases = {
+            "新加坡": "Singapore",
+            "singapore": "Singapore",
+            "巴黎": "Paris",
+            "paris": "Paris",
+            "伦敦": "London",
+            "london": "London",
+            "东京": "Tokyo",
+            "tokyo": "Tokyo",
+            "大阪": "Osaka",
+            "osaka": "Osaka",
+            "京都": "Kyoto",
+            "kyoto": "Kyoto",
+            "首尔": "Seoul",
+            "seoul": "Seoul",
+            "曼谷": "Bangkok",
+            "bangkok": "Bangkok",
+            "吉隆坡": "Kuala Lumpur",
+            "kuala lumpur": "Kuala Lumpur",
+            "纽约": "New York",
+            "new york": "New York",
+            "洛杉矶": "Los Angeles",
+            "los angeles": "Los Angeles",
+            "悉尼": "Sydney",
+            "sydney": "Sydney",
+            "墨尔本": "Melbourne",
+            "melbourne": "Melbourne",
+            "罗马": "Rome",
+            "rome": "Rome",
+        }
+        return aliases.get(city_text, str(city or ""))
+
+    def _english_known_alias(self, keyword: str = "", city: str = "") -> str:
+        city_key = self._known_city_key(city, keyword)
+        if not city_key:
+            return ""
+        query = str(keyword or "").lower().replace(" ", "")
+        for alias in KNOWN_POI_COORDS.get(city_key, {}):
+            alias_key = alias.lower().replace(" ", "")
+            if alias_key and alias_key in query and any(("a" <= char.lower() <= "z") for char in alias):
+                return alias
+        return ""
+
+    def _foreign_query(self, keyword: str, city: str = "", search_name_en: Optional[str] = None) -> str:
+        city_en = self._english_city_name(city)
+        name = str(search_name_en or "").strip() or self._english_known_alias(keyword, city) or str(keyword or "").strip()
+        if city_en and city_en.lower() not in name.lower():
+            return f"{name}, {city_en}"
+        return name
+
     def _parse_location(self, location: Optional[str]) -> Optional[Tuple[float, float]]:
         if not location:
             return None
@@ -232,13 +368,15 @@ class AMapService:
             return None
 
     def _looks_foreign_context(self, keyword: str, city: str = "", location: Optional[str] = None) -> bool:
-        original = self._parse_location(location)
-        if original and is_out_of_china(original[0], original[1]):
-            return True
         city_text = str(city or "").strip()
+        if city_text and self._is_china_scope(city_text):
+            return False
         if self._has_foreign_marker(city_text) or self._has_foreign_marker(keyword):
             return True
         if city_text and not self._is_china_scope(city_text):
+            return True
+        original = self._parse_location(location)
+        if original and is_out_of_china(original[0], original[1]):
             return True
         query_text = f"{keyword} {city_text}".strip()
         has_cjk = any("\u4e00" <= char <= "\u9fff" for char in query_text)
