@@ -429,6 +429,25 @@ const scaleOutputBox = (output: LayoutItemOutput, factor: number): LayoutItemOut
   };
 };
 
+const normalizeFitPadding = (padding: { top: number; bottom: number; left: number; right: number }, width: number, height: number) => {
+  const clampAxis = (start: number, end: number, total: number) => {
+    const maxSide = total * 0.36;
+    let nextStart = Math.min(start, maxSide);
+    let nextEnd = Math.min(end, maxSide);
+    const maxSum = total * 0.58;
+    const sum = nextStart + nextEnd;
+    if (sum > maxSum && sum > 0) {
+      const scale = maxSum / sum;
+      nextStart *= scale;
+      nextEnd *= scale;
+    }
+    return [Math.round(nextStart), Math.round(nextEnd)] as const;
+  };
+  const [top, bottom] = clampAxis(padding.top, padding.bottom, height);
+  const [left, right] = clampAxis(padding.left, padding.right, width);
+  return { top, bottom, left, right };
+};
+
 const MAPBOX_LAYER_TARGETS: Record<string, string[]> = {
   background: ['background'],
   land: ['land', 'landcover', 'landuse'],
@@ -789,7 +808,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
         typeof coord[0] === 'number' &&
         typeof coord[1] === 'number'
       ));
-    const fallbackLineCoords = displayLines.flatMap((feature: any) => (
+    const lineCoords = displayLines.flatMap((feature: any) => (
       Array.isArray(feature.geometry?.coordinates) ? feature.geometry.coordinates : []
     ))
       .filter((coord: any): coord is [number, number] => (
@@ -797,7 +816,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
         typeof coord[0] === 'number' &&
         typeof coord[1] === 'number'
       ));
-    const coords = pointCoords.length > 0 ? pointCoords : fallbackLineCoords;
+    const coords = pointCoords.length > 0 ? [...pointCoords, ...lineCoords] : lineCoords;
     if (coords.length === 0) return;
 
     const lons = coords.map((c) => c[0]);
@@ -820,14 +839,39 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
     if (!width || !height) return;
 
     const basePad = Math.max(16, Math.min(56, Math.round(Math.min(width, height) * 0.045)));
+    const safeGap = Math.max(10, Math.round(Math.min(width, height) * 0.024));
+    const rawPadding = {
+      top: basePad,
+      bottom: basePad,
+      left: basePad,
+      right: basePad,
+    };
+    globalRectsRef.current.forEach((rect) => {
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const centerX = rect.x + rect.width / 2;
+      const centerY = rect.y + rect.height / 2;
+      const nearTop = centerY < height * 0.42;
+      const nearBottom = centerY > height * 0.58;
+      const overlapsMiddleBand = rect.y < height * 0.72 && rect.y + rect.height > height * 0.28;
+
+      if (nearTop) {
+        rawPadding.top = Math.max(rawPadding.top, Math.ceil(rect.y + rect.height + safeGap));
+      } else if (nearBottom) {
+        rawPadding.bottom = Math.max(rawPadding.bottom, Math.ceil(height - rect.y + safeGap));
+      }
+
+      if (overlapsMiddleBand) {
+        if (centerX < width / 2) {
+          rawPadding.left = Math.max(rawPadding.left, Math.ceil(rect.x + rect.width + safeGap));
+        } else {
+          rawPadding.right = Math.max(rawPadding.right, Math.ceil(width - rect.x + safeGap));
+        }
+      }
+    });
+    const safePadding = normalizeFitPadding(rawPadding, width, height);
 
     map.fitBounds(bounds, {
-      padding: {
-        top: basePad,
-        bottom: basePad,
-        left: basePad,
-        right: basePad,
-      },
+      padding: safePadding,
       duration,
       maxZoom: 15.8,
     });
@@ -1051,6 +1095,9 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
         }))
         .filter((r) => r.width > 0 && r.height > 0 && !(r.width > maxW && r.height > maxH));
       globalRectsRef.current = converted;
+      if (!resizeDragRef.current) {
+        window.setTimeout(() => fitMapToContentRef.current(450), 80);
+      }
       // Recompute layout with updated obstacles (via ref, always latest closure)
       recomputeLayoutRef.current();
     },
