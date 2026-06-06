@@ -110,7 +110,7 @@ export default function ForceParamsPanel({ forceParams, fieldParams, onForceChan
 return (
   <div className="w-full bg-white border border-gray-200 rounded-lg shadow-sm font-sans text-[11px] overflow-hidden">
     <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 flex items-center gap-1.5">
-      <span className="font-semibold text-gray-800 text-sm">⚙ Layout Debug</span>
+      <span className="font-semibold text-gray-800 text-sm">Layout Controls</span>
     </div>
     <div className="p-2.5">
       <div className="mb-1.5 text-[10px] text-[#131722] uppercase tracking-wider font-semibold">Force Simulation</div>

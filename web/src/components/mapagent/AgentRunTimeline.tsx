@@ -1,6 +1,6 @@
 'use client';
 
-import { Code2Icon, GitBranchIcon, RefreshCwIcon, SaveIcon } from 'lucide-react';
+import { GitBranchIcon, ListIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Background,
@@ -17,22 +17,26 @@ import { downstreamNodesForRerun, replayAgentEvents, useAgentMap, type AgentRunE
 import { API_BASE_URL } from '@/lib/api';
 
 const NODE_ORDER = [
-  { id: 'intent', label: 'intent' },
-  { id: 'visual', label: 'visual' },
-  { id: 'geojson', label: 'GeoJSON' },
-  { id: 'validation', label: 'QA' },
-  { id: 'style', label: 'Style' },
+  { id: 'intent', label: 'Intent Parsing' },
+  { id: 'visual', label: 'Geo Retrieval' },
+  { id: 'geojson', label: 'Route Planning' },
+  { id: 'validation', label: 'Layout Planning' },
+  { id: 'style', label: 'Visual Style Generation' },
+  { id: 'vlm_review', label: 'VLM Review & Revision' },
+  { id: 'output', label: 'Output' },
 ];
 
 const NODE_WIDTH = 116;
 
 const FLOW_POSITIONS: Record<string, { x: number; y: number }> = {
   input: { x: 0, y: 82 },
-  intent: { x: 180, y: 40 },
-  visual: { x: 180, y: 120 },
-  geojson: { x: 430, y: 102 },
-  validation: { x: 430, y: 10 },
-  style: { x: 680, y: 60 },
+  intent: { x: 180, y: 30 },
+  visual: { x: 180, y: 145 },
+  geojson: { x: 380, y: 30 },
+  validation: { x: 380, y: 110 },
+  style: { x: 620, y: 82 },
+  vlm_review: { x: 820, y: 82 },
+  output: { x: 1020, y: 82 },
 };
 
 const hiddenHandleStyle = {
@@ -48,10 +52,14 @@ const FlowNode = ({ data }: { data: { label: ReactNode } }) => (
     <Handle id="in-left" type="target" position={Position.Left} style={hiddenHandleStyle} />
     <Handle id="out-right" type="source" position={Position.Right} style={hiddenHandleStyle} />
     <Handle id="out-top-right" type="source" position={Position.Top} style={{ ...hiddenHandleStyle, left: '72%' }} />
+    <Handle id="out-top-left" type="source" position={Position.Top} style={{ ...hiddenHandleStyle, left: '58%' }} />
     <Handle id="in-top-left" type="target" position={Position.Top} style={{ ...hiddenHandleStyle, left: '28%' }} />
+    <Handle id="in-bottom-right" type="target" position={Position.Bottom} style={{ ...hiddenHandleStyle, left: '72%' }} />
     <Handle id="in-bottom-left" type="target" position={Position.Bottom} style={{ ...hiddenHandleStyle, left: '50%' }} />
     <Handle id="out-bottom-left" type="source" position={Position.Bottom} style={{ ...hiddenHandleStyle, left: '28%' }} />
+    <Handle id="out-top-right" type="source" position={Position.Top} style={{ ...hiddenHandleStyle, left: '72%' }} />
     <Handle id="in-bottom-right" type="target" position={Position.Bottom} style={{ ...hiddenHandleStyle, left: '72%' }} />
+    <Handle id="in-top-right" type="target" position={Position.Top} style={{ ...hiddenHandleStyle, left: '72%' }} />
     {data.label}
   </>
 );
@@ -103,12 +111,26 @@ const summarizeEvent = (event?: AgentRunEvent) => {
     const meta = payload.icon_generation || {};
     return `${meta.generated_count ?? 0} generated${meta.errors?.length ? `, ${meta.errors.length} errors` : ''}`;
   }
+  if (event.node_id === 'vlm_review') return payload.passed === false ? 'Needs revision' : 'Review passed';
+  if (event.node_id === 'output') return 'Ready for export';
   if (event.type === 'workflow_completed') return 'Workflow completed';
   if (event.type === 'workflow_error') return compactText(payload.error || 'Workflow error');
   return compactText(payload.message || event.status || '');
 };
 
 const nodeState = (events: AgentRunEvent[], nodeId: string) => {
+  if (nodeId === 'output') {
+    const completed = findLastEvent(events, (event) => event.type === 'workflow_completed');
+    const failed = findLastEvent(events, (event) => event.type === 'workflow_error');
+    const latest = failed || completed;
+    return {
+      latest,
+      completed,
+      failed: Boolean(failed),
+      running: false,
+      summary: summarizeEvent(latest),
+    };
+  }
   const nodeEvents = events.filter((event) => event.node_id === nodeId);
   const latest = nodeEvents[nodeEvents.length - 1];
   const completed = findLastEvent(nodeEvents, (event) => event.type === 'node_completed' || event.type === 'node_validation' || event.type === 'user_edit');
@@ -171,8 +193,9 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
     setManifest,
     appendAgentEvent,
     setIsAgentRunning,
+    manualEditState,
   } = useAgentMap();
-  const [activeTab, setActiveTab] = useState<'flow' | 'code'>('flow');
+  const [activeTab, setActiveTab] = useState<'flow' | 'timeline'>('flow');
   const [codeText, setCodeText] = useState('{}');
   const [codeDirty, setCodeDirty] = useState(false);
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -347,9 +370,12 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="truncate text-xs font-semibold text-gray-900">{node.label}</span>
-                <span className="text-[9px] text-gray-500">{event.status || 'wait'}</span>
+                <span className="text-[9px] text-gray-500">{event.status || 'Waiting'}</span>
               </div>
               <div className="mt-1 line-clamp-2 text-[9px] leading-3 text-gray-500">{state.summary || 'Waiting for input'}</div>
+              <div className="mt-2 truncate text-[9px] font-semibold text-gray-500">
+                Inspect · Edit · Regenerate from Here
+              </div>
             </button>
           ),
         },
@@ -386,8 +412,8 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       complete: completedNodeIds.has('geojson') && completedNodeIds.has('validation'),
       dashed: true,
       type: 'straight',
-      sourceHandle: 'out-top-right',
-      targetHandle: 'in-bottom-right',
+      sourceHandle: 'out-bottom-left',
+      targetHandle: 'in-top-left',
     });
     addFlowEdge('edge-geojson-style', 'geojson', 'style', {
       active: isAgentRunning && runningNodeId === 'style' && allCompletedNodeIds.has('geojson'),
@@ -401,17 +427,27 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
       targetHandle: 'in-bottom-left',
     });
     addHandledFlowEdge('edge-validation-retry-geojson', 'validation', 'geojson', {
-      label: 'retry',
+      // label: 'retry',
       active: isAgentRunning && runningNodeId === 'geojson' && validationFailed,
       complete: hasValidationRetry,
       dashed: true,
       type: 'straight',
-      sourceHandle: 'out-bottom-left',
-      targetHandle: 'in-top-left',
+      sourceHandle: 'out-top-right',
+      targetHandle: 'in-bottom-right',
+    });
+    addFlowEdge('edge-style-vlm', 'style', 'vlm_review', {
+      active: isAgentRunning && runningNodeId === 'vlm_review',
+      complete: completedNodeIds.has('style') && completedNodeIds.has('vlm_review'),
+      dashed: true,
+    });
+    addFlowEdge('edge-vlm-output', 'vlm_review', 'output', {
+      active: isAgentRunning && runningNodeId === 'output',
+      complete: completedNodeIds.has('vlm_review') || Boolean(workflowDone),
+      dashed: true,
     });
 
     return { nodes, edges };
-  }, [activeRunId, agentEvents, isAgentRunning, selectedAgentEvent, selectedAgentSelection]);
+  }, [activeRunId, agentEvents, isAgentRunning, selectedAgentEvent, selectedAgentSelection, workflowDone]);
 
   useEffect(() => {
     if (localCodeEditRef.current) {
@@ -510,6 +546,8 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
         body: JSON.stringify({
           node_id: selectedNodeId,
           payload: parsed,
+          manual_edit_state: manualEditState,
+          preserve_manual_edits: manualEditState.preserveManualEdits,
         }),
       });
       const data = await response.json();
@@ -545,38 +583,12 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
     <div className="h-full border-t border-gray-200 bg-white">
       <div className="flex h-10 items-center justify-between border-b border-gray-200 px-3">
         <div className="flex items-center gap-2">
-          <div className="text-xs font-semibold text-gray-800">Agent Run</div>
+          <div className="text-xs font-semibold text-gray-800">AI Collaboration Process</div>
           <div className="max-w-[240px] truncate text-[10px] text-gray-500">
             {activeRunId || (agentEvents.length ? 'local run' : 'idle')}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {activeTab === 'code' && (
-            <div className="flex items-center gap-1">
-              {codeError && <span className="max-w-[160px] truncate text-[10px] text-[#131722]">{codeError}</span>}
-              {codeDirty && !codeError && <span className="text-[10px] text-gray-600">edited</span>}
-              <button
-                type="button"
-                title="Record edit"
-                onClick={recordCodeEdit}
-                disabled={!selectedAgentEvent || Boolean(codeError)}
-                className="flex h-7 items-center gap-1 rounded border border-gray-200 px-2 text-[11px] text-gray-700 disabled:opacity-40"
-              >
-                <SaveIcon className="h-3.5 w-3.5" />
-                Apply
-              </button>
-              <button
-                type="button"
-                title="Rerun downstream"
-                onClick={handleRerun}
-                disabled={!canRerun || Boolean(codeError) || rerunBusy}
-                className="flex h-7 items-center gap-1 rounded bg-[#131722] px-2 text-[11px] text-white disabled:opacity-40"
-              >
-                <RefreshCwIcon className={`h-3.5 w-3.5 ${rerunBusy ? 'animate-spin' : ''}`} />
-                Rerun
-              </button>
-            </div>
-          )}
           <div className="flex rounded-md border border-gray-200 bg-gray-50 p-0.5">
           <button
             type="button"
@@ -584,15 +596,15 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
             className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] ${activeTab === 'flow' ? 'bg-[#131722] text-white' : 'text-gray-600 hover:bg-white'}`}
           >
             <GitBranchIcon className="h-3.5 w-3.5" />
-            Flow
+            Flow View
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab('code')}
-            className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] ${activeTab === 'code' ? 'bg-[#131722] text-white' : 'text-gray-600 hover:bg-white'}`}
+            onClick={() => setActiveTab('timeline')}
+            className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] ${activeTab === 'timeline' ? 'bg-[#131722] text-white' : 'text-gray-600 hover:bg-white'}`}
           >
-            <Code2Icon className="h-3.5 w-3.5" />
-            Code
+            <ListIcon className="h-3.5 w-3.5" />
+            Timeline View
           </button>
           </div>
         </div>
@@ -619,18 +631,37 @@ const AgentRunTimeline = ({ sessionId }: AgentRunTimelineProps) => {
           </ReactFlow>
         </div>
       ) : (
-        <div className="grid h-[240px] grid-cols-[52px_1fr] overflow-hidden bg-gray-950 font-mono text-[10px] leading-4">
-          <div className="overflow-hidden border-r border-gray-800 bg-gray-900 py-2 text-right text-gray-500">
-            {selectedLines.map((_, index) => (
-              <div key={`line-${index}`} className="px-2">{index + 1}</div>
-            ))}
-          </div>
-          <textarea
-            value={codeText}
-            onChange={(event) => handleCodeChange(event.target.value)}
-            spellCheck={false}
-            className="h-full w-full resize-none overflow-auto bg-gray-950 p-2 font-mono text-[10px] leading-4 text-gray-100 outline-none"
-          />
+        <div className="h-[240px] overflow-y-auto bg-white px-4 py-3">
+          {agentEvents.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-200 p-4 text-xs text-gray-500">
+              No process events yet. Submit a request to start the collaboration timeline.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {agentEvents.slice().reverse().map((event, index) => (
+                <button
+                  key={`${event.timestamp || index}-${event.type}-${event.node_id || 'workflow'}`}
+                  type="button"
+                  onClick={() => {
+                    setSelectedAgentEvent(event);
+                    setSelectedAgentSelection(null);
+                  }}
+                  className="grid w-full grid-cols-[88px_1fr_auto] items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-left hover:border-gray-300 hover:bg-white"
+                >
+                  <div className="text-[10px] text-gray-500">
+                    {event.timestamp ? new Date(event.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-gray-800">{event.label || event.node_id || event.type}</div>
+                    <div className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-gray-500">{summarizeEvent(event) || event.type}</div>
+                  </div>
+                  <div className="rounded-full bg-white px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                    {event.status || event.type}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

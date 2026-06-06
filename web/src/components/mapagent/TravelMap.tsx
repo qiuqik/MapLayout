@@ -27,7 +27,7 @@ import { runSimulatedAnnealingLayout, DEFAULT_SIM_ANNEALING } from '@/app/agent/
 import { runVoronoiForceLayout, DEFAULT_VORONOI, DEFAULT_VORONOI_FORCE } from '@/app/agent/weightedVoronoi/weightedVoronoiLayout';
 import DebugOverlay from './DebugOverlay';
 import type { ForceParamsOverride, FieldParamsOverride } from './ForceParamsPanel';
-import { useAgentMap } from '@/lib/agentMapContext';
+import { useAgentMap, type AgentWorkspaceMode, type LabelLayoutItem } from '@/lib/agentMapContext';
 import { API_BASE_URL } from '@/lib/api';
 
 type MapSearchResult = {
@@ -580,10 +580,12 @@ interface TravelMapProps {
   rerunLayoutTrigger?: number;
   layoutAlgorithm?: 'force' | 'simulatedAnnealing' | 'weightedVoronoiDirect' | 'weightedVoronoi';
   layoutSeed?: number;
+  mode?: AgentWorkspaceMode;
+  onLabelLayoutMetadata?: (items: LabelLayoutItem[]) => void;
 }
 
-export default function TravelMap({ geojson, styleCode, sessionId, visualStructure, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, onRouteSelect, selectedRouteId, rerunLayoutTrigger = 0, layoutAlgorithm = 'force', layoutSeed = 1 }: TravelMapProps) {
-  const { activeRunId, appendAgentEvent, setSelectedAgentSelection, setManifest } = useAgentMap();
+export default function TravelMap({ geojson, styleCode, sessionId, visualStructure, showHeatmap = false, forceParams, fieldParams, draggable = false, currentDataset = 'layout', originPositions, layoutPositions, groundtruthPositions, onLayoutOutput, onGroundtruthChange, onMapInfoChange, onRouteSelect, selectedRouteId, rerunLayoutTrigger = 0, layoutAlgorithm = 'force', layoutSeed = 1, mode = 'edit', onLabelLayoutMetadata }: TravelMapProps) {
+  const { activeRunId, appendAgentEvent, setSelectedAgentSelection, setManifest, setCaptureMapScreenshot, recordManualEdit, manualEditState } = useAgentMap();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapRef>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -597,6 +599,8 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
   const resizeFrameRef = useRef<number | null>(null);
   const resizeMapFrameRef = useRef<number | null>(null);
   const resizeDraftRef = useRef<{ width: number; height: number } | null>(null);
+  const mapNoticeTimerRef = useRef<number | null>(null);
+  const manualLabelPositionsRef = useRef<Record<string, { lng: number; lat: number }>>({});
   const hasCustomFrameSizeRef = useRef(false);
   const [debugCostField, setDebugCostField] = useState<CostField | null>(null);
   const [viewportSize, setViewportSize] = useState<{ width: number; height: number } | null>(null);
@@ -612,6 +616,8 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const [isExportingPng, setIsExportingPng] = useState(false);
   const [isOptimizingLabels, setIsOptimizingLabels] = useState(false);
+  const [mapNotice, setMapNotice] = useState('');
+  const [manualLabelPositions, setManualLabelPositions] = useState<Record<string, { lng: number; lat: number }>>({});
   const [navigationLineCache, setNavigationLineCache] = useState<Record<string, number[][]>>({});
   const [navigationRouteStatus, setNavigationRouteStatus] = useState<Record<string, NavigationRouteStatus>>({});
   const effectiveSessionId = sessionId || activeRunId;
@@ -649,10 +655,24 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
     return transformAllCoordinates(geojson);
   }, [geojson]);
 
-  const globalElements = styleCode?.Global || [];
-  const routeStyles = styleCode?.Route || [];
-  const pointStyles = styleCode?.Point || [];
-  const labelStyles = styleCode?.Label || [];
+  const showMapNotice = useCallback((message: string) => {
+    setMapNotice(message);
+    if (mapNoticeTimerRef.current !== null) window.clearTimeout(mapNoticeTimerRef.current);
+    mapNoticeTimerRef.current = window.setTimeout(() => setMapNotice(''), 2200);
+  }, []);
+
+  useEffect(() => {
+    manualLabelPositionsRef.current = manualLabelPositions;
+  }, [manualLabelPositions]);
+
+  useEffect(() => {
+    setManualLabelPositions({});
+  }, [effectiveSessionId]);
+
+  const globalElements = useMemo(() => styleCode?.Global || [], [styleCode]);
+  const routeStyles = useMemo(() => styleCode?.Route || [], [styleCode]);
+  const pointStyles = useMemo(() => styleCode?.Point || [], [styleCode]);
+  const labelStyles = useMemo(() => styleCode?.Label || [], [styleCode]);
 
   const baseLines = transformedData.lines;
   const navigationStatusByRouteId = useMemo(() => {
@@ -753,6 +773,8 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
       },
     };
   }), [baseLines, navigationLineCache, routeStyles]);
+  const isEditMode = mode === 'edit';
+  const allowMapSelection = isEditMode && mapTool === 'select';
   const effectiveMapDrag = draggable || mapTool === 'pan';
 
   const searchablePois = useMemo<MapSearchResult[]>(() => (
@@ -1032,8 +1054,12 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
     };
     const meta = getOverlayMeta(feature, labelStyle, fallbackHierarchy);
     const scale = getResponsiveOverlayScale(meta.hierarchy, viewportSize, itemCount || selectedPositions.length);
+    const props = feature.properties || {};
     return {
       ...position,
+      poiId: props.feature_id || props.poi_id || props.id || id,
+      featureId: props.feature_id || props.id,
+      visualId: props.visual_id,
       kind: 'label',
       html: buildLabelHtml(feature, labelStyle),
       width: 0,
@@ -1061,7 +1087,6 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
       const input = processLayoutInput(id, feature, labelStyle, 'secondary', overlayCount);
       if(input) inputs.push(input);
     }
-    console.log("inputs:", inputs);
     return inputs;
   }, [
     transformedData.points,
@@ -1323,11 +1348,28 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
     const collisionSafeLeaderLines = leaderLines.filter((line) => visibleOutputIds.has(line.id));
     
     const outputsWithLngLat = collisionSafeOutputs.map(o => {
+      const manualPosition = manualLabelPositionsRef.current[o.id];
+      if (manualPosition) {
+        const point = project(manualPosition.lng, manualPosition.lat);
+        return {
+          ...o,
+          x: point.x - o.width / 2,
+          y: point.y - o.height / 2,
+          cx: point.x,
+          cy: point.y,
+          centerLngLat: manualPosition,
+        };
+      }
       const lngLat = map.unproject([o.cx, o.cy]);
       return {
         ...o,
         centerLngLat: { lng: lngLat.lng, lat: lngLat.lat },
       };
+    });
+    const outputById = new Map(outputsWithLngLat.map((output) => [output.id, output]));
+    const manualAwareLeaderLines = collisionSafeLeaderLines.map((line) => {
+      const output = outputById.get(line.id);
+      return output ? { ...line, x2: output.cx, y2: output.cy } : line;
     });
 
     const metadata: LayoutRunMetadata = {
@@ -1343,8 +1385,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
       fieldParams: mergedField,
     };
     
-    console.log("after layout outputs:", outputsWithLngLat);
-    setLayoutState((s) => ({ ...s, viewport, outputs: outputsWithLngLat, leaderLines: collisionSafeLeaderLines, metadata }));
+    setLayoutState((s) => ({ ...s, viewport, outputs: outputsWithLngLat, leaderLines: manualAwareLeaderLines, metadata }));
   }, [displayLines, transformedData.points, forceParams, fieldParams, layoutState.inputs, rerunLayoutTrigger, layoutAlgorithm, layoutSeed]);
 
   // Keep recomputeLayoutRef always pointing to the latest closure.
@@ -1384,6 +1425,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
     return () => {
       if (resizeFrameRef.current !== null) window.cancelAnimationFrame(resizeFrameRef.current);
       if (resizeMapFrameRef.current !== null) window.cancelAnimationFrame(resizeMapFrameRef.current);
+      if (mapNoticeTimerRef.current !== null) window.clearTimeout(mapNoticeTimerRef.current);
     };
   }, []);
 
@@ -1451,6 +1493,45 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
     }
   }, [layoutState.outputs, layoutState.inputs, layoutState.metadata, onLayoutOutput]);
 
+  useEffect(() => {
+    if (!onLabelLayoutMetadata) return;
+    const layoutById = new Map(layoutState.inputs.map((item) => [item.id, item]));
+    const next: LabelLayoutItem[] = layoutState.outputs.map((output) => {
+      const input = layoutById.get(output.id);
+      const hierarchy = input?.hierarchy === 'core'
+        ? 'primary'
+        : input?.hierarchy === 'detail'
+          ? 'detail'
+          : 'secondary';
+      const text = String(input?.html || '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      return {
+        id: output.id,
+        text,
+        poiId: input?.poiId || input?.featureId || output.id,
+        x: output.x,
+        y: output.y,
+        width: output.width,
+        height: output.height,
+        scale: output.scale ?? 1,
+        hierarchy,
+        visible: true,
+        manuallyEdited: Boolean(manualEditState.editedProperties[output.id] || manualLabelPositions[output.id]),
+        locked: manualEditState.lockedElements.includes(output.id),
+        anchor: output.anchorPx,
+        bbox: {
+          left: output.x,
+          top: output.y,
+          right: output.x + output.width,
+          bottom: output.y + output.height,
+        },
+      };
+    });
+    onLabelLayoutMetadata(next);
+  }, [layoutState.inputs, layoutState.outputs, manualEditState.editedProperties, manualEditState.lockedElements, manualLabelPositions, onLabelLayoutMetadata]);
+
   const onMapLoad = useCallback(() => {
     const raw = mapRef.current as any;
     const map = raw?.getMap ? raw.getMap() : raw;
@@ -1513,7 +1594,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
   }, [recomputeLayout, onMapInfoChange]);
 
   const onMapClick = useCallback((event: any) => {
-    if (mapTool === 'pan') return;
+    if (!allowMapSelection) return;
     const feature = event.features?.find((item: any) => item.geometry?.type === 'LineString');
     if (feature?.properties?.visual_id) {
       onRouteSelect?.(feature.properties.visual_id);
@@ -1537,7 +1618,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
         },
       });
     }
-  }, [mapTool, onRouteSelect, routeStyles, setSelectedAgentSelection]);
+  }, [allowMapSelection, onRouteSelect, routeStyles, setSelectedAgentSelection]);
 
   const selectMapFeature = useCallback((feature: any, kind: 'point' | 'label' | 'layout_label') => {
     const props = feature?.properties || {};
@@ -1594,6 +1675,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
     const root = rootRef.current;
     if (!root || isExportingPng) return;
     setIsExportingPng(true);
+    showMapNotice('Preparing PNG export...');
     try {
       const raw = mapRef.current as any;
       const map = raw?.getMap ? raw.getMap() : raw;
@@ -1608,22 +1690,39 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
       link.click();
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showMapNotice('PNG export started.');
     } catch (error) {
       console.error('Export map PNG failed:', error);
+      showMapNotice('PNG export failed.');
       alert('Export PNG failed. Please try again after the map finishes rendering.');
     } finally {
       setIsExportingPng(false);
     }
-  }, [isExportingPng]);
+  }, [isExportingPng, showMapNotice]);
+
+  useEffect(() => {
+    setCaptureMapScreenshot(async () => {
+      const root = rootRef.current;
+      const raw = mapRef.current as any;
+      const map = raw?.getMap ? raw.getMap() : raw;
+      const mapCanvas = map?.getCanvas?.() as HTMLCanvasElement | undefined;
+      if (!root || !mapCanvas) return '';
+      const blob = await composeViewportPngBlob(root, map, mapCanvas);
+      return blobToDataUrl(blob);
+    });
+    return () => setCaptureMapScreenshot(null);
+  }, [setCaptureMapScreenshot]);
 
   const optimizeLabels = useCallback(async () => {
     const root = rootRef.current;
     if (!root || isOptimizingLabels) return;
     if (!effectiveSessionId) {
+      showMapNotice('Run a session before optimizing labels.');
       alert('Run a session before optimizing labels.');
       return;
     }
     setIsOptimizingLabels(true);
+    showMapNotice('Optimizing label layout...');
     try {
       const raw = mapRef.current as any;
       const map = raw?.getMap ? raw.getMap() : raw;
@@ -1659,14 +1758,16 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
         payload: data,
         timestamp: new Date().toISOString(),
       });
+      showMapNotice(data.validation?.passed ? 'Label layout validation passed.' : 'Label optimization completed with issues.');
       alert(data.validation?.passed ? 'Label layout validation passed.' : 'Label optimization completed with issues.');
     } catch (error: any) {
       console.error('Optimize labels failed:', error);
+      showMapNotice(error?.message || 'Optimize labels failed.');
       alert(error?.message || 'Optimize labels failed.');
     } finally {
       setIsOptimizingLabels(false);
     }
-  }, [appendAgentEvent, effectiveSessionId, geojson, isOptimizingLabels, layoutState.inputs, layoutState.leaderLines, layoutState.outputs, styleCode, viewportSize]);
+  }, [appendAgentEvent, effectiveSessionId, geojson, isOptimizingLabels, layoutState.inputs, layoutState.leaderLines, layoutState.outputs, showMapNotice, styleCode, viewportSize]);
 
   const flyToSearchResult = useCallback((item: MapSearchResult) => {
     const raw = mapRef.current as any;
@@ -1734,7 +1835,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
   }, [labelStyles, transformedData.points]);
 
   const selectLeaderLine = useCallback((leader: LeaderLine) => {
-    if (mapTool === 'pan') return;
+    if (!allowMapSelection) return;
     const labelStyle = labelStyleByOutputId.get(leader.id);
     const labelStyleIndex = labelStyle ? labelStyles.indexOf(labelStyle) : -1;
     const output = layoutState.outputs.find((item) => item.id === leader.id);
@@ -1750,7 +1851,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
         geometryType: 'LeaderLine',
       },
     });
-  }, [labelStyleByOutputId, labelStyles, layoutState.outputs, mapTool, setSelectedAgentSelection]);
+  }, [allowMapSelection, labelStyleByOutputId, labelStyles, layoutState.outputs, setSelectedAgentSelection]);
 
   const fallbackOverlayCount = transformedData.points.length;
   const fallbackLabelScale = getResponsiveOverlayScale('secondary', viewportSize, fallbackOverlayCount);
@@ -1870,23 +1971,27 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
   const mapToolbar = (
     <div data-export-ignore="true" className="absolute right-3 top-3 z-40 flex w-[260px] flex-col gap-2">
       <div className="agent-theme-map-toolbar flex items-center gap-1 rounded-md border p-1 shadow-sm backdrop-blur">
-        <button
-          type="button"
-          title="Select map elements"
-          onClick={() => setMapTool('select')}
-          className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'select' ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
-        >
-          <MousePointer2Icon className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          title="Pan map"
-          onClick={() => setMapTool('pan')}
-          className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'pan' ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
-        >
-          <HandIcon className="h-4 w-4" />
-        </button>
-        <div className="mx-1 h-5 w-px bg-gray-200" />
+        {isEditMode && (
+          <>
+            <button
+              type="button"
+              title="Select map elements"
+              onClick={() => setMapTool('select')}
+              className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'select' ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
+            >
+              <MousePointer2Icon className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              title="Pan map"
+              onClick={() => setMapTool('pan')}
+              className={`grid h-8 w-8 place-items-center rounded ${mapTool === 'pan' ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
+            >
+              <HandIcon className="h-4 w-4" />
+            </button>
+            <div className="mx-1 h-5 w-px bg-gray-200" />
+          </>
+        )}
         <button
           type="button"
           title="Zoom in"
@@ -1914,43 +2019,64 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
         <div className="mx-1 h-5 w-px bg-gray-200" />
         <button
           type="button"
-          title="Export current map view as PNG"
-          onClick={exportViewportPng}
-          disabled={isExportingPng}
-          className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded disabled:opacity-50"
-        >
-          <DownloadIcon className={`h-4 w-4 ${isExportingPng ? 'animate-pulse' : ''}`} />
-        </button>
-        <button
-          type="button"
-          title="Optimize label layout"
-          onClick={optimizeLabels}
-          disabled={isOptimizingLabels || !effectiveSessionId}
-          className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <SparklesIcon className={`h-4 w-4 ${isOptimizingLabels ? 'animate-pulse' : ''}`} />
-        </button>
-        <div className="mx-1 h-5 w-px bg-gray-200" />
-        <button
-          type="button"
-          title="Resize map frame"
-          onClick={() => setIsSizePanelOpen((open) => !open)}
-          className={`grid h-8 w-8 place-items-center rounded ${isSizePanelOpen ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
+          title="Reset view"
+          onClick={() => fitMapToContent(450)}
+          className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded"
         >
           <Maximize2Icon className="h-4 w-4" />
         </button>
-        <div className="mx-1 h-5 w-px bg-gray-200" />
-        <button
-          type="button"
-          title="Search map or trip"
-          onClick={() => setIsSearchOpen((open) => !open)}
-          className={`grid h-8 w-8 place-items-center rounded ${isSearchOpen ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
-        >
-          <SearchIcon className="h-4 w-4" />
-        </button>
-      </div>
+        {isEditMode && (
+          <>
+            <button
+              type="button"
+              title="Export current map view as PNG"
+              onClick={exportViewportPng}
+              disabled={isExportingPng}
+              className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded disabled:opacity-50"
+            >
+              <DownloadIcon className={`h-4 w-4 ${isExportingPng ? 'animate-pulse' : ''}`} />
+            </button>
+            <button
+              type="button"
+              title="Optimize label layout"
+              onClick={optimizeLabels}
+              disabled={isOptimizingLabels || !effectiveSessionId}
+              className="agent-theme-map-tool-idle grid h-8 w-8 place-items-center rounded disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <SparklesIcon className={`h-4 w-4 ${isOptimizingLabels ? 'animate-pulse' : ''}`} />
+            </button>
+            <div className="mx-1 h-5 w-px bg-gray-200" />
+          </>
+        )}
+        {isEditMode && (
+          <>
+            <button
+              type="button"
+              title="Resize map frame"
+              onClick={() => setIsSizePanelOpen((open) => !open)}
+              className={`grid h-8 w-8 place-items-center rounded ${isSizePanelOpen ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
+            >
+              <Maximize2Icon className="h-4 w-4" />
+            </button>
+            <div className="mx-1 h-5 w-px bg-gray-200" />
+            <button
+              type="button"
+              title="Search map or trip"
+              onClick={() => setIsSearchOpen((open) => !open)}
+              className={`grid h-8 w-8 place-items-center rounded ${isSearchOpen ? 'agent-theme-map-tool-active' : 'agent-theme-map-tool-idle'}`}
+            >
+              <SearchIcon className="h-4 w-4" />
+            </button>
+          </>
+          )}
+        </div>
+      {mapNotice && (
+        <div className="agent-theme-map-toolbar rounded-md border px-3 py-2 text-[11px] font-medium text-gray-700 shadow-sm backdrop-blur">
+          {mapNotice}
+        </div>
+      )}
 
-      {isSizePanelOpen && (
+      {isEditMode && isSizePanelOpen && (
         <div className="agent-theme-map-toolbar rounded-md border p-2 text-[11px] shadow-sm backdrop-blur">
           <div className="flex items-center gap-2">
             <label className="flex items-center gap-1 text-gray-600">
@@ -1959,7 +2085,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
                 type="number"
                 min={360}
                 max={2400}
-                step={20}
+                step={1}
                 value={mapFrameSize.width}
                 onChange={(event) => {
                   hasCustomFrameSizeRef.current = true;
@@ -1974,7 +2100,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
                 type="number"
                 min={280}
                 max={1800}
-                step={20}
+                step={1}
                 value={mapFrameSize.height}
                 onChange={(event) => {
                   hasCustomFrameSizeRef.current = true;
@@ -1992,7 +2118,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
         </div>
       )}
 
-      {isSearchOpen && (
+      {isEditMode && isSearchOpen && (
         <div className="agent-theme-map-toolbar rounded-md border shadow-sm backdrop-blur">
           <div className="flex items-center gap-2 px-2 py-1.5">
             <SearchIcon className="h-4 w-4 flex-none text-gray-500" />
@@ -2039,38 +2165,38 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
         className="relative overflow-hidden bg-white shadow-sm"
         style={{ width: mapFrameSize.width, height: mapFrameSize.height }}
       >
-        <div
+        {isEditMode && <div
           data-agent-resize-edge="left"
           className={`${resizeHandleClass} left-0 top-0 h-full w-2 cursor-ew-resize`}
           onPointerDown={(event) => startFrameResize('left', event)}
           onPointerMove={updateFrameResize}
           onPointerUp={stopFrameResize}
           onPointerCancel={stopFrameResize}
-        />
-        <div
+        />}
+        {isEditMode && <div
           data-agent-resize-edge="right"
           className={`${resizeHandleClass} right-0 top-0 h-full w-2 cursor-ew-resize`}
           onPointerDown={(event) => startFrameResize('right', event)}
           onPointerMove={updateFrameResize}
           onPointerUp={stopFrameResize}
           onPointerCancel={stopFrameResize}
-        />
-        <div
+        />}
+        {isEditMode && <div
           data-agent-resize-edge="top"
           className={`${resizeHandleClass} left-0 top-0 h-2 w-full cursor-ns-resize`}
           onPointerDown={(event) => startFrameResize('top', event)}
           onPointerMove={updateFrameResize}
           onPointerUp={stopFrameResize}
           onPointerCancel={stopFrameResize}
-        />
-        <div
+        />}
+        {isEditMode && <div
           data-agent-resize-edge="bottom"
           className={`${resizeHandleClass} bottom-0 left-0 h-2 w-full cursor-ns-resize`}
           onPointerDown={(event) => startFrameResize('bottom', event)}
           onPointerMove={updateFrameResize}
           onPointerUp={stopFrameResize}
           onPointerCancel={stopFrameResize}
-        />
+        />}
         <MapGL
           ref={mapRef}
           initialViewState={getMapViewState}
@@ -2092,7 +2218,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
           <RouteRenderer
             routeStyles={routeStyles}
             transformedLayers={transformedLayers}
-            selectedRouteId={selectedRouteId}
+            selectedRouteId={isEditMode ? selectedRouteId : null}
             visualScale={viewportVisualScale}
           />
           {mapOverlayReady && (
@@ -2101,7 +2227,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
               pointStyles={pointStyles}
               globalProps={transformedData.globalProps}
               visualScale={viewportVisualScale}
-              selectable={mapTool === 'select'}
+              selectable={allowMapSelection}
               onFeatureSelect={selectMapFeature}
             />
           )}
@@ -2112,7 +2238,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
               globalProps={transformedData.globalProps}
               labelScale={fallbackLabelScale}
               hideDetailLabels={hideDetailLabels}
-              selectable={mapTool === 'select'}
+              selectable={allowMapSelection}
               onFeatureSelect={selectMapFeature}
             />
           )}
@@ -2181,8 +2307,8 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
                     stroke="transparent"
                     strokeWidth={Math.max(10, leaderStyle.width + 8)}
                     style={{
-                      cursor: mapTool === 'select' ? 'pointer' : 'default',
-                      pointerEvents: mapTool === 'select' ? 'stroke' : 'none',
+                      cursor: allowMapSelection ? 'pointer' : 'default',
+                      pointerEvents: allowMapSelection ? 'stroke' : 'none',
                     }}
                     onClick={(event) => {
                       event.stopPropagation();
@@ -2200,8 +2326,8 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
                     strokeDasharray={leaderStyle.dashArray.join(' ') || undefined}
                     markerEnd={leaderStyle.arrow ? `url(#${markerId})` : undefined}
                     style={{
-                      cursor: mapTool === 'select' ? 'pointer' : 'default',
-                      pointerEvents: mapTool === 'select' ? 'stroke' : 'none',
+                      cursor: allowMapSelection ? 'pointer' : 'default',
+                      pointerEvents: allowMapSelection ? 'stroke' : 'none',
                     }}
                     onClick={(event) => {
                       event.stopPropagation();
@@ -2215,26 +2341,53 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
 
           {layoutState.outputs.map((o) => {
             const gtItem = groundtruthPositions?.find(p => p.id === o.id);
-            const effectivePos = gtItem ? gtItem.centerLngLat : null;
+            const manualPosition = manualLabelPositions[o.id];
+            const effectivePos = currentDataset === 'groundtruth'
+              ? gtItem?.centerLngLat || null
+              : manualPosition || null;
             const groundtruthPx = effectivePos ? { lng: effectivePos.lng, lat: effectivePos.lat } : undefined;
 
             return (
               <DraggableOutput
                 key={o.id}
                 outputPosition={o}
-                enabled={currentDataset === 'groundtruth'}
+                enabled={isEditMode && currentDataset !== 'origin'}
                 mapRef={mapRef}
-                onPositionChange={(id, lng, lat) => {
-                  console.log("position change:", id, lng, lat);
-                  onGroundtruthChange?.({ [id]: { lng, lat } });
+                onPositionChange={(id, lng, lat, position) => {
+                  setManualLabelPositions((positions) => ({ ...positions, [id]: { lng, lat } }));
+                  setLayoutState((state) => {
+                    const nextOutputs = state.outputs.map((output) => {
+                      if (output.id !== id) return output;
+                      const nextCx = position ? position.x + output.width / 2 : output.cx;
+                      const nextCy = position ? position.y + output.height / 2 : output.cy;
+                      return {
+                        ...output,
+                        x: position?.x ?? output.x,
+                        y: position?.y ?? output.y,
+                        cx: nextCx,
+                        cy: nextCy,
+                        centerLngLat: { lng, lat },
+                      };
+                    });
+                    const nextById = new Map(nextOutputs.map((output) => [output.id, output]));
+                    const nextLeaderLines = state.leaderLines.map((line) => {
+                      const output = nextById.get(line.id);
+                      return output ? { ...line, x2: output.cx, y2: output.cy } : line;
+                    });
+                    return { ...state, outputs: nextOutputs, leaderLines: nextLeaderLines };
+                  });
+                  recordManualEdit(id, ['position'], 'manual_drag');
+                  if (currentDataset === 'groundtruth') {
+                    onGroundtruthChange?.({ [id]: { lng, lat } });
+                  }
                 }}
                 overridePosition={groundtruthPx}
-                selectable={mapTool === 'select'}
+                selectable={allowMapSelection}
                 onSelect={selectLayoutOutput}
               />
             );
           })}
-          {mapTool === 'select' && transformedData.points.map((feature: any, index: number) => {
+          {allowMapSelection && transformedData.points.map((feature: any, index: number) => {
             const point = projectFeatureToScreen(feature);
             if (!point) return null;
             const props = feature.properties || {};
@@ -2313,7 +2466,7 @@ export default function TravelMap({ geojson, styleCode, sessionId, visualStructu
           globalProps={transformedData.globalProps}
           viewportSize={viewportSize}
           onMeasured={handleGlobalMeasured}
-          selectable={mapTool === 'select'}
+          selectable={allowMapSelection}
           onGlobalSelect={selectGlobalElement}
         />
       )}

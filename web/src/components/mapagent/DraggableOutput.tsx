@@ -8,7 +8,7 @@ interface DraggableOutputProps {
   outputPosition: LayoutItemOutput;
   enabled: boolean;
   mapRef: React.RefObject<MapRef>;
-  onPositionChange: (id: string, lng: number, lat: number) => void;
+  onPositionChange: (id: string, lng: number, lat: number, position?: { x: number; y: number }) => void;
   overridePosition?: { lng: number; lat: number } | { x: number; y: number };
   selectable?: boolean;
   onSelect?: (output: LayoutItemOutput) => void;
@@ -26,6 +26,7 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
   const [position, setPosition] = useState<{ x: number; y: number }>({ x: outputPosition.x, y: outputPosition.y });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef<{ mouseX: number; mouseY: number; elemX: number; elemY: number } | null>(null);
+  const canSelect = selectable && Boolean(onSelect);
   
   const applyOverride = () => {
     const raw = mapRef.current as any;
@@ -55,7 +56,7 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (!enabled) {
-      if (selectable) {
+      if (canSelect) {
         e.preventDefault();
         e.stopPropagation();
         onSelect?.(outputPosition);
@@ -64,6 +65,7 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
     }
     e.preventDefault();
     e.stopPropagation();
+    onSelect?.(outputPosition);
 
     dragStartRef.current = {
       mouseX: e.clientX,
@@ -73,7 +75,7 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
     };
 
     setIsDragging(true);
-  }, [enabled, selectable, onSelect, outputPosition, position.x, position.y]);
+  }, [canSelect, enabled, onSelect, outputPosition, position.x, position.y]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging || !dragStartRef.current || !enabled) return;
@@ -103,12 +105,15 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
     const viewportX = finalX + outputPosition.width / 2;
     const viewportY = finalY + outputPosition.height / 2;
 
-    const lngLat = map.unproject([viewportX, viewportY]);
-    onPositionChange(outputPosition.id, lngLat.lng, lngLat.lat);
+    const moved = Math.abs(dx) + Math.abs(dy) > 2;
+    if (moved) {
+      const lngLat = map.unproject([viewportX, viewportY]);
+      onPositionChange(outputPosition.id, lngLat.lng, lngLat.lat, { x: finalX, y: finalY });
+    }
 
     setIsDragging(false);
     dragStartRef.current = null;
-  }, [isDragging, mapRef, outputPosition.id, onPositionChange]);
+  }, [isDragging, mapRef, outputPosition.id, outputPosition.width, outputPosition.height, onPositionChange]);
 
   useEffect(() => {
     if (enabled) {
@@ -127,8 +132,8 @@ const DraggableOutput: React.FC<DraggableOutputProps> = ({
     position: 'absolute',
     left: `${position.x}px`,
     top: `${position.y}px`,
-    pointerEvents: enabled || selectable ? 'auto' : 'none',
-    cursor: enabled ? (isDragging ? 'grabbing' : 'grab') : selectable ? 'pointer' : 'default',
+    pointerEvents: enabled || canSelect ? 'auto' : 'none',
+    cursor: enabled ? (isDragging ? 'grabbing' : 'grab') : canSelect ? 'pointer' : 'default',
     zIndex: isDragging ? 1000 : 5,
     transform: `scale(${visualScale})`,
     transformOrigin: 'center center',

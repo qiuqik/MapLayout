@@ -116,6 +116,7 @@ const inputPayloadFromEvent = (event: AgentRunEvent | null) => {
 
 const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, selectedRouteId, onRouteSelect }) => {
   const {
+    mode,
     manifest,
     setManifest,
     geojson,
@@ -127,9 +128,13 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     setSelectedAgentSelection,
     appendAgentEvent,
     setIsAgentRunning,
+    manualEditState,
+    setManualEditState,
+    recordManualEdit,
   } = useAgentMap();
   const [editorText, setEditorText] = useState('');
   const [busy, setBusy] = useState(false);
+  const [activeTab, setActiveTab] = useState<'selection' | 'node' | 'global'>('selection');
   const scrollRootRef = useRef<HTMLDivElement | null>(null);
   const mapFeatureRef = useRef<HTMLDivElement | null>(null);
 
@@ -204,6 +209,7 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
       label: props.name || props.label_title || selectedAgentSelection.label,
       payload: { ...selectedAgentSelection.payload, ...payload, feature },
     });
+    recordManualEdit(String(featureId || visualId || name || selectedAgentSelection.label || 'map_feature'), ['properties'], 'inspector_edit');
   };
 
   const updateGeojsonFeature = (featureIndex: number, path: (string | number)[], value: any) => {
@@ -232,6 +238,8 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     if (!nextManifest[section][index]) nextManifest[section][index] = {};
     updater(nextManifest[section][index]);
     setManifest(nextManifest);
+    const styleId = nextManifest[section]?.[index]?.visual_id || `${section}_${index}`;
+    recordManualEdit(String(styleId), [section], 'inspector_edit');
 
     if (selectedAgentSelection?.kind === 'map_feature') {
       const styleKey = section === 'Global'
@@ -400,6 +408,8 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
         body: JSON.stringify({
           node_id: selectedAgentEvent.node_id || selectedAgentEvent.type,
           payload: parsed,
+          manual_edit_state: manualEditState,
+          preserve_manual_edits: manualEditState.preserveManualEdits,
         }),
       });
       const data = await response.json();
@@ -609,13 +619,13 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
           const target = draft.feature || draft;
           if (!target.properties) target.properties = {};
           target.properties.name = value;
-          target.properties.label_title = target.properties.label_title ?? value;
+          target.properties.label_title = value;
         }))}
         {renderField('Description', props.description || props.label_script, (value) => updateEditorJson((draft) => {
           const target = draft.feature || draft;
           if (!target.properties) target.properties = {};
           target.properties.description = value;
-          target.properties.label_script = target.properties.label_script ?? value;
+          target.properties.label_script = value;
         }), { multiline: true })}
         {renderField('Icon', props.icon || props.icon_name, (value) => updateEditorJson((draft) => {
           const target = draft.feature || draft;
@@ -940,8 +950,9 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
     const selectedStyleSection = selectedAgentSelection?.payload?.styleSection;
     const isMapStyleSelection = selectedAgentSelection?.kind === 'map_feature' &&
       ['Route', 'Label', 'Global', 'Point'].includes(String(selectedStyleSection));
-    if (!['style', 'icon_generation'].includes(selectedNodeId || '') && !isMapStyleSelection) return null;
-    const styleSource = isMapStyleSelection ? manifest : parsedEditor;
+    const forceGlobalStyleTab = activeTab === 'global';
+    if (!forceGlobalStyleTab && !['style', 'icon_generation'].includes(selectedNodeId || '') && !isMapStyleSelection) return null;
+    const styleSource = forceGlobalStyleTab || isMapStyleSelection ? manifest : parsedEditor;
     if (!styleSource) return null;
     const points = asArray(styleSource.Point);
     const labels = asArray(styleSource.Label);
@@ -1176,39 +1187,96 @@ const AgentControlPanel: React.FC<AgentControlPanelProps> = ({ sessionId, select
   };
 
   return (
-    <aside className="agent-control-panel flex h-full w-[280px] flex-shrink-0 flex-col border-l bg-white">
-      <div className="agent-theme-control-header flex items-center justify-between border-b px-3 py-2">
-        <div className="text-sm font-semibold">Controls</div>
+    <aside className="agent-control-panel flex h-full w-[320px] flex-shrink-0 flex-col border-l border-gray-200 bg-[#f8fafc]">
+      <div className="agent-theme-control-header flex items-center justify-between border-b px-4 py-3">
+        <div>
+          <div className="text-sm font-semibold">Current Context</div>
+          <div className="mt-0.5 max-w-[190px] truncate text-[10px] text-gray-500">
+            {selectedAgentSelection?.label || selectedAgentEvent?.label || 'No selection'}
+          </div>
+        </div>
         <button
           type="button"
           onClick={handleRerun}
           disabled={!sessionId || !canRerun || busy}
           className="agent-theme-primary-action flex h-7 items-center gap-1 rounded border px-2 text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-          title="Rerun downstream"
+          title="Regenerate from current node"
         >
           <RefreshCwIcon className={`h-3.5 w-3.5 ${busy ? 'animate-spin' : ''}`} />
           Rerun
         </button>
       </div>
 
-      <div ref={scrollRootRef} className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-xs font-semibold text-gray-700">Properties</div>
-            <div className="max-w-[130px] truncate text-[10px] text-gray-500">
-              {selectedAgentSelection?.label || selectedAgentEvent?.label || getNodeTitle(selectedAgentEvent)}
-            </div>
+      <div className="border-b border-gray-200 bg-white px-3 py-2">
+        <div className="grid grid-cols-3 rounded-lg border border-gray-200 bg-gray-50 p-0.5 text-[11px] font-medium text-gray-600">
+          {[
+            ['selection', 'Selection'],
+            ['node', 'Node Output'],
+            ['global', 'Global Style'],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id as typeof activeTab)}
+              className={`rounded-md px-2 py-1.5 transition-colors ${activeTab === id ? 'bg-[#131722] text-white shadow-sm' : 'hover:bg-white'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <label className="mt-3 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-3 py-2 text-[11px] text-gray-700">
+          <span>
+            <span className="block font-semibold">Preserve manual edits</span>
+            <span className="text-gray-500">Protect locked edits during revision</span>
+          </span>
+          <input
+            type="checkbox"
+            checked={manualEditState.preserveManualEdits}
+            onChange={(event) => setManualEditState((current) => ({
+              ...current,
+              preserveManualEdits: event.target.checked,
+            }))}
+            className="h-4 w-4"
+          />
+        </label>
+      </div>
+
+      <div ref={scrollRootRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
+        {mode === 'preview' ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-600 shadow-sm">
+            Preview mode is read-only. Switch to Edit mode to inspect and revise map elements.
           </div>
-          {renderNodeInfo()}
-          {renderInputProperties()}
-          {renderMapFeatureProperties()}
-          {renderMapSelectionStyleProperties()}
-          {renderIntentProperties()}
-          {renderValidationProperties()}
-          {renderVisualProperties()}
-          {renderGeojsonProperties()}
-          {renderStyleProperties()}
-        </section>
+        ) : activeTab === 'selection' ? (
+          <section>
+            {renderNodeInfo()}
+            {renderInputProperties()}
+            {renderMapFeatureProperties()}
+            {renderMapSelectionStyleProperties()}
+            {renderIntentProperties()}
+            {renderValidationProperties()}
+            {!selectedAgentEvent && !selectedAgentSelection && (
+              <div className="rounded-xl border border-dashed border-gray-200 bg-white p-4 text-sm text-gray-500">
+                Select a map element or process node to edit its properties.
+              </div>
+            )}
+          </section>
+        ) : activeTab === 'node' ? (
+          <section className="space-y-3">
+            {renderNodeInfo()}
+            {renderVisualProperties()}
+            {renderGeojsonProperties()}
+            <details open className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+              <summary className="cursor-pointer text-xs font-semibold text-gray-700">JSON Preview</summary>
+              <pre className="mt-3 max-h-[420px] overflow-auto rounded-lg bg-[#131722] p-3 text-[10px] leading-4 text-gray-100">
+                {editorText || '{}'}
+              </pre>
+            </details>
+          </section>
+        ) : (
+          <section>
+            {renderStyleProperties()}
+          </section>
+        )}
       </div>
     </aside>
   );

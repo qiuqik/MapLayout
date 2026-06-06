@@ -11,6 +11,7 @@ import uuid
 
 from fastapi import UploadFile, File, Body
 from datetime import datetime
+from typing import Any, Literal
 from src.agent_events import AgentEvent
 from src.multi_modal_agent import MultiModalMapAgent
 from src.run_store import run_store
@@ -66,6 +67,55 @@ class LabelOptimizationRequest(BaseModel):
     style_code: dict | None = None
     layout: dict | None = None
     max_rounds: int = 3
+
+
+class RevisionScopeModel(BaseModel):
+    type: Literal["global", "node", "element"]
+    allowedTargets: list[str] | None = None
+    allowedProperties: list[str] | None = None
+    nodeId: str | None = None
+    elementId: str | None = None
+    elementType: str | None = None
+
+
+class LabelLayoutItemModel(BaseModel):
+    id: str
+    text: str = ""
+    poiId: str | None = None
+    x: float = 0
+    y: float = 0
+    width: float = 0
+    height: float = 0
+    scale: float = 1
+    zoomLevel: float | None = None
+    hierarchy: str = "secondary"
+    visible: bool = True
+    locked: bool | None = None
+    manuallyEdited: bool | None = None
+    overlapState: dict[str, Any] | None = None
+    anchor: dict[str, float] | None = None
+    bbox: dict[str, float] | None = None
+
+
+class ManualEditStateModel(BaseModel):
+    lockedElements: list[str] = []
+    editedProperties: dict[str, Any] = {}
+    preserveManualEdits: bool = True
+
+
+class VLMRevisionRequest(BaseModel):
+    mode: Literal["user_request", "final_review"]
+    userRequest: str | None = None
+    scope: RevisionScopeModel
+    geojson: dict[str, Any] | None = None
+    styleJson: dict[str, Any] | None = None
+    mapScreenshot: str = ""
+    labelLayout: list[LabelLayoutItemModel] = []
+    manualEditState: ManualEditStateModel | None = None
+    selectedElementId: str | None = None
+    selectedNodeId: str | None = None
+    originalUserIntent: str | None = None
+    reviewHistory: list[dict[str, Any]] | None = None
 
 
 def _resolve_multimodal_session_dir(session_id: str) -> str | None:
@@ -1040,6 +1090,85 @@ async def optimize_label_layout(session_id: str, request: LabelOptimizationReque
         return result
     except Exception as e:
         print(f"❌ label optimization failed: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+
+@app.post("/api/multimodal/session/{session_id}/vlm-review-revision")
+async def vlm_review_revision(session_id: str, request: VLMRevisionRequest):
+    """Mock-compatible VLM review/revision endpoint.
+
+    This persists the final review contract and returns a pass-through result
+    so the frontend can exercise the full authoring loop before a real VLM
+    implementation replaces the adapter.
+    """
+    base = _resolve_multimodal_session_dir(session_id)
+    if not base:
+        return JSONResponse(status_code=404, content={"error": "Session not found"})
+
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        scope = request.scope.model_dump() if hasattr(request.scope, "model_dump") else request.scope.dict()
+        manual_state = (
+            request.manualEditState.model_dump()
+            if request.manualEditState and hasattr(request.manualEditState, "model_dump")
+            else (request.manualEditState.dict() if request.manualEditState else None)
+        )
+        label_layout = [
+            item.model_dump() if hasattr(item, "model_dump") else item.dict()
+            for item in request.labelLayout
+        ]
+        changed_objects = []
+        change_summary = []
+        warnings = []
+
+        if request.mode == "user_request" and request.userRequest:
+            change_summary.append("Mock review accepted the request and preserved the current map state.")
+        else:
+            change_summary.append("Mock final review passed without structural changes.")
+
+        if not request.mapScreenshot:
+            warnings.append("No map screenshot was provided to the mock review adapter.")
+
+        result = {
+            "passed": True,
+            "reason": "Mock VLM adapter: current map state is accepted for frontend integration.",
+            "changedObjects": changed_objects,
+            "changeSummary": change_summary,
+            "geojson": request.geojson or {},
+            "styleJson": request.styleJson or {},
+            "labelLayout": label_layout,
+            "nextAction": "apply",
+            "warnings": warnings,
+        }
+
+        target_dir = os.path.join(base, "vlm_review_revision")
+        os.makedirs(target_dir, exist_ok=True)
+        artifact = {
+            "session_id": session_id,
+            "created_at": datetime.now().isoformat(),
+            "input": {
+                "mode": request.mode,
+                "userRequest": request.userRequest,
+                "scope": scope,
+                "geojson_feature_count": len((request.geojson or {}).get("features", [])) if isinstance(request.geojson, dict) else 0,
+                "style_sections": sorted([key for key in (request.styleJson or {}).keys() if not key.startswith("_")]) if isinstance(request.styleJson, dict) else [],
+                "screenshot_chars": len(request.mapScreenshot or ""),
+                "labelLayout": label_layout,
+                "manualEditState": manual_state,
+                "selectedElementId": request.selectedElementId,
+                "selectedNodeId": request.selectedNodeId,
+                "originalUserIntent": request.originalUserIntent,
+                "reviewHistory": request.reviewHistory or [],
+            },
+            "output": result,
+        }
+        artifact_path = os.path.join(target_dir, f"vlm_review_{timestamp}.json")
+        with open(artifact_path, "w", encoding="utf-8") as f:
+            json.dump(artifact, f, ensure_ascii=False, indent=2)
+        result["artifactPath"] = artifact_path
+        return result
+    except Exception as e:
+        print(f"❌ VLM review/revision mock failed: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 

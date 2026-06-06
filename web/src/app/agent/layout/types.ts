@@ -13,6 +13,9 @@ export type LayoutItemContentType = 'title' | 'title_script' | 'title_script_ext
 
 export type LayoutItemInput = {
   id: string;
+  poiId?: string;
+  featureId?: string;
+  visualId?: string;
   kind: LayoutItemKind;
   anchorLngLat: LngLat;
   /** HTML string rendered inside the box */

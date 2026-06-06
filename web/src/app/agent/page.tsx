@@ -1,19 +1,20 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import AgentDialog from '@/components/mapagent/AgentDialog';
+import AgentInteractionPanel from '@/components/mapagent/AgentInteractionPanel';
 import AgentRunTimeline from '@/components/mapagent/AgentRunTimeline';
 import AgentControlPanel from '@/components/mapagent/AgentControlPanel';
-import { AgentMapProvider, useAgentMap, type AgentRunEvent } from '@/lib/agentMapContext';
-import { Separator } from '@/components/ui/separator';
+import AgentCodeWorkspace from '@/components/mapagent/AgentCodeWorkspace';
+import { AgentMapProvider, useAgentMap, replayAgentEvents, type AgentRunEvent } from '@/lib/agentMapContext';
 import dynamic from 'next/dynamic';
 import { getFeatureLabelId, transformSingleCoordinate } from '@/components/mapagent/utils/mapUtils';
 import ForceParamsPanel, { type ForceParamsOverride, type FieldParamsOverride } from '@/components/mapagent/ForceParamsPanel';
 import type { LayoutItemInput, LayoutItemPosition, LayoutItemOutput, LayoutRunMetadata } from './layout/types';
 
-import { API_BASE_URL, saveSessionGeojson } from '@/lib/api';
+import { API_BASE_URL, submitVlmReviewRevision } from '@/lib/api';
 import type { DatasetType, LayoutAlgorithm } from '@/components/mapagent/DatasetPanel';
 import DatasetPanel from '@/components/mapagent/DatasetPanel';
+import { Code2Icon, GitBranchIcon, RefreshCwIcon, Share2Icon, SparklesIcon } from 'lucide-react';
 
 const TravelMapWithNoSSR = dynamic(
   () => import('@/components/mapagent/TravelMap'),
@@ -34,6 +35,8 @@ const DEFAULT_FIELD_OVERRIDE: FieldParamsOverride = {
   obstaclePadding: 6,
   cellSize: 24,
 };
+
+const MAX_REVIEW_ITERATIONS = 3;
 
 const buildSessionAgentEvents = (data: any): AgentRunEvent[] => {
   const sessionId = data?.session_id || 'history';
@@ -169,7 +172,9 @@ function AgentPageContent() {
   const [layoutAlgorithm, setLayoutAlgorithm] = useState<LayoutAlgorithm>('force');
   const [layoutSeed, setLayoutSeed] = useState(1);
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [topNotice, setTopNotice] = useState('');
   const loadingHistoricalGeojsonRef = useRef(false);
+  const noticeTimerRef = useRef<number | null>(null);
 
   const handleDatasetChange = useCallback((type: DatasetType) => {
     if (type === 'groundtruth' && !hasGroundtruthFile) {
@@ -195,6 +200,8 @@ function AgentPageContent() {
   }, []);
 
   const {
+    mode,
+    setMode,
     setManifest,
     manifest,
     geojson: contextGeojson,
@@ -207,7 +214,27 @@ function AgentPageContent() {
     setAgentEvents,
     setSelectedAgentEvent,
     setSelectedAgentSelection,
+    selectedAgentEvent,
+    selectedAgentSelection,
+    appendAgentEvent,
+    setLabelLayout,
+    setConversationMessages,
+    setVersionCards,
+    labelLayout,
+    manualEditState,
+    captureMapScreenshot,
   } = useAgentMap();
+  const finalReviewRunRef = useRef<string | null>(null);
+
+  const showTopNotice = useCallback((message: string) => {
+    setTopNotice(message);
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current);
+    noticeTimerRef.current = window.setTimeout(() => setTopNotice(''), 2400);
+  }, []);
+
+  useEffect(() => () => {
+    if (noticeTimerRef.current !== null) window.clearTimeout(noticeTimerRef.current);
+  }, []);
 
   const processFeature = (feature: any) => {
     const type = feature.geometry.type;
@@ -289,6 +316,26 @@ function AgentPageContent() {
       setAgentEvents(events);
       const firstSelectable = events.find((event) => event.node_id);
       setSelectedAgentEvent(firstSelectable || null);
+      const manifestInput = data?.session_manifest?.input || {};
+      const prompt = manifestInput.user_text || manifestInput.message || '';
+      if (prompt) {
+        setConversationMessages([
+          {
+            id: `history-user-${sessionId}`,
+            role: 'user',
+            text: prompt,
+            timestamp: data?.session_manifest?.started_at || new Date().toISOString(),
+            scope: { type: 'global' },
+          },
+          {
+            id: `history-agent-${sessionId}`,
+            role: 'agent',
+            text: 'I loaded this generated map version for review and editing.',
+            timestamp: data?.session_manifest?.finished_at || new Date().toISOString(),
+            scope: { type: 'global' },
+          },
+        ]);
+      }
     } catch (error) {
       console.error('Error loading session:', error);
     }
@@ -300,6 +347,7 @@ function AgentPageContent() {
     setManifest,
     setSelectedAgentEvent,
     setSelectedAgentSelection,
+    setConversationMessages,
     setVisualStructure,
   ]);
 
@@ -334,12 +382,17 @@ function AgentPageContent() {
       loadingHistoricalGeojsonRef.current = false;
       return;
     }
-    setCurrentSession(null);
-    setCurrentDataset('layout');
+    const isSessionScopedUpdate = Boolean(currentSession?.session_id || activeRunId);
+    if (!isSessionScopedUpdate) {
+      setCurrentSession(null);
+      setCurrentDataset('layout');
+      setHasOriginFile(false);
+      setHasLayoutFile(false);
+      setHasGroundtruthFile(false);
+      setLayoutPositions(null);
+      setGroundtruthPositions(null);
+    }
     setOriginGeojson(contextGeojson);
-    setHasOriginFile(false);
-    setHasLayoutFile(false);
-    setHasGroundtruthFile(false);
     const positions: LayoutItemPosition[] = [];
     contextGeojson.features.forEach((feature: any) => {
       const positionList = processFeature(feature);
@@ -348,122 +401,252 @@ function AgentPageContent() {
       }
     });
     setOriginPositions(positions.length > 0 ? positions : null);
-    setLayoutPositions(null);
-    setGroundtruthPositions(null);
-  }, [contextGeojson]);
+  }, [activeRunId, contextGeojson, currentSession?.session_id]);
+
+  useEffect(() => {
+    const sessionId = currentSession?.session_id || activeRunId;
+    if (!sessionId || finalReviewRunRef.current === sessionId) return;
+    if (!originGeojson || !manifest || labelLayout.length === 0) return;
+    const workflowDone = Boolean(currentSession || activeRunId);
+    if (!workflowDone) return;
+    finalReviewRunRef.current = sessionId;
+    let cancelled = false;
+    const runFinalReview = async () => {
+      setIsAgentRunning(true);
+      let nextGeojson = originGeojson;
+      let nextStyleJson = manifest;
+      let nextLabelLayout = labelLayout;
+      const reviewHistory: any[] = [];
+      try {
+        for (let iteration = 1; iteration <= MAX_REVIEW_ITERATIONS; iteration += 1) {
+          appendAgentEvent({
+            type: 'node_started',
+            run_id: sessionId,
+            session_id: sessionId,
+            node_id: 'vlm_review',
+            label: 'VLM Review & Revision',
+            status: 'running',
+            payload: { mode: 'final_review', iteration, maxReviewIterations: MAX_REVIEW_ITERATIONS },
+            timestamp: new Date().toISOString(),
+          });
+          const screenshot = captureMapScreenshot ? await captureMapScreenshot().catch((error) => {
+            console.warn('Map screenshot capture failed before final VLM review.', error);
+            return '';
+          }) : '';
+          const inputWarnings = [
+            screenshot ? '' : 'Map screenshot is unavailable for final review.',
+            nextLabelLayout.length > 0 ? '' : 'Label layout metadata is unavailable for final review.',
+          ].filter(Boolean);
+          if (inputWarnings.length > 0) {
+            console.warn('Final VLM review input warnings:', inputWarnings);
+          }
+          const result = await submitVlmReviewRevision(sessionId, {
+            mode: 'final_review',
+            scope: { type: 'global' },
+            geojson: nextGeojson,
+            styleJson: nextStyleJson,
+            mapScreenshot: screenshot,
+            labelLayout: nextLabelLayout,
+            manualEditState,
+            originalUserIntent: currentSession?.session_manifest?.input?.user_text || '',
+            reviewHistory: inputWarnings.length > 0 ? [...reviewHistory, { warnings: inputWarnings } as any] : reviewHistory,
+          });
+          if (cancelled) return;
+          nextGeojson = result.geojson;
+          nextStyleJson = result.styleJson;
+          nextLabelLayout = result.labelLayout || nextLabelLayout;
+          reviewHistory.push(result);
+          setGeojson(nextGeojson);
+          setManifest(nextStyleJson);
+          setLabelLayout(nextLabelLayout);
+          appendAgentEvent({
+            type: 'node_completed',
+            run_id: sessionId,
+            session_id: sessionId,
+            node_id: 'vlm_review',
+            label: 'VLM Review & Revision',
+            status: result.passed ? 'passed' : iteration === MAX_REVIEW_ITERATIONS ? 'needs_revision' : 'running',
+            payload: { ...result, iteration, maxReviewIterations: MAX_REVIEW_ITERATIONS },
+            timestamp: new Date().toISOString(),
+          });
+          if (result.passed || result.nextAction !== 'rerun_review') break;
+        }
+      } catch (error: any) {
+        if (cancelled) return;
+        appendAgentEvent({
+          type: 'workflow_error',
+          run_id: sessionId,
+          session_id: sessionId,
+          node_id: 'vlm_review',
+          label: 'VLM Review & Revision',
+          status: 'failed',
+          payload: { error: error.message || 'Final review failed' },
+          timestamp: new Date().toISOString(),
+        });
+      } finally {
+        if (!cancelled) setIsAgentRunning(false);
+      }
+    };
+    const timer = window.setTimeout(runFinalReview, 900);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [activeRunId, appendAgentEvent, captureMapScreenshot, currentSession, labelLayout, manifest, manualEditState, originGeojson, setGeojson, setIsAgentRunning, setLabelLayout, setManifest]);
+
+  const projectTitle = currentSession?.global_title || currentSession?.session_manifest?.outputs?.global_title || 'Untitled Travel Map';
+  const saveStatus = activeRunId || currentSession?.session_id ? 'Saved' : 'Draft';
+  const canRerunCurrentNode = Boolean(
+    mode !== 'preview' &&
+    selectedAgentEvent &&
+    selectedAgentSelection?.kind === 'agent_event' &&
+    selectedAgentEvent.type !== 'node_pending' &&
+    selectedAgentEvent.node_id &&
+    selectedAgentEvent.node_id !== 'input' &&
+    (currentSession?.session_id || activeRunId),
+  );
+
+  const handleShare = useCallback(async () => {
+    const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+    try {
+      await navigator.clipboard?.writeText(shareUrl);
+      showTopNotice('Workspace link copied.');
+    } catch {
+      showTopNotice('Could not copy the workspace link.');
+    }
+  }, [showTopNotice]);
+
+  const handleGenerateNewVersion = useCallback(() => {
+    setMode('edit');
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('agentmap:focus-revision-input', {
+        detail: { text: 'Describe the next version you want to generate.' },
+      }));
+    }, 0);
+    showTopNotice('Edit mode is ready for a new version request.');
+  }, [setMode, showTopNotice]);
+
+  const handleTopRerun = useCallback(async () => {
+    const sessionId = currentSession?.session_id || activeRunId;
+    const nodeId = selectedAgentEvent?.node_id || selectedAgentEvent?.type;
+    if (!sessionId || !selectedAgentEvent || !nodeId) return;
+    setIsAgentRunning(true);
+    appendAgentEvent({
+      type: 'node_started',
+      run_id: sessionId,
+      session_id: sessionId,
+      node_id: nodeId,
+      label: selectedAgentEvent.label || 'Regenerate from current node',
+      status: 'running',
+      payload: { top_bar_rerun: true },
+      timestamp: new Date().toISOString(),
+    });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/multimodal/session/${sessionId}/rerun-downstream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          node_id: nodeId,
+          payload: selectedAgentEvent.payload || {},
+          manual_edit_state: manualEditState,
+          preserve_manual_edits: manualEditState.preserveManualEdits,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || data.error) throw new Error(data.error || 'Regenerate failed');
+      if (data.geojson) setGeojson(data.geojson);
+      if (data.style_code) setManifest(data.style_code);
+      if (data.visual_structure) setVisualStructure(data.visual_structure);
+      await replayAgentEvents(Array.isArray(data.events) ? data.events : [], appendAgentEvent, setSelectedAgentEvent);
+    } catch (error: any) {
+      appendAgentEvent({
+        type: 'workflow_error',
+        run_id: sessionId,
+        session_id: sessionId,
+        node_id: nodeId,
+        label: 'Regenerate from current node',
+        status: 'failed',
+        payload: { error: error.message || 'Regenerate failed' },
+        timestamp: new Date().toISOString(),
+      });
+      alert(error.message || 'Regenerate failed');
+    } finally {
+      setIsAgentRunning(false);
+    }
+  }, [activeRunId, appendAgentEvent, currentSession?.session_id, manualEditState, selectedAgentEvent, setGeojson, setIsAgentRunning, setManifest, setSelectedAgentEvent, setVisualStructure]);
 
   return (
-    <div className="flex flex-1 overflow-hidden bg-gray-50">
-      {/* 左侧控制栏 */}
-      <div className="flex h-full w-[280px] flex-shrink-0 flex-col bg-white shadow-lg z-10 border-r">
-        {/* 固定头部 */}
-        <div className="agent-left-header sticky top-0 z-10 shadow-sm pl-3 py-1.5">
-          <h1 className="text-base font-semibold text-white">AgentMap Layout</h1>
-        </div>
-
-        {/* 可滚动内容区域 */}
-        <div className="flex-1 overflow-y-auto pl-4 pr-2 pt-4 pb-4 custom-scrollbar">
-          <AgentDialog onRunCompleted={refreshSessions} />
-
-          <Separator className="my-3 bg-gray-400" />
-
-          {/* 历史会话列表 */}
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Historical Sessions</h3>
-          <div>
-            {sessions.length === 0 ? (
-              <div className="text-xs text-gray-400 text-center py-1">No sessions yet</div>
-            ) : (
-              <ul className="max-h-36 overflow-y-auto custom-scrollbar">
-                {sessions.map(s => (
-                  <li key={s.session_id}>
-                    <button
-                      className={`w-full text-[12px] text-left px-1 rounded-md transition-colors truncate ${
-                        currentSession?.session_id === s.session_id
-                          ? 'agent-left-session-active font-medium'
-                          : 'agent-left-session-idle'
-                      }`}
-                      onClick={() => loadSession(s.session_id)}
-                    >
-                      {s.session_id}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <Separator className="my-3 bg-gray-400" />
-
-          {/* 布局控制开关 */}
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Layout Controls</h3>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowHeatmap(v => !v)}
-              className={`flex-1 px-2 py-1.5 rounded-md border-[1.5px] text-[11px] font-semibold transition-all ${
-                showHeatmap
-                  ? 'agent-left-heatmap-active'
-                  : 'agent-left-idle-button'
-              }`}
-            >
-              {showHeatmap ? 'Heatmap ON' : 'Heatmap'}
-            </button>
-            <button
-              onClick={() => setShowDebugPanel(v => !v)}
-              className={`flex-1 px-2 py-1.5 rounded-md border-[1.5px] text-[11px] font-semibold transition-all ${
-                showDebugPanel
-                  ? 'agent-left-debug-active'
-                  : 'agent-left-idle-button'
-              }`}
-            >
-              {showDebugPanel ? 'Debug ON' : 'Debug'}
-            </button>
-            <button
-              onClick={() => setMapDraggable(v => !v)}
-              className={`flex-1 px-2 py-1.5 rounded-md border-[1.5px] text-[11px] font-semibold transition-all ${
-                mapDraggable
-                  ? 'agent-left-drag-active'
-                  : 'agent-left-idle-button'
-              }`}
-            >
-              {mapDraggable ? 'Anchored' : 'Draggable'}
-            </button>
-          </div>
-
-          {showDebugPanel && (
-            <div className="mt-3">
-              <ForceParamsPanel
-                forceParams={forceParams}
-                fieldParams={fieldParams}
-                onForceChange={updates => setForceParams(p => ({ ...p, ...updates }))}
-                onFieldChange={updates => setFieldParams(p => ({ ...p, ...updates }))}
-              />
+    <div className="flex flex-1 flex-col overflow-hidden bg-[#eef2f6] text-[#131722]">
+      <header className="flex h-14 flex-none items-center justify-between border-b border-gray-200 bg-white/95 px-4 shadow-sm backdrop-blur">
+        <div className="flex min-w-0 items-center gap-4">
+          <div className="flex items-center gap-2">
+            <div className="grid h-8 w-8 place-items-center rounded-lg bg-[#131722] text-white">
+              <GitBranchIcon className="h-4 w-4" />
             </div>
-          )}
-
-          <Separator className="my-3 bg-gray-400" />
-          <DatasetPanel
-            layoutOutputs={currentDataset === 'layout' ? computedLayoutOutputs : (layoutPositions || [])}
-            layoutInputs={layoutInputs}
-            originPositions={originPositions}
-            groundtruthPositions={groundtruthPositions}
-            sessionId={currentSession?.session_id || activeRunId || undefined}
-            currentDataset={currentDataset}
-            onDatasetChange={handleDatasetChange}
-            onRerunLayout={handleRerunLayout}
-            geojson={originGeojson}
-            mapInfo={mapInfo}
-            layoutAlgorithm={layoutAlgorithm}
-            layoutSeed={layoutSeed}
-            layoutRunMetadata={layoutRunMetadata}
-            onLayoutAlgorithmChange={setLayoutAlgorithm}
-            onLayoutSeedChange={setLayoutSeed}
-          />
+            <div className="text-base font-semibold">AgentMap Layout</div>
+          </div>
+          <div className="h-6 w-px bg-gray-200" />
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold">{projectTitle}</div>
+            <div className="text-[11px] text-emerald-600">{saveStatus}</div>
+          </div>
         </div>
-      </div>
+        <div className="flex rounded-xl border border-gray-200 bg-gray-50 p-1 text-sm font-medium text-gray-600">
+          {[
+            ['preview', 'Preview'],
+            ['edit', 'Edit'],
+            ['code', 'Code'],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setMode(id as typeof mode)}
+              className={`rounded-lg px-4 py-1.5 transition ${mode === id ? 'bg-white text-[#131722] shadow-sm' : 'hover:bg-white/70'}`}
+            >
+              {id === 'preview' && <SparklesIcon className="mr-1 inline h-3.5 w-3.5" />}
+              {id === 'code' && <Code2Icon className="mr-1 inline h-3.5 w-3.5" />}
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={handleShare} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold hover:bg-gray-50">
+            <Share2Icon className="mr-1 inline h-3.5 w-3.5" />
+            Share
+          </button>
+          <button type="button" className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold hover:bg-gray-50" onClick={handleGenerateNewVersion}>
+            Generate New Version
+          </button>
+          <button
+            type="button"
+            disabled={!canRerunCurrentNode}
+            onClick={handleTopRerun}
+            className="rounded-lg bg-[#131722] px-3 py-2 text-xs font-semibold text-white hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <RefreshCwIcon className="mr-1 inline h-3.5 w-3.5" />
+            Regenerate from Current Node
+          </button>
+        </div>
+        {topNotice && (
+          <div className="pointer-events-none absolute left-1/2 top-12 z-50 -translate-x-1/2 rounded-full border border-gray-200 bg-white px-4 py-2 text-xs font-semibold text-gray-700 shadow-lg">
+            {topNotice}
+          </div>
+        )}
+      </header>
 
-      {/* 右侧地图主视图 */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <div className="relative min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <AgentInteractionPanel
+          sessions={sessions}
+          currentSession={currentSession}
+          onLoadSession={loadSession}
+          onRunCompleted={refreshSessions}
+        />
+
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="relative min-h-0 flex-1 overflow-hidden bg-[#e5eaf0]">
+          {mode === 'code' ? (
+            <AgentCodeWorkspace />
+          ) : (
           <TravelMapWithNoSSR
             geojson={originGeojson}
             styleCode={manifest}
@@ -478,6 +661,7 @@ function AgentPageContent() {
             layoutPositions={layoutPositions}
             groundtruthPositions={groundtruthPositions}
             onLayoutOutput={handleLayoutOutput}
+            onLabelLayoutMetadata={setLabelLayout}
             onGroundtruthChange={(posMap) => {
               setGroundtruthPositions(prev => {
                 const currentPositions = prev || [];
@@ -508,17 +692,59 @@ function AgentPageContent() {
             rerunLayoutTrigger={rerunLayoutTrigger}
             layoutAlgorithm={layoutAlgorithm}
             layoutSeed={layoutSeed}
+            mode={mode}
           />
+          )}
+          {mode === 'code' && (
+            <details className="absolute left-4 top-4 z-50 w-[360px] rounded-xl border border-gray-200 bg-white/95 p-3 text-xs shadow-lg backdrop-blur">
+              <summary className="cursor-pointer font-semibold text-[#131722]">Advanced Tools</summary>
+              <div className="mt-3 space-y-3">
+                <div className="grid grid-cols-3 gap-2">
+                  <button type="button" onClick={() => setShowHeatmap(v => !v)} className={`rounded-lg border px-2 py-1.5 font-semibold ${showHeatmap ? 'bg-[#131722] text-white' : 'bg-white text-gray-600'}`}>Heatmap</button>
+                  <button type="button" onClick={() => setShowDebugPanel(v => !v)} className={`rounded-lg border px-2 py-1.5 font-semibold ${showDebugPanel ? 'bg-[#131722] text-white' : 'bg-white text-gray-600'}`}>Forces</button>
+                  <button type="button" onClick={() => setMapDraggable(v => !v)} className={`rounded-lg border px-2 py-1.5 font-semibold ${mapDraggable ? 'bg-[#131722] text-white' : 'bg-white text-gray-600'}`}>Drag</button>
+                </div>
+                {showDebugPanel && (
+                  <ForceParamsPanel
+                    forceParams={forceParams}
+                    fieldParams={fieldParams}
+                    onForceChange={updates => setForceParams(p => ({ ...p, ...updates }))}
+                    onFieldChange={updates => setFieldParams(p => ({ ...p, ...updates }))}
+                  />
+                )}
+                <DatasetPanel
+                  layoutOutputs={currentDataset === 'layout' ? computedLayoutOutputs : (layoutPositions || [])}
+                  layoutInputs={layoutInputs}
+                  originPositions={originPositions}
+                  groundtruthPositions={groundtruthPositions}
+                  sessionId={currentSession?.session_id || activeRunId || undefined}
+                  currentDataset={currentDataset}
+                  onDatasetChange={handleDatasetChange}
+                  onRerunLayout={handleRerunLayout}
+                  geojson={originGeojson}
+                  mapInfo={mapInfo}
+                  layoutAlgorithm={layoutAlgorithm}
+                  layoutSeed={layoutSeed}
+                  layoutRunMetadata={layoutRunMetadata}
+                  onLayoutAlgorithmChange={setLayoutAlgorithm}
+                  onLayoutSeedChange={setLayoutSeed}
+                />
+              </div>
+            </details>
+          )}
         </div>
-        <div className="h-[230px] flex-none">
+        <div className="h-[260px] flex-none">
           <AgentRunTimeline sessionId={currentSession?.session_id || activeRunId} />
         </div>
+        </main>
+        {mode === 'edit' && (
+          <AgentControlPanel
+            sessionId={currentSession?.session_id || activeRunId || undefined}
+            selectedRouteId={selectedRouteId}
+            onRouteSelect={setSelectedRouteId}
+          />
+        )}
       </div>
-      <AgentControlPanel
-        sessionId={currentSession?.session_id || activeRunId || undefined}
-        selectedRouteId={selectedRouteId}
-        onRouteSelect={setSelectedRouteId}
-      />
     </div>
   );
 }
